@@ -22,6 +22,7 @@ CLIP_B = os.path.join(MEDIA, "clip_b.mp4")
 OUT = os.path.join(HERE, "out")
 PROFILE = "atsc_720p_25"  # 1280x720 @ 25fps
 FPS = 25
+MODE = os.environ.get("POC_MODE", "")
 CUT_S = 3.0
 XFADE_S = 1.0
 FADE_IN_S = 0.5
@@ -78,7 +79,76 @@ def build_real():
     return profile, pl, t
 
 
+def build_multi():
+    """Multitrack + compositing on the real clips, 1080x1920@24, 6 s (144 frames):
+      track 0 (base):   real1[0-3s] then real3[0-3s]                       (full frame)
+      track 1 (PiP A):  blank 1s, then real2 (4s) slides in top-right, shrinks/fades out
+      track 2 (PiP B):  blank 2.5s, then real3[3-5.3s] bottom-left, fixed, 60% opacity
+    Video via `qtblend` transitions with keyframed rect+opacity; audio summed with `mix` (sum=1)."""
+    import mlt7
+    t = {}
+    mlt7.Factory.init()
+    profile = mlt7.Profile()
+    profile.set_width(1080); profile.set_height(1920)
+    profile.set_frame_rate(24, 1); profile.set_sample_aspect(1, 1)
+    profile.set_display_aspect(9, 16); profile.set_progressive(1); profile.set_explicit(1)
+    fps = 24
+    s0 = time.perf_counter()
+    p1, p2, p3a, p3b, p3c = (mlt7.Producer(profile, REAL[i]) for i in (0, 1, 2, 2, 2))
+    t["open 5 producers"] = round((time.perf_counter() - s0) * 1000, 2)
+    assert all(p.is_valid() for p in (p1, p2, p3a, p3b, p3c))
+
+    base = mlt7.Playlist(profile)
+    base.append(p1, 0, 3 * fps - 1); base.append(p3a, 0, 3 * fps - 1)
+    pip_a = mlt7.Playlist(profile)
+    pip_a.blank(fps); pip_a.append(p2, 0, 4 * fps - 1)
+    pip_b = mlt7.Playlist(profile)
+    pip_b.blank(int(2.5 * fps)); pip_b.append(p3c, 3 * fps, 5 * fps - 1)   # ~2 s from the HEVC clip
+
+    s0 = time.perf_counter()
+    tractor = mlt7.Tractor(profile)
+    mt = tractor.multitrack()
+    mt.connect(base, 0); mt.connect(pip_a, 1); mt.connect(pip_b, 2)
+    t["multitrack connect"] = round((time.perf_counter() - s0) * 1000, 2)
+    total = tractor.get_playtime()
+
+    s0 = time.perf_counter()
+    W, H = profile.width(), profile.height()
+
+    def rect(x, y, w, h, op):  # percentages of the frame -> "x y w h opacity(0..1)" in pixels
+        return f"{x*W/100:.0f} {y*H/100:.0f} {w*W/100:.0f} {h*H/100:.0f} {op}"
+
+    def comp(b_track, start, end, rect_kf):
+        # qtblend, NOT composite: `composite`/`affine` ignored the opacity value in tests
+        # (50% rendered fully opaque). qtblend honours it but needs an X11 display (xvfb-run).
+        c = mlt7.Transition(profile, "qtblend")
+        assert c.is_valid(), "qtblend unavailable: run under xvfb-run / with DISPLAY"
+        c.set("rect", rect_kf); c.set_in_and_out(start, end)
+        tractor.plant_transition(c, 0, b_track)
+        m = mlt7.Transition(profile, "mix")
+        m.set("sum", 1); m.set_in_and_out(start, end)
+        tractor.plant_transition(m, 0, b_track)
+    # NOTE: keyframe positions inside a transition are RELATIVE to its `in` frame, not
+    # absolute timeline frames (using absolute frames delayed the animation; see REPORT.md).
+    # PiP A: slides in from the right (1 s) to top-right, holds, then shrinks + fades out (last 1 s)
+    a0, a1 = fps, 5 * fps - 1
+    n = a1 - a0
+    comp(1, a0, a1, f"0={rect(110,6,36,36,1)};24={rect(62,6,36,36,1)};"
+                    f"{n-24}={rect(62,6,36,36,1)};{n}={rect(75,12,18,18,0)}")
+    # PiP B: fixed bottom-left at 60% opacity
+    b0, b1 = int(2.5 * fps), int(4.5 * fps) - 1
+    comp(2, b0, b1, f"0={rect(4,66,30,30,0.6)}")
+    t["2 qtblend + 2 mix transitions"] = round((time.perf_counter() - s0) * 1000, 2)
+
+    f = mlt7.Filter(profile, "brightness")
+    f.set("level", f"0=0;12=1;{total-24}=1;{total-1}=0"); f.set_in_and_out(0, total - 1)
+    tractor.attach(f)
+    return profile, tractor, t
+
+
 def build():
+    if os.environ.get("POC_MODE") == "multi":
+        return build_multi()
     if os.environ.get("POC_MODE") == "real":
         return build_real()
     return _build_synthetic()
@@ -141,12 +211,12 @@ def cmd_build(_):
     fps = profile.fps()
     print(f"profile {profile.width()}x{profile.height()}@{fps:g}; playlist clips={pl.count()} "
           f"length={pl.get_playtime()} frames ({pl.get_playtime()/fps:.2f}s)")
-    for i in range(pl.count()):
+    for i in range(pl.count() if isinstance(pl, mlt7.Playlist) else 0):
         info = pl.clip_info(i)
         print(f"  entry {i}: resource={os.path.basename(info.resource or '<mix>')} "
               f"in={info.frame_in} out={info.frame_out} len={info.frame_count}")
     os.makedirs(OUT, exist_ok=True)
-    xml = mlt7.Consumer(profile, "xml", os.path.join(OUT, "timeline_real.mlt" if os.environ.get("POC_MODE") == "real" else "timeline.mlt"))
+    xml = mlt7.Consumer(profile, "xml", os.path.join(OUT, f"timeline_{MODE}.mlt" if MODE else "timeline.mlt"))
     xml.connect(pl)
     xml.run()
     print("API timings (ms):", json.dumps(t, indent=2))
@@ -203,7 +273,7 @@ def cmd_export(args):
     import mlt7
     profile, pl, _t = build()
     os.makedirs(OUT, exist_ok=True)
-    out = os.path.join(OUT, "final_real.mp4" if os.environ.get("POC_MODE") == "real" else "final.mp4")
+    out = os.path.join(OUT, f"final_{MODE}.mp4" if MODE else "final.mp4")
     fifo = os.path.join(OUT, "pipe.nut")
     sys.stdout.flush()
     if os.path.exists(fifo):
@@ -227,7 +297,7 @@ def cmd_export(args):
 def cmd_measure(args):
     sub = args.sub
     cmd = [sys.executable, os.path.abspath(__file__), sub]
-    if sub == "preview" and not os.environ.get("DISPLAY"):
+    if (sub == "preview" or MODE == "multi") and not os.environ.get("DISPLAY"):
         cmd = ["xvfb-run", "-a"] + cmd
     clk = os.sysconf("SC_CLK_TCK")
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)

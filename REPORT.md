@@ -202,9 +202,12 @@ medí cómo crece con más pistas o clips.
    del futuro MCP). Esa capa debe: usar siempre el `loader`, fijar `in/out` de los
    filtros, hacer explícitas las unidades, y **validar el resultado renderizando y
    comprobando** (frames/niveles), porque MLT falla en silencio.
-3. **Resolver el scrubbing** antes de prometer UX de editor: proxies (GOP corto/intra) o
-   caché de frames. Sin eso los seeks aleatorios en 1080p rondan 130 ms.
-4. **Resolver el despliegue de Python:** el binding de apt solo sirve con el Python
+3. **Resolver el scrubbing y el rendimiento multicapa** antes de prometer UX de editor:
+   proxies de baja resolución (GOP corto/intra) y/o caché de frames. Sin eso los seeks
+   aleatorios en 1080p rondan 130 ms, y con 3 capas a 1080x1920 (sección 9) el preview ya
+   descarta frames en CPU. Probar Movit/GPU y proxies es el siguiente paso, antes de decidir.
+4. **Resolver el despliegue:** `qtblend` (único compositor probado que respeta la opacidad)
+   exige X11/`xvfb-run` incluso en servidor. Además, el binding de apt solo sirve con el Python
    del sistema (3.12 aquí). Decidir entre fijar ese intérprete, compilar el binding, o
    evitar el binding y hablar con MLT por XML + `melt`.
 5. **Alternativas a evaluar si esas condiciones molestan** (no probé ninguna):
@@ -265,9 +268,62 @@ Lectura honesta, comparada con la prueba sintética:
 - Sigue sin cubrir: multipista con composición, 4K, clips largos, 10-bit, rotación por metadata
   (estos clips ya venían en vertical sin flag de rotación), el cuarto video.
 
-## 7. Archivos
+## 9. Prueba multipista con composición (añadida después)
+
+`POC_MODE=multi xvfb-run -a /usr/bin/python3.12 poc.py <cmd>` (usa los clips de `media_real/`).
+Timeline de 6.00 s (144 frames) a 1080x1920@24 con **3 pistas** en un `Tractor`:
+
+| Pista | Contenido | Composición |
+|---|---|---|
+| 0 (base) | real1[0-3 s] → real3[0-3 s] | pantalla completa |
+| 1 (PiP A) | real2, de 1 s a 5 s | entra deslizándose por la derecha (1 s), se queda arriba a la derecha, y al final se encoge y se desvanece |
+| 2 (PiP B) | real3 (HEVC), de 2.5 s a 4.5 s | abajo a la izquierda, fijo, 60% de opacidad |
+
+Video con transiciones `qtblend` (rect + opacidad con keyframes) y audio con `mix` (`sum=1`)
+entre pistas; fade-in/out de video sobre el tractor. `final_multi.mp4`: h264+aac, 1080x1920,
+6.000 s exactos. Verificado viendo frames a lo largo del timeline (entrada del PiP A, PiP B
+translúcido, desvanecido final) y con `volumedetect`. Siguen sin verificarse la sincronía A/V
+fina ni la mezcla de audio entre pistas más allá de que los niveles suben al sumar pistas
+(-31 dB solo base → -9 dB con las tres).
+
+### Trampas nuevas (otra vez fallos silenciosos)
+1. **Los keyframes de una transición son relativos a su frame `in`**, no frames absolutos del
+   timeline. Con frames absolutos la animación del PiP llegaba 1 s tarde, sin error.
+2. **`composite` y `affine` ignoran la opacidad** en esta configuración (probado aislado: 50% se
+   renderiza opaco, 0% transparente; solo "todo o nada"). **`qtblend` sí la respeta** (50% → 128;
+   animada 1→0 a mitad → 128). Descubrí esto porque el "fade" del PiP no se veía: el tamaño se
+   animaba pero la opacidad seguía al 100%.
+3. **`qtblend` exige un entorno X11** aunque no haya ventana: sin `DISPLAY` el `Transition` se
+   crea inválido (hay que comprobar `is_valid()`; imprime "The MLT Qt module requires a X11
+   environment"). Para exportar en un servidor hace falta `xvfb-run` o similar. Esto complica
+   el despliegue de un backend/MCP headless.
+
+### Rendimiento (1080x1920@24, 4 cores, sin GPU; compárese con la sección 8, 1 pista)
+
+| Medida | 1 pista, real (sec. 8) | **3 pistas + qtblend** |
+|---|---|---|
+| Decodificación secuencial, p50 / p95 / máx | 11.7 / 24.6 / 172 ms | **35.0 / 70.0 / 456 ms** |
+| Frames sobre presupuesto (41.7 ms) | 4 de 216 | **38 de 144 (26%)** |
+| Throughput sin display | 68 fps | **27 fps** |
+| Preview real-time (sdl2, Xvfb), 3 corridas | 0 descartados | **6, 7 y 11 descartados de 144** (4-8%); 6.2-6.5 s de reloj para 6.0 s |
+| Scrubbing (80 saltos), p50 / p95 | 47 / 237 ms | **112 / 579 ms**; 66 de 80 sobre presupuesto |
+| CPU media preview / export | -- / 330% | 176-185% / 299% |
+| RAM pico preview / export | -- / 910 MB | **~760 MB / 1.18 GB** |
+| Export (MLT→NUT→ffmpeg), 6 s de video | 13 s por 9 s (~1.4x) | **11.5-12 s por 6 s (~0.5x tiempo real, 2x más lento que el video)** |
+
+Lectura honesta: **con 3 capas a 1080x1920 en CPU, MLT deja de cumplir tiempo real en esta
+máquina.** El preview descarta frames visiblemente (el consumer `real_time=1` los suelta para
+mantener el reloj) y la mitad del preview "pelea" con el presupuesto de frame. El motor sigue
+siendo correcto (el export es exacto, sin errores), pero un editor interactivo con varias capas
+a esta resolución necesitaría **proxies de baja resolución para el preview** (p. ej. 540x960),
+caché de frames o composición por GPU (Movit), nada de lo cual probé. Parte del costo puede ser
+`qtblend` (Qt en CPU sobre Xvfb): no medí `composite` por separado porque ignora la opacidad.
+La grabación con x11grab (a 1080x1920) añade carga: con ella el preview descartó 20 frames (vs. 6-11 sin ella). El video `preview_capture_multi.mp4` está, por tanto, grabado bajo carga y no es representativo del mejor caso.
+
+## 10. Archivos
 
 - `poc.py`: el POC (gen/build/bench/preview/export/measure).
+- `POC_MODE=multi` en `poc.py`: multipista con composición (sección 9; requiere `xvfb-run`).
 - `POC_MODE=real` en `poc.py`: timeline con clips reales de `media_real/` (sección 8).
 - `stress_1080p.py`: prueba extra de estrés 1080p (secuencial vs. seek aleatorio).
 - `media/`, `out/`: clips y resultados generados (ignorados por git; se regeneran con `gen` y `export`).
