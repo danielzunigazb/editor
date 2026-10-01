@@ -8,7 +8,7 @@ Edits are cheap and validated instantly (pure-python timeline model); rendering 
 Run (stdio):  .venv/bin/python server.py          [MLT_EDITOR_HOME=<project dir>]
 Needs the apt binding (python3-mlt) -> use the venv built with --system-site-packages on python3.12.
 """
-import io, json, os, re, shutil, subprocess, sys, tempfile, time
+import io, json, os, re, subprocess, sys, time
 
 # ---- stdout hygiene: MLT/ffmpeg/LADSPA may print to fd 1, which would corrupt the stdio protocol.
 _real = os.dup(1)
@@ -30,8 +30,11 @@ def _ensure_display():
     def die_with_parent():                 # MCP clients usually SIGKILL stdio servers, so atexit never runs:
         import ctypes, signal              # ask the kernel to SIGTERM Xvfb when this process dies (PR_SET_PDEATHSIG)
         ctypes.CDLL("libc.so.6", use_errno=True).prctl(1, signal.SIGTERM)
-    proc = subprocess.Popen(["Xvfb", "-displayfd", str(w), "-screen", "0", "1280x720x24", "-nolisten", "tcp"],
-                            pass_fds=[w], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, preexec_fn=die_with_parent)
+    try:
+        proc = subprocess.Popen(["Xvfb", "-displayfd", str(w), "-screen", "0", "1280x720x24", "-nolisten", "tcp"],
+                                pass_fds=[w], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, preexec_fn=die_with_parent)
+    except FileNotFoundError:
+        raise RuntimeError("Xvfb is not installed (needed by the qtblend transition): apt-get install xvfb, or set DISPLAY")
     os.close(w)
     num = os.read(r, 16).decode().strip()
     if not num:
@@ -141,7 +144,14 @@ def _probe(path):
     v = next((s for s in info["streams"] if s["codec_type"] == "video"), None)
     if not v:
         raise ValueError(f"'{path}' has no video stream")
-    return {"duration_s": round(float(info["format"]["duration"]), 3), "width": v["width"], "height": v["height"],
+    try:
+        dur = float(info["format"]["duration"])
+    except (KeyError, TypeError, ValueError):
+        raise ValueError(f"'{path}' has no readable duration (is it a complete video file?)")
+    if dur < 0.2 or v.get("codec_name") in ("mjpeg", "png", "bmp", "webp", "gif"):
+        raise ValueError(f"'{path}' looks like an image or a single frame ({dur:g}s, {v.get('codec_name')}); "
+                         f"use add_image for pictures")
+    return {"duration_s": round(dur, 3), "width": v["width"], "height": v["height"],
             "codec": v["codec_name"], "has_audio": any(s["codec_type"] == "audio" for s in info["streams"])}
 
 
@@ -269,6 +279,8 @@ def add_subtitles(srt_path: str = "", cues: list[dict] | None = None, offset_s: 
     for i, c in enumerate(items):
         if not isinstance(c, dict) or not {"start", "end", "text"} <= set(c):
             raise ValueError(f"cue {i} must be an object with start, end and text")
+        if not all(isinstance(c[k], (int, float)) and not isinstance(c[k], bool) for k in ("start", "end")):
+            raise ValueError(f"cue {i}: start and end must be numbers (seconds)")
         shifted.append({"start": c["start"] + offset_s, "end": c["end"] + offset_s, "text": c["text"]})
     return commit(load(), {"op": "subtitles", "cues": shifted, "pos": position, "size": size, "style": style,
                            "color": color or None, "box": box, "fade": 0.0, "ornament": "none"})
@@ -416,9 +428,10 @@ def render_preview() -> dict:
 
 
 @mcp.tool()
-def export(output_path: str, quality: str = "high") -> dict:
+def export(output_path: str, quality: str = "high", overwrite: bool = False) -> dict:
     """Export the final video: MLT composes the timeline at full project resolution and the ffmpeg CLI
-    does the H.264/AAC encode. quality: 'high' (CRF 20, preset medium) or 'draft' (CRF 28, ultrafast).
+    does the H.264/AAC encode. output_path must end in .mp4 or .mov. An existing file is NOT replaced unless
+    overwrite=true. quality: 'high' (CRF 20, preset medium) or 'draft' (CRF 28, ultrafast).
     Blocking; can take about as long as the video itself at 1080p."""
     if quality not in ("high", "draft"):
         raise ValueError("quality must be 'high' or 'draft'")
@@ -426,6 +439,12 @@ def export(output_path: str, quality: str = "high") -> dict:
     if not st["ops"]:
         raise ValueError("the timeline is empty; add_clip first")
     out = os.path.abspath(os.path.expanduser(output_path))
+    if not out.lower().endswith((".mp4", ".mov")):
+        raise ValueError("output_path must end in .mp4 or .mov")
+    if os.path.isdir(out):
+        raise ValueError(f"output_path is a directory: {out}")
+    if os.path.exists(out) and not overwrite:
+        raise ValueError(f"{out} already exists; choose another name or pass overwrite=true")
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     bind(st, 1.0)
     p, tr, m, total = live.build(st["ops"])

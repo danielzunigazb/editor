@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """End-to-end test of server.py through a real MCP stdio client (spawns the server as a subprocess).
-Run: .venv/bin/python test_mcp.py      (needs media/clip_{a,b,c}.mp4 -> `python poc.py gen` + live clip_c)"""
+Run: .venv/bin/python test_mcp.py      (needs media/clip_{a,b,c}.mp4 -> `/usr/bin/python3.12 poc.py gen`)"""
 import asyncio, json, os, subprocess, sys, tempfile, time
 
 from mcp import ClientSession, StdioServerParameters
@@ -316,6 +316,28 @@ async def main():
             check("luxury stack (vignette + frame + title + lower third + subtitles) accepted", err is None, err)
             ex3, err = await call("export", output_path=os.path.join(TMP, "luxury.mp4"), quality="draft")
             check("luxury stack exports", err is None and ex3 and abs(ex3["duration_s"] - 6.0) < 0.05, err or ex3)
+
+            # =================== regressions found by the full code review ===================
+            await fresh()
+            out_ok = os.path.join(TMP, "once.mp4")
+            ex_a, err = await call("export", output_path=out_ok, quality="draft")
+            check("export writes a new file", err is None and ex_a, err)
+            _, err = await call("export", output_path=out_ok, quality="draft")
+            check("export refuses to overwrite an existing file by default", err is not None and "already exists" in err, err)
+            ex_b, err = await call("export", output_path=out_ok, quality="draft", overwrite=True)
+            check("...but overwrites when asked", err is None and ex_b, err)
+            _, err = await call("export", output_path=os.path.join(TMP, "movie.txt"))
+            check("export rejects a non-video extension", err is not None and ".mp4" in err, err)
+            _, err = await call("export", output_path=TMP + "/")
+            check("export rejects a directory", err is not None, err)
+            img_path = os.path.join(TMP, "pic.jpg")
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=1:duration=1", "-frames:v", "1", img_path], check=True)
+            _, err = await call("import_clip", path=img_path, id="IMG")
+            check("import_clip rejects a picture and points to add_image", err is not None and "add_image" in err, err)
+            _, err = await call("add_subtitles", cues=[{"start": "1", "end": "2", "text": "x"}])
+            check("add_subtitles rejects non-numeric times with a clear message", err is not None and "numbers" in err, err)
+            _, err = await call("crossfade", first_index=0, dur_s=0.01)
+            check("crossfade shorter than a frame is rejected through the server", err is not None, err)
 
             # ---- stability: many renders in one process (repeated Factory.init / profile creation)
             t0 = time.perf_counter()

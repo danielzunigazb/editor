@@ -15,7 +15,7 @@ Ops (times in seconds):
 The timeline is always rebuilt by replaying the op list (declarative, so any op can be edited/removed later).
 Needs X11 for the qtblend transition: run under xvfb-run.
 """
-import base64, html, json, os, re, subprocess, sys, time
+import base64, html, json, os, subprocess, sys, time
 
 import graphics
 import textrender
@@ -49,6 +49,10 @@ PLAN = [
 def layout(ops):
     """Compute entry durations/starts and effects from the op list (for validation + the SVG).
     Raises ValueError with a message the caller can show verbatim."""
+    # Everything on the base track lives on the FRAME GRID: MLT rounds each clip to whole frames, so computing in raw
+    # seconds drifted (40 entries of 0.1 s: layout said 100 frames, MLT built 80) and overlays landed on the wrong frame.
+    fps = FPS
+    fr = lambda s_: int(round(s_ * fps))
     entries, xfades, fade, layers = [], {}, None, []
     for n, o in enumerate(ops):
         k = o.get("op")
@@ -60,22 +64,32 @@ def layout(ops):
             start, end = float(o.get("in", 0.0)), float(o.get("end", CLIP_LEN[src]))
             if not (0 <= start < end <= CLIP_LEN[src] + 1e-6):
                 raise ValueError(f"{where}: range {start:g}-{end:g}s outside source '{src}' (0-{CLIP_LEN[src]:g}s)")
-            entries.append({"src": src, "in": start, "dur": end - start})
+            in_f, dur_f, src_f = fr(start), fr(end - start), fr(CLIP_LEN[src])
+            if in_f + dur_f > src_f:                 # rounding may overrun the last frame by one
+                dur_f = src_f - in_f
+            if dur_f < 1:
+                raise ValueError(f"{where}: range {start:g}-{end:g}s is shorter than one frame ({1 / fps:g}s)")
+            entries.append({"src": src, "in_f": in_f, "dur_f": dur_f})
         elif k == "cut":
             i = o.get("clip")
             if not isinstance(i, int) or not 0 <= i < len(entries):
                 raise ValueError(f"{where}: no timeline entry {i} (have {len(entries)})")
             e = entries[i]
-            if not 0 < o["at"] < e["dur"]:
-                raise ValueError(f"{where}: cut at {o['at']:g}s is outside entry {i} (length {e['dur']:g}s)")
-            e["dur"] = o["at"]
+            at_f = fr(o["at"])
+            if not 0 < o["at"] < e["dur_f"] / fps:
+                raise ValueError(f"{where}: cut at {o['at']:g}s is outside entry {i} (length {e['dur_f'] / fps:g}s)")
+            if not 1 <= at_f < e["dur_f"]:
+                raise ValueError(f"{where}: cut at {o['at']:g}s leaves nothing or a sub-frame piece (frame = {1 / fps:g}s)")
+            e["dur_f"] = at_f
         elif k == "crossfade":
             a_, b_ = o["between"]
             if b_ != a_ + 1 or a_ < 0 or b_ >= len(entries):
                 raise ValueError(f"{where}: needs two adjacent existing entries (have {len(entries)})")
             if o["dur"] <= 0:
                 raise ValueError(f"{where}: dur must be > 0")
-            xfades[a_] = o["dur"]
+            if fr(o["dur"]) < 1:
+                raise ValueError(f"{where}: dur {o['dur']:g}s is shorter than one frame ({1 / fps:g}s)")
+            xfades[a_] = fr(o["dur"])               # frames
         elif k == "fade":
             fade = {"in": float(o.get("in", 0.0)), "out": float(o.get("out", 0.0))}
             if fade["in"] < 0 or fade["out"] < 0:
@@ -141,14 +155,17 @@ def layout(ops):
         else:
             raise ValueError(f"{where}: unknown op")
     for i, e in enumerate(entries):   # a clip must be long enough for the dissolves on both of its sides
-        need = xfades.get(i - 1, 0.0) + xfades.get(i, 0.0)
-        if need > e["dur"] + 1e-6:
-            raise ValueError(f"entry {i} is {e['dur']:g}s long but its crossfades need {need:g}s")
-    t = 0.0
+        need = xfades.get(i - 1, 0) + xfades.get(i, 0)
+        if need > e["dur_f"]:
+            raise ValueError(f"entry {i} is {e['dur_f'] / fps:g}s long but its crossfades need {need / fps:g}s")
+    t = 0
     for i, e in enumerate(entries):
-        e["start"] = t
-        t += e["dur"] - xfades.get(i, 0.0)   # next entry starts `dur` earlier
-    total = max((e["start"] + e["dur"] for e in entries), default=0.0)
+        e["start_f"] = t
+        t += e["dur_f"] - xfades.get(i, 0)   # next entry starts `dur` earlier
+        e["in"], e["dur"], e["start"] = e["in_f"] / fps, e["dur_f"] / fps, e["start_f"] / fps
+    total_f = max((e["start_f"] + e["dur_f"] for e in entries), default=0)
+    total = total_f / fps
+    xfades_f, xfades = dict(xfades), {a: x / fps for a, x in xfades.items()}   # seconds for callers, frames for build()
     if fade and fade["in"] + fade["out"] > total + 1e-6:
         raise ValueError(f"fade in+out ({fade['in']+fade['out']:g}s) is longer than the timeline ({total:g}s)")
     # Overlays live in TIMELINE time: they do not move when earlier clips are edited. Anything now beyond the end
@@ -174,8 +191,8 @@ def layout(ops):
             ends.append(L["start"] + L["dur"]); L["track"] = len(ends)
     kept.sort(key=lambda L: (L["start"], L["op"], L.get("sub", 0)))
     first_pip = next((L for L in kept if L["kind"] == "pip"), None)
-    return {"entries": entries, "xfades": xfades, "fade": fade, "layers": kept, "pip": first_pip,
-            "warnings": warnings, "total": total}
+    return {"entries": entries, "xfades": xfades, "xfades_f": xfades_f, "fade": fade, "layers": kept, "pip": first_pip,
+            "warnings": warnings, "total": total, "total_f": total_f}
 
 
 def _gfx_layer(n, o, gk, params, where):
@@ -259,7 +276,7 @@ def check_new_op(op):
             raise ValueError(str(e))
         return
     if k == "text":
-        texts, style, size, up = [(op.get("text"), op.get("size", 0.06))], op.get("style", "luxury"), None, op.get("uppercase")
+        texts, style, up = [(op.get("text"), op.get("size", 0.06))], op.get("style", "luxury"), op.get("uppercase")
     elif k == "subtitles":
         texts = [(c.get("text"), op.get("size", 0.05)) for c in op.get("cues", [])]
         style, up = op.get("style") or "champagne", op.get("uppercase")
@@ -286,11 +303,11 @@ def build(ops):
     for e in m["entries"]:
         prod = mlt7.Producer(p, CLIPS[e["src"]])        # default loader: do NOT use "avformat" directly
         assert prod.is_valid(), f"cannot open {e['src']}"
-        base.append(prod, fr(e["in"]), fr(e["in"]) + fr(e["dur"]) - 1)
+        base.append(prod, e["in_f"], e["in_f"] + e["dur_f"] - 1)
     # crossfades, ascending; each earlier mix inserts one extra playlist entry before later clips
     done = 0
-    for a in sorted(m["xfades"]):
-        n = fr(m["xfades"][a])
+    for a in sorted(m["xfades_f"]):
+        n = m["xfades_f"][a]
         base.mix(a + done, n, mlt7.Transition(p, "luma"))
         base.mix_add(a + done, mlt7.Transition(p, "mix"))
         done += 1
@@ -299,6 +316,7 @@ def build(ops):
     mt = tr.multitrack()
     mt.connect(base, 0)
     total = base.get_playtime()
+    assert total == m["total_f"], f"timeline model ({m['total_f']} frames) and MLT ({total}) disagree"
 
     by_track = {}
     for L in m["layers"]:
@@ -371,34 +389,62 @@ def build(ops):
     if m["fade"]:
         fi, fo = fr(m["fade"]["in"]), fr(m["fade"]["out"])
         for service, lo, hi in (("brightness", 0, 1), ("volume", -60, 0)):   # volume.level is dB
-            f = mlt7.Filter(p, service)
-            kf = [f"0={lo};{fi}={hi}"] if fi > 0 else [f"0={hi}"]      # no fade-in => frame 0 must stay at full level
+            keys = {0: lo if fi > 0 else hi}                       # no fade-in => frame 0 must stay at full level
+            if fi > 0:
+                keys[fi] = hi
             if fo > 0:
-                kf.append(f"{total-fo}={hi};{total-1}={lo}")
-            f.set("level", ";".join(kf))
+                keys.setdefault(total - fo, hi)                    # a repeated position (fi == total - fo) glitched the level
+                keys[total - 1] = lo
+            ordered = sorted(keys.items())
+            f = mlt7.Filter(p, service)
+            f.set("level", ";".join(f"{pos}={val}" for pos, val in ordered))
             f.set_in_and_out(0, total - 1)          # attached filters default to in=out=0
             tr.attach(f)
     return p, tr, m, total
 
 
 def render(p, tr, out, preset="ultrafast", crf="30", abr="64k"):
-    """MLT composes -> NUT over a FIFO -> ffmpeg CLI encodes the small preview."""
-    import mlt7
+    """MLT composes -> NUT over a FIFO -> ffmpeg CLI encodes. Raises RuntimeError (with ffmpeg's message) if the encode
+    fails, and never leaves a FIFO, a stray ffmpeg or a half-written output behind.
+    A built timeline can be rendered ONCE (a second render of the same tractor emits no frames, verified); build a new
+    one per render, as the server does. A fresh build after a failed render works."""
+    import mlt7, tempfile
     fifo = out + ".nut"
     if os.path.exists(fifo):
         os.remove(fifo)
     os.mkfifo(fifo)
-    ff = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-i", fifo, "-c:v", "libx264", "-preset", preset,
-                           "-crf", str(crf), "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", abr,
-                           "-movflags", "+faststart", out], stderr=subprocess.DEVNULL)
-    c = mlt7.Consumer(p, "avformat", fifo)
-    # real_time=-N renders N frames in parallel (no frame dropping). Measured at 4K with 5 overlay layers: 65 s -> 35.6 s
-    # (N=2) with bit-identical luma on all 312 frames; N=4 only reached 33.7 s but used 4.1 GB instead of 2.9 GB.
-    threads = int(os.environ.get("MLT_RENDER_THREADS", "2"))
-    for k, v in dict(f="nut", vcodec="rawvideo", acodec="pcm_s16le", real_time=str(-threads) if threads > 1 else "0").items():
-        c.set(k, v)
-    c.connect(tr); c.run(); c.stop()
-    ff.wait(); os.remove(fifo)
+    errlog = tempfile.TemporaryFile()
+    ff = None
+    try:
+        ff = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-i", fifo, "-c:v", "libx264", "-preset", preset,
+                               "-crf", str(crf), "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", abr,
+                               "-movflags", "+faststart", out], stderr=errlog, stdin=subprocess.DEVNULL)
+        c = mlt7.Consumer(p, "avformat", fifo)
+        # real_time=-N renders N frames in parallel (no frame dropping). Measured at 4K with 5 overlay layers: 65 s -> 35.6 s
+        # (N=2) with bit-identical luma on all 312 frames; N=4 only reached 33.7 s but used 4.1 GB instead of 2.9 GB.
+        threads = int(os.environ.get("MLT_RENDER_THREADS", "2"))
+        for k, v in dict(f="nut", vcodec="rawvideo", acodec="pcm_s16le", real_time=str(-threads) if threads > 1 else "0").items():
+            c.set(k, v)
+        c.connect(tr); c.run(); c.stop()
+        try:
+            rc = ff.wait(timeout=120)
+        except subprocess.TimeoutExpired:
+            ff.kill(); rc = ff.wait()
+            raise RuntimeError("ffmpeg did not finish within 120 s after the render ended")
+        if rc != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
+            errlog.seek(0)
+            tail = errlog.read().decode(errors="replace").strip().splitlines()[-3:]
+            raise RuntimeError(f"ffmpeg failed to write {out} (exit code {rc}): " + " | ".join(tail))
+    except BaseException:
+        if os.path.isfile(out) and not (ff is not None and ff.returncode == 0):
+            os.remove(out)                                   # never leave a partial file that looks like a result
+        raise
+    finally:
+        if ff is not None and ff.poll() is None:
+            ff.kill(); ff.wait()
+        errlog.close()
+        if os.path.exists(fifo):
+            os.remove(fifo)
 
 
 # ---------------------------------------------------------------- state + viewer

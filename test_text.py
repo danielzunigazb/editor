@@ -101,4 +101,16 @@ r, m = raises(lambda: G.lower_third(540, 960, "Hola 🫠", ""), "unsupported cha
 r, m = raises(lambda: G.lower_third(320, 180, "W" * 58, "M" * 78), "too long to fit"); check("lower third that cannot fit is refused (strict)", r, m)
 try: G.lower_third(320, 180, "W" * 58, "M" * 78, strict=False); check("...but never fails at render time (strict=False)", True)
 except Exception as e: check("...but never fails at render time (strict=False)", False, e)
+
+# ---------------- review regressions
+import time as _t
+check("clean() is memoised (same object back, no re-validation cost)", T.clean("Hola", "luxury") is T.clean("Hola", "luxury"))
+t0 = _t.perf_counter()
+for i in range(300): T.clean(f"Línea número {i}: ¿qué tal, señor Muñoz?", "champagne")
+first = _t.perf_counter() - t0; t0 = _t.perf_counter()
+for i in range(300): T.clean(f"Línea número {i}: ¿qué tal, señor Muñoz?", "champagne")
+check("300 clean() calls are cheap once warm", _t.perf_counter() - t0 < 0.1 and first < 1.5, (round(first, 3), round(_t.perf_counter() - t0, 3)))
+check("font objects are cached", T.make_font("luxury", 40) is T.make_font("luxury", 40))
+a1 = T.render_text_png("Strict", 640, 360, cache_dir=tmp, strict=True); a2 = T.render_text_png("Strict", 640, 360, cache_dir=tmp, strict=False)
+check("strict and non-strict renders are cached separately", a1 != a2)
 print(f"\n{len(ok)} passed, {len(bad)} failed"); sys.exit(1 if bad else 0)

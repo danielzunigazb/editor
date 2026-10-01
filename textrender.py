@@ -7,7 +7,7 @@ message if it cannot fit.
 
 Styles (see STYLES): classic, luxury, luxury-italic, champagne, noir, modern.
 """
-import hashlib, os, re
+import functools, hashlib, os, re
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
@@ -68,8 +68,13 @@ def font_path(style="classic"):
 
 
 def make_font(style, px):
+    return _font(style, max(6, int(round(px))))
+
+
+@functools.lru_cache(maxsize=256)
+def _font(style, px):                   # loading a TTF + setting its variation axis is slow; layout() asks for it constantly
     st = STYLES[style]
-    font = ImageFont.truetype(font_path(style), max(6, int(round(px))))
+    font = ImageFont.truetype(font_path(style), px)
     if st["wght"]:
         font.set_variation_by_axes([st["wght"]])
     return font
@@ -86,6 +91,7 @@ def _notdef(font, key):
     return _MISSING[key]
 
 
+@functools.lru_cache(maxsize=8192)
 def clean(text, style="classic"):
     """Normalise text: CRLF -> \\n, strip control chars, trim. Raises ValueError on empty/too long/unsupported."""
     validate_style(style)
@@ -285,11 +291,11 @@ def render_text_png(text, W, H, pos="bottom", size=0.06, color=None, box=False, 
     """Render `text` to a transparent W x H PNG and return its path (cached by content hash)."""
     validate_style(style)
     text = clean(text, style)
-    key = hashlib.sha1(f"v2|{text}|{W}|{H}|{pos}|{size}|{color}|{box}|{style}|{uppercase}|{ornament}".encode()).hexdigest()[:16]
+    key = hashlib.sha1(f"v3|{text}|{W}|{H}|{pos}|{size}|{color}|{box}|{style}|{uppercase}|{ornament}|{strict}".encode()).hexdigest()[:16]
     out = os.path.join(cache_dir or "/tmp", f"txt_{key}.png")
-    img = render_text_image(text, W, H, pos, size, color, box, strict, style, uppercase, ornament)
-    if os.path.exists(out):
+    if os.path.exists(out):                # check the cache BEFORE rendering (it used to render first, then look)
         return out
+    img = render_text_image(text, W, H, pos, size, color, box, strict, style, uppercase, ornament)
     os.makedirs(os.path.dirname(out), exist_ok=True)
     tmp = out + f".{os.getpid()}.tmp"
     img.save(tmp, format="PNG")

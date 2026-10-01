@@ -3,7 +3,7 @@
 every tool call, its arguments, the server's answer, elapsed time, and a contact sheet after each edit.
 Writes out/demo/session.json, out/demo/steps/NN.jpg and out/demo/final.mp4.
 Run: .venv/bin/python demo_session.py"""
-import asyncio, base64, io, json, os, shutil, subprocess, sys, tempfile, time
+import asyncio, base64, io, json, os, shutil, tempfile, time
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -86,7 +86,7 @@ async def main():
             tl_err, tl, _, _ = await call("get_timeline", {})
             log["timeline"] = json.loads(tl)
             out = os.path.join(DEMO, "final.mp4")
-            err, txt, _, ms = await call("export", dict(output_path=out, quality="high"))
+            err, txt, _, ms = await call("export", dict(output_path=out, quality="high", overwrite=True))
             if err:
                 raise SystemExit("export failed: " + txt)
             log["export"] = {**json.loads(txt), "ms": round(ms)}

@@ -41,7 +41,10 @@ def gen():
         "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=6", *common, CLIP_A])
     sh(["ffmpeg", "-y", "-f", "lavfi", "-i", "smptehdbars=size=1280x720:rate=25:duration=5",
         "-f", "lavfi", "-i", "sine=frequency=880:sample_rate=48000:duration=5", *common, CLIP_B])
-    print("generated", CLIP_A, CLIP_B)
+    sh(["ffmpeg", "-y", "-f", "lavfi", "-i", "mandelbrot=size=1280x720:rate=25",   # clip C: used as the PiP source by the tests
+        "-f", "lavfi", "-i", "sine=frequency=660:sample_rate=48000", "-t", "4", *common,
+        os.path.join(MEDIA, "clip_c.mp4")])
+    print("generated", CLIP_A, CLIP_B, os.path.join(MEDIA, "clip_c.mp4"))
 
 
 REAL = [os.path.join(HERE, "media_real", f"real{i}.mp4") for i in (1, 2, 3)]
@@ -343,7 +346,7 @@ def cmd_measure(args):
             todo += [int(k) for k in kids]
         return out
 
-    t0 = time.perf_counter(); last_cpu = {}; last_t = t0; cpu_tot = {}
+    t0 = time.perf_counter(); last_t = t0; cpu_tot = {}
     outp = []
     th = threading.Thread(target=lambda: outp.append(p.stdout.read())); th.start()
     while p.poll() is None:

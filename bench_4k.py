@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """4K benchmark through the real MCP server: timings, peak RSS and CPU per tool, output verification.
 Run: .venv/bin/python bench_4k.py [--res 1920x1080 --media media_1080 --prefix cam_{codec}_1080p --out 1080p]"""
-import asyncio, base64, json, os, subprocess, sys, tempfile, threading, time
+import asyncio, base64, json, os, tempfile, threading, time
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -18,7 +18,7 @@ CLK = os.sysconf("SC_CLK_TCK")
 
 class Sampler:
     """Samples RSS (MB) and cumulative CPU (s) of the server process tree every 100 ms."""
-    def __init__(self): self.pid = None; self.rss = 0.0; self.cpu = {}; self.stop = False; self.mark = None
+    def __init__(self): self.pid = None; self.rss = 0.0; self.cpu = {}; self.stop = False
     def tree(self, root):
         out, todo = [], [root]
         while todo:
@@ -82,13 +82,13 @@ async def main():
                 await call(name, a)
             tl = json.loads((await call("get_timeline", {}))[0]); print("timeline:", tl["duration_s"], "s", flush=True)
             for rep in ("cold", "warm"):          # second call hits the text/graphic PNG cache and warm file cache
-                _, img, _ = await call("get_still", dict(time_s=2.0), f"get_still half 1080p ({rep})"); open(f"{OUT}/still_half.png", "wb").write(base64.b64decode(img))
+                _, img, _ = await call("get_still", dict(time_s=2.0), f"get_still half-res ({rep})"); open(f"{OUT}/still_half.png", "wb").write(base64.b64decode(img))
             for rep in ("cold", "warm"):
-                _, img, _ = await call("get_still", dict(time_s=2.0, full_res=True), f"get_still full 4K ({rep})"); open(f"{OUT}/still_4k.png", "wb").write(base64.b64decode(img))
+                _, img, _ = await call("get_still", dict(time_s=2.0, full_res=True), f"get_still full-res ({rep})"); open(f"{OUT}/still_4k.png", "wb").write(base64.b64decode(img))
             for rep in ("cold", "warm"):
                 _, img, _ = await call("get_contact_sheet", dict(count=6), f"get_contact_sheet 6 ({rep})"); open(f"{OUT}/sheet.png", "wb").write(base64.b64decode(img))
             for q in ("draft", "high"):
-                txt, _, err = await call("export", dict(output_path=f"{OUT}/export_{q}.mp4", quality=q), f"export {q}")
+                txt, _, err = await call("export", dict(output_path=f"{OUT}/export_{q}.mp4", quality=q, overwrite=True), f"export {q}")
             await call("render_preview", {})
     smp.stop = True
     json.dump({"timeline_s": tl["duration_s"], "calls": log}, open(f"{OUT}/bench.json", "w"), indent=1)

@@ -587,6 +587,45 @@ hilos de reproducción reducen el descarte unas 4 veces a 1080p pero no lo elimi
 alcanza. `poc.py preview` ahora usa 3 hilos (`MLT_PLAY_THREADS`). Limitaciones: Xvfb renderiza por software y sin GPU real los números
 pueden diferir; la sincronía A/V no se evaluó; una corrida por caso a 4K y tres a 1080p.
 
+## 14. Revisión completa del código (añadido a petición del usuario)
+
+Se leyeron íntegros los ~3.800 líneas del proyecto (`live.py`, `server.py`, `textrender.py`, `graphics.py`, `poc.py`, las tres suites, los
+scripts de benchmark y demo, las plantillas HTML y la configuración). Cada sospecha se **comprobó con un experimento** antes de tocar nada;
+análisis estático con `pyflakes` (sin nombres indefinidos), `node --check` sobre el JavaScript de ambas plantillas, `bash -n` y validación
+de los JSON de configuración.
+
+**Defectos reales encontrados, con su evidencia, y corregidos:**
+| # | Defecto | Evidencia | Arreglo |
+|---|---|---|---|
+| 1 | Deriva por redondeo: el modelo calculaba en segundos y MLT redondea cada clip a frames | 40 clips de 0.1 s: el modelo decía 100 frames y MLT construía 80 (capas desplazadas 20 frames); 0.3 s x40: 300 vs 320 | el modelo trabaja en una **cuadrícula de frames exacta**; `build()` afirma que modelo y MLT coinciden |
+| 2 | Duraciones menores a un frame aceptadas | clip de 0.01 s se convertía en el **clip completo** (275 frames en vez de 125); un fundido de 0.01 s daba **400 frames** en vez de 275 | se rechazan con mensaje claro (clip, corte y fundido) |
+| 3 | Fade con entrada + salida = duración total | keyframes repetidos (`88=1;88=1`): el brillo caía de 127 a 102 en pleno video | keyframes deduplicados y ordenados |
+| 4 | `render()` no comprobaba a ffmpeg | si ffmpeg no podía escribir, `render()` "terminaba bien" | lanza `RuntimeError` con el mensaje de ffmpeg, no deja FIFO, ffmpeg ni archivo a medias |
+| 5 | Caché de texto inútil | el PNG se renderizaba **antes** de mirar si existía: 998 ms en frío y 273 ms "con caché" a 4K | se mira primero: 0.1 ms con caché |
+| 6 | `layout()` caro | 1586 ms con 300 subtítulos (se llama varias veces por edición): cargaba la fuente en cada llamada | fuentes y validación de texto memorizadas: ~0 ms en caliente |
+| 7 | `export` podía sobrescribir cualquier archivo que eligiera el modelo | `ffmpeg -y` sin preguntar | rechaza archivos existentes salvo `overwrite=true`, exige `.mp4`/`.mov` y rechaza directorios |
+| 8 | `import_clip` aceptaba una imagen como "video" | un `.jpg` entraba como clip de 0.04 s | se rechaza y apunta a `add_image`; también duración ilegible |
+| 9 | `add_subtitles` con tiempos no numéricos | error genérico de Python | mensaje claro |
+| 10 | Un clon nuevo no podía correr las pruebas | `poc.py gen` no creaba `clip_c.mp4` (lo generé a mano) | `gen` lo crea |
+| 11 | Benchmark rotulaba "1080p"/"4K" fijo | etiquetas equivocadas al correr el otro tamaño | etiquetas neutras |
+| 12 | Limpieza | imports sin uso, una variable muerta, `Xvfb` ausente daba un error crudo | eliminados / mensaje claro |
+
+**Sospechas descartadas (comprobadas, no eran defectos):** un clip **sin audio** con fundido cruzado hacia uno con audio exporta bien
+(pista de audio presente, -91 dB en el tramo mudo, fade correcto); lo mismo un clip sin audio solo.
+
+**Una limitación de MLT descubierta:** un timeline construido **solo se puede renderizar una vez** (un segundo render del mismo tractor no
+emite frames, aun reposicionando). No afecta al servidor, que reconstruye siempre, y un timeline nuevo tras un render fallido funciona;
+queda documentado en `render()`.
+
+**Pruebas tras la revisión:** `test_text.py` 74, `test_engine.py` 31 (18 nuevas de regresión: sub-frame, deriva con 5 patrones de
+duración, fade, fallo de ffmpeg y limpieza, caché, rendimiento, clip sin audio), `test_mcp.py` 101 (8 nuevas: sobrescritura, extensión,
+directorio, imagen, subtítulos no numéricos, fundido sub-frame). Todas pasan; la demo se regeneró de punta a punta.
+
+**Lo que la revisión NO cubre / sigue abierto:** el servidor es síncrono y un export bloquea el bucle de eventos (no se puede cancelar);
+no hay bloqueo de archivo del proyecto entre procesos; `export` acepta cualquier ruta de escritura del usuario que lo ejecuta (sin
+sandbox); `import_clip`, `add_image` y `srt_path` leen cualquier archivo local; las pruebas usan clips sintéticos y 3 clips reales;
+el audio se verifica por niveles, no a oído.
+
 ## 10. Archivos
 
 - `poc.py`: el POC (gen/build/bench/preview/export/measure).
