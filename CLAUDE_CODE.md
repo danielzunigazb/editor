@@ -17,7 +17,7 @@ La configuración ya está en `.mcp.json` (raíz del repo, ámbito de proyecto):
 4. **Aprobar el servidor.** Claude Code pide aprobación manual para los servidores de un `.mcp.json`
    de proyecto (protección contra código ajeno). Se aprueba en el aviso al abrir, o con `/mcp`.
    Hasta entonces `claude mcp list` lo muestra como "Pending approval". No se aprueba por archivo a propósito.
-5. Comprobar: `/mcp` debe listar `mlt-video-editor` con 15 herramientas.
+5. Comprobar: `/mcp` debe listar `mlt-video-editor` con 18 herramientas (clips, cortes, fundidos, PiP, **texto, subtítulos, imágenes**, vista y export).
 
 ## Ejemplo de prompt
 > Con mlt-video-editor: crea un proyecto, importa `poc_mlt/media/clip_a.mp4` (id A) y `clip_b.mp4` (id B),

@@ -391,11 +391,60 @@ Observaciones: el modelo acortó el PiP a 2.5 s por su cuenta (de 2 a 4.5 s, lo 
 R2 (474x850) se escala ~2.3x y se ve blando (limitación de la fuente, no del motor).
 Sigue siendo **una sola corrida** de **un** modelo.
 
+### 11.2 Texto, subtítulos e imágenes (añadido a petición del usuario: "estable y sin errores")
+
+Tres herramientas nuevas: `add_text`, `add_subtitles` (lista de cues o archivo `.srt`) y `add_image`;
+`add_pip` pasó de reemplazar a **acumular**. Ahora hay "capas" (PiP, texto, subtítulos, imagen) con hasta
+6 simultáneas. Total: 18 herramientas.
+
+**Decisión de estabilidad: el texto no lo dibuja MLT/Qt (`qtext`), sino Pillow con una fuente fija**
+(`textrender.py`, DejaVu Sans Bold) a un PNG transparente que se compone con `qtblend`. Así el mismo texto
+da siempre los mismos píxeles, los acentos/ñ/¿¡ están garantizados, y se evita depender de la configuración de
+fuentes de Qt. El texto se **ajusta a líneas, se reduce para caber** (máx. 4 líneas, 200 caracteres) y, si no
+cabe o la fuente no tiene un glifo (CJK, emoji recientes), se **rechaza con un mensaje claro antes de guardar**.
+Una sonda inicial mostró por qué: una frase larga a 36 px se salía del cuadro por ambos lados.
+`.srt`: tolera BOM, CRLF, latin-1 y etiquetas `<i>`; es estricto con los tiempos y cita el bloque erróneo.
+
+**Bug de fondo encontrado y corregido: parpadeo negro tras cada capa.** Un modelo real, al revisar su propio
+trabajo, notó cuadros negros extraños en la hoja de contactos y declaró no entenderlos. Al escanear **cada frame**
+del export: los frames posteriores al final de cada capa salían casi negros (6 de 156). Descarté varias hipótesis
+(transiciones apiladas, extender el rango, rellenar huecos con un productor de color: esta última empeoraba
+todo) hasta dar con la causa real: **`Playlist.blank(n)` recibe el punto de salida y crea n+1 frames**, así que cada
+hueco desplazaba un frame todo lo posterior. La k-ésima capa de una pista quedaba k frames tarde respecto a su
+transición, y esos k frames caían fuera del rango. Arreglo: `blank(n-1)`. Además hay una sola transición `qtblend`
+por pista con keyframes por capa. (La misma resta de 1 se aplicó al POC multipista original, que tenía el desfase.)
+
+**Pruebas (todas verdes tras el arreglo):**
+- `test_text.py`: 25 de 25 (render, ajuste, glifos, `.srt` con BOM/CRLF/latin-1, errores).
+- `test_engine.py`: 10 de 10. Compara **cada frame** contra el mismo timeline sin overlays: ningún destello, ningún
+  residuo tras terminar una capa, y los cues aparecen y desaparecen **en el frame exacto**. Se comprobó que
+  la prueba detecta el bug: con el arreglo revertido fallan 8 de 10.
+- `test_mcp.py`: 67 de 67 vía cliente MCP real (texto con acentos que realmente aparece abajo y no arriba,
+  7 rechazos de `add_text`, 7 de `add_subtitles`, 3 de `add_image`, capas solapadas, la 7.ª capa simultánea se
+  rechaza, un corte que deja subtítulos fuera de rango se acepta con advertencia, 100 cues, export con subtítulos).
+- **Modelo real + tus clips:** dos corridas (título amarillo con acentos, 3 subtítulos incluida una línea doble,
+  imagen "REC"). Sin errores. En el MP4 final se verificaron los **156 frames**: luma mínima 72, ningún destello, y
+  el subtítulo está exactamente en los frames 46-47 y ausente en el 48.
+
+**Limitaciones (honestas):**
+- Las capas se colocan en **segundos de la línea de tiempo** y **no se mueven** si luego se editan clips anteriores;
+  lo que quede fuera del final se oculta/recorta con una advertencia en `get_timeline` (no rechaza el corte).
+- Una sola fuente y estilo (negrita sin cursiva), sin animaciones de texto salvo fade (0.15 s por defecto en
+  `add_text`, 0 en subtítulos); sin alineación izquierda/derecha, sin estilos por palabra. Solo escritura latina.
+- Imágenes y PiP hacen un fade de borde de 6 frames por diseño (una insignia "todo el video" también entra y sale
+  suave, como notó el modelo).
+- Texto muy largo se rechaza en vez de truncarse. Máx. 300 cues por llamada y 6 capas simultáneas.
+- Rendimiento: contact sheet de 6 frames con 100 cues ≈ 1.3 s (720p). No se midió a 1080p vertical con muchas capas
+  ni se repitió la medición de CPU/RAM de las secciones 8 y 9 con texto.
+- El MP4 se verificó por frames y luma, no a oído ni en un reproductor real. `-ss` de ffmpeg puede mostrar el frame
+  vecino al muestrear tiempos (lo confundí una vez); la verificación exacta usa el índice de frame.
+
 ## 10. Archivos
 
 - `poc.py`: el POC (gen/build/bench/preview/export/measure).
 - `POC_MODE=multi` en `poc.py`: multipista con composición (sección 9; requiere `xvfb-run`).
 - `POC_MODE=real` en `poc.py`: timeline con clips reales de `media_real/` (sección 8).
+- `textrender.py`, `test_text.py`, `test_engine.py`: texto/subtítulos y pruebas cuadro a cuadro (sección 11.2).
 - `server.py`, `test_mcp.py`, `setup.sh`, `requirements.txt`, `mcp.example.json`: servidor MCP y su prueba (sección 11).
 - `live.py`, `viewer_template.html`: motor declarativo y visor de la sesión en vivo.
 - `stress_1080p.py`: prueba extra de estrés 1080p (secuencial vs. seek aleatorio).

@@ -102,9 +102,9 @@ def build_multi():
     base = mlt7.Playlist(profile)
     base.append(p1, 0, 3 * fps - 1); base.append(p3a, 0, 3 * fps - 1)
     pip_a = mlt7.Playlist(profile)
-    pip_a.blank(fps); pip_a.append(p2, 0, 4 * fps - 1)
+    pip_a.blank(fps - 1); pip_a.append(p2, 0, 4 * fps - 1)
     pip_b = mlt7.Playlist(profile)
-    pip_b.blank(int(2.5 * fps)); pip_b.append(p3c, 3 * fps, 5 * fps - 1)   # ~2 s from the HEVC clip
+    pip_b.blank(int(2.5 * fps) - 1); pip_b.append(p3c, 3 * fps, 5 * fps - 1)   # ~2 s from the HEVC clip
 
     s0 = time.perf_counter()
     tractor = mlt7.Tractor(profile)

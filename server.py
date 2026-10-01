@@ -40,6 +40,7 @@ def _ensure_display():
 
 _ensure_display()
 import live  # noqa: E402  (engine: layout/build/render)
+import textrender  # noqa: E402
 from mcp.server.fastmcp import FastMCP, Image  # noqa: E402
 
 mcp = FastMCP("mlt-video-editor")
@@ -67,12 +68,24 @@ def bind(st, scale=1.0):
     live.W = max(2, int(st["width"] * scale) // 2 * 2)
     live.H = max(2, int(st["height"] * scale) // 2 * 2)
     live.FPS = st["fps"]
+    live.CACHE = os.path.join(HOME, "cache")
+
+
+OVERLAYS = ("pip", "text", "subtitles", "image")
 
 
 def commit(st, op):
     """Validate the op against the whole timeline, then persist. Nothing is saved on error."""
-    bind(st)
+    bind(st)                                   # export resolution: text-fit is checked at full size
+    before = live.layout(st["ops"])["total"]
     live.layout(st["ops"] + [op])
+    live.check_new_op(op)
+    if op["op"] in OVERLAYS and op["op"] != "subtitles" and op["start"] >= before - 1e-6:
+        raise ValueError(f"{op['op']} starts at {op['start']:g}s but the timeline is only {before:g}s long "
+                         f"(add the clips first, or start it earlier)")
+    if op["op"] == "subtitles" and all(c["start"] >= before - 1e-6 for c in op["cues"]):
+        raise ValueError(f"every subtitle starts after the end of the timeline ({before:g}s); add the clips first "
+                         f"or check offset_s")
     st["ops"].append(op)
     save(st)
     return summary(st)
@@ -81,6 +94,24 @@ def commit(st, op):
 def summary(st):
     bind(st)
     m = live.layout(st["ops"])
+    layers, seen = [], {}
+    for L in m["layers"]:
+        if L["kind"] == "text" and "sub" in L:                    # collapse a subtitle file into one line
+            g = seen.get(L["op"])
+            if g:
+                g["cues"] += 1; g["end_s"] = round(max(g["end_s"], L["start"] + L["dur"]), 3); continue
+            g = {"kind": "subtitles", "op": L["op"], "cues": 1, "start_s": round(L["start"], 3),
+                 "end_s": round(L["start"] + L["dur"], 3), "track": L["track"]}
+            seen[L["op"]] = g; layers.append(g); continue
+        d = {"kind": L["kind"], "op": L["op"], "start_s": round(L["start"], 3), "end_s": round(L["start"] + L["dur"], 3),
+             "track": L["track"]}
+        if L["kind"] == "text":
+            d["text"] = L["text"]
+        elif L["kind"] == "image":
+            d["image"] = os.path.basename(L["path"])
+        else:
+            d["source"] = L["src"]
+        layers.append(d)
     return {
         "duration_s": round(m["total"], 3),
         "entries": [{"index": i, "source": e["src"], "source_in_s": round(e["in"], 3),
@@ -88,8 +119,10 @@ def summary(st):
                     for i, e in enumerate(m["entries"])],
         "crossfades": [{"between": [a, a + 1], "dur_s": d} for a, d in sorted(m["xfades"].items())],
         "fade": m["fade"],
-        "pip": m["pip"],
-        "ops": [{"index": i, **o} for i, o in enumerate(st["ops"])],
+        "overlays": layers,
+        "warnings": m["warnings"],
+        "ops": [{"index": i, **({k: v for k, v in o.items() if k != "cues"}), **({"cues": len(o["cues"])} if "cues" in o else {})}
+                for i, o in enumerate(st["ops"])],
     }
 
 
@@ -178,17 +211,59 @@ def set_fades(fade_in_s: float = 0.0, fade_out_s: float = 0.0) -> dict:
 @mcp.tool()
 def add_pip(source: str, start_s: float, dur_s: float, position: str = "top-right",
             scale: float = 0.3, opacity: float = 1.0, source_in_s: float = 0.0) -> dict:
-    """Overlay a picture-in-picture on a second track from start_s for dur_s (timeline time).
+    """Overlay a picture-in-picture video on its own layer from start_s for dur_s (TIMELINE time).
     position: top-right | top-left | bottom-right | bottom-left. scale: fraction of frame width (0-1].
-    opacity 0-1 (fades in/out at the edges). Only one PiP is supported in this version;
-    a new one replaces the previous."""
+    opacity 0-1 (fades in/out at the edges). Calls accumulate (several PiPs are allowed, up to 6 overlays
+    at the same moment). Overlays are placed in timeline seconds and do NOT move if you later edit earlier clips."""
     return commit(load(), {"op": "pip", "src": source, "start": start_s, "dur": dur_s, "pos": position,
                            "scale": scale, "opacity": opacity, "in": source_in_s})
 
 
 @mcp.tool()
+def add_text(text: str, start_s: float, dur_s: float, position: str = "bottom", size: float = 0.06,
+             color: str = "#ffffff", box: bool = False, fade_s: float = 0.15) -> dict:
+    """Show a title/caption from start_s for dur_s (TIMELINE time). Latin text with accents, ñ, ¿¡ is
+    supported; use \\n for a line break. Long text is wrapped and shrunk to fit (max 4 lines, 200 chars);
+    text that cannot fit, or characters the font lacks (CJK, newer emoji), are rejected with a message.
+    position: bottom | center | top. size: fraction of frame height (0.02-0.2). color: #RRGGBB.
+    box: dark rounded box behind the text. Text gets an automatic outline for readability."""
+    return commit(load(), {"op": "text", "text": text, "start": start_s, "dur": dur_s, "pos": position,
+                           "size": size, "color": color, "box": box, "fade": fade_s})
+
+
+@mcp.tool()
+def add_subtitles(srt_path: str = "", cues: list[dict] | None = None, offset_s: float = 0.0,
+                  position: str = "bottom", size: float = 0.05, color: str = "#ffffff", box: bool = True) -> dict:
+    """Add subtitles from an .srt file (srt_path) OR a list of cues [{"start":1.0,"end":2.5,"text":"Hola"}]
+    (seconds, timeline time). Give exactly one. offset_s shifts every cue (positive = later).
+    Same text rules as add_text (accents/ñ fine; up to 300 cues). Cues after the timeline end are
+    dropped with a warning. Calling it again ADDS another subtitle track; use remove_op to replace."""
+    if bool(srt_path) == bool(cues):
+        raise ValueError("give exactly one of srt_path or cues")
+    items = textrender.parse_srt(srt_path) if srt_path else cues
+    shifted = []
+    for i, c in enumerate(items):
+        if not isinstance(c, dict) or not {"start", "end", "text"} <= set(c):
+            raise ValueError(f"cue {i} must be an object with start, end and text")
+        shifted.append({"start": c["start"] + offset_s, "end": c["end"] + offset_s, "text": c["text"]})
+    return commit(load(), {"op": "subtitles", "cues": shifted, "pos": position, "size": size, "color": color,
+                           "box": box, "fade": 0.0})
+
+
+@mcp.tool()
+def add_image(path: str, start_s: float, dur_s: float, position: str = "center", scale: float = 0.3,
+              opacity: float = 1.0) -> dict:
+    """Show a PNG/JPG/WebP (logo, arrow, reference graphic; transparency is kept) from start_s for dur_s
+    (TIMELINE time). position: center | top-right | top-left | bottom-right | bottom-left. scale: fraction
+    of frame width (0-1], aspect ratio preserved. Max 25 MB / 8000 px per side."""
+    return commit(load(), {"op": "image", "path": os.path.abspath(os.path.expanduser(path)), "start": start_s,
+                           "dur": dur_s, "pos": position, "scale": scale, "opacity": opacity})
+
+
+@mcp.tool()
 def get_timeline() -> dict:
-    """Current timeline: entries with start/end times, crossfades, fades, PiP and the full op list
+    """Current timeline: entries with start/end times, crossfades, fades, overlays (pip/text/subtitles/image, with their
+    track), warnings (overlays trimmed or hidden by later cuts) and the full op list
     (each op has an index usable with remove_op)."""
     return summary(load())
 
