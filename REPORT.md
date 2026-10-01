@@ -195,7 +195,7 @@ medí cómo crece con más pistas o clips.
 **Sí, seguir con MLT para el motor, con estas condiciones:**
 
 1. **Por qué:** modelo de timeline idéntico al de un NLE, edición de coste casi cero,
-   serialización a XML lista, reproducción muy holgada de CPU, y exportación desacoplable
+   serialización a XML lista, reproducción holgada con una pista (pero **no** con 3 capas a 1080x1920 en CPU, ver sección 9), y exportación desacoplable
    a ffmpeg tal como querías (funcionó vía NUT/FIFO, 7.000 s exactos). Es el mismo motor
    de Shotcut y Kdenlive, así que está probado en producción.
 2. **Condición clave: encapsular MLT detrás de nuestra propia capa** (y por tanto detrás
