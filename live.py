@@ -17,6 +17,7 @@ Needs X11 for the qtblend transition: run under xvfb-run.
 """
 import base64, html, json, os, re, subprocess, sys, time
 
+import graphics
 import textrender
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -97,12 +98,13 @@ def layout(ops):
             if not (o.get("start", -1) >= 0 and 0 < o.get("dur", 0) <= 3600):
                 raise ValueError(f"{where}: needs start>=0 and 0 < dur <= 3600")
             layers.append({"kind": "text", "op": n, "start": float(o["start"]), "dur": float(o["dur"]), **style,
-                           "text": _clean(o.get("text"), where)})
+                           "text": _clean(o.get("text"), where, style["style"])})
         elif k == "subtitles":
             cues = o.get("cues")
             if not isinstance(cues, list) or not 1 <= len(cues) <= 300:
                 raise ValueError(f"{where}: needs 1-300 cues")
-            style = _text_style({"pos": "bottom", "size": 0.05, "box": True, "fade": 0.0, **o}, where)
+            style = _text_style({"pos": "bottom", "size": 0.05, "box": True, "fade": 0.0, "style": "champagne",
+                                 "ornament": "none", **{k: v for k, v in o.items() if v is not None}}, where)
             for ci, c in enumerate(cues):
                 try:
                     st_, en_ = float(c["start"]), float(c["end"])
@@ -111,7 +113,21 @@ def layout(ops):
                 if st_ < 0 or en_ <= st_:
                     raise ValueError(f"{where}: cue {ci} has an invalid time range {st_:g}-{en_:g}s")
                 layers.append({"kind": "text", "op": n, "sub": ci, "start": st_, "dur": en_ - st_, **style,
-                               "text": _clean(c.get("text"), f"{where} cue {ci}")})
+                               "text": _clean(c.get("text"), f"{where} cue {ci}", style["style"])})
+        elif k == "graphic":
+            gk, par = o.get("kind"), {"amount": o.get("amount")}
+            try:
+                graphics.validate(gk, par)
+            except ValueError as e:
+                raise ValueError(f"{where}: {e}")
+            layers.append(_gfx_layer(n, o, gk, par, where))
+        elif k == "lower_third":
+            if o.get("align", "left") not in ("left", "right"):
+                raise ValueError(f"{where}: align must be left or right")
+            title, sub = _clean(o.get("title"), where, "luxury"), (_clean(o["subtitle"], where, "modern") if o.get("subtitle") else "")
+            if "\n" in title or "\n" in sub or len(title) > 60 or len(sub) > 80:
+                raise ValueError(f"{where}: lower third needs single-line text (title max 60, subtitle max 80 characters)")
+            layers.append(_gfx_layer(n, o, "lower_third", {"title": title, "subtitle": sub, "align": o.get("align", "left")}, where))
         elif k == "image":
             if o.get("pos", "center") not in POS_IMG:
                 raise ValueError(f"{where}: pos must be one of {POS_IMG}")
@@ -162,31 +178,52 @@ def layout(ops):
             "warnings": warnings, "total": total}
 
 
+def _gfx_layer(n, o, gk, params, where):
+    if not (o.get("start", -1) >= 0 and 0 < o.get("dur", 0) <= 3600):
+        raise ValueError(f"{where}: needs start>=0 and 0 < dur <= 3600")
+    if not 0 <= o.get("opacity", 1.0) <= 1 or o.get("fade", 0.4) < 0:
+        raise ValueError(f"{where}: opacity must be in [0,1] and fade >= 0")
+    return {"kind": "graphic", "op": n, "start": float(o["start"]), "dur": float(o["dur"]), "gk": gk, "params": params,
+            "opacity": float(o.get("opacity", 1.0)), "fade": float(o.get("fade", 0.4))}
+
+
 def _label(L):
     if L["kind"] == "text":
         return f"text {L['text'][:24]!r}"
+    if L["kind"] == "graphic":
+        return f"graphic {L['gk']}"
     return f"{L['kind']} {L.get('src') or os.path.basename(L.get('path', ''))}"
 
 
-def _clean(text, where):
+def _clean(text, where, style="classic"):
     try:
-        return textrender.clean(text)
+        return textrender.clean(text, style)
     except ValueError as e:
         raise ValueError(f"{where}: {e}")
 
 
 def _text_style(o, where):
-    pos, size, color = o.get("pos", "bottom"), o.get("size", 0.06), o.get("color", "#ffffff")
+    pos, size, color = o.get("pos", "bottom"), o.get("size", 0.06), o.get("color") or None
+    style, upper, orn = o.get("style", "luxury"), o.get("uppercase"), o.get("ornament") or None
     fade = float(o.get("fade", 0.15))
+    try:
+        textrender.validate_style(style)
+    except ValueError as e:
+        raise ValueError(f"{where}: {e}")
+    if upper is not None and not isinstance(upper, bool):
+        raise ValueError(f"{where}: uppercase must be true, false or omitted")
+    if orn not in (None,) + textrender.ORNAMENTS:
+        raise ValueError(f"{where}: ornament must be one of {textrender.ORNAMENTS}")
     if pos not in textrender.POSITIONS:
         raise ValueError(f"{where}: pos must be one of {textrender.POSITIONS}")
     if not isinstance(size, (int, float)) or not 0.02 <= size <= 0.2:
         raise ValueError(f"{where}: size is a fraction of the frame height, between 0.02 and 0.2")
-    if not textrender.COLOR_RE.match(str(color)):
-        raise ValueError(f"{where}: color must look like #RRGGBB")
+    if color is not None and not textrender.COLOR_RE.match(str(color)):
+        raise ValueError(f"{where}: color must look like #RRGGBB (or omit it to use the style's own colour)")
     if fade < 0:
         raise ValueError(f"{where}: fade must be >= 0")
-    return {"pos": pos, "size": float(size), "color": color, "box": bool(o.get("box", False)), "fade": fade}
+    return {"pos": pos, "size": float(size), "color": color, "box": bool(o.get("box", False)), "fade": fade,
+            "style": style, "uppercase": upper, "ornament": orn}
 
 
 def _image_aspect(path, where):
@@ -214,16 +251,25 @@ def _image_aspect(path, where):
 def check_new_op(op):
     """Extra validation for a freshly added op that needs the frame size (call with live.W/H bound to the
     EXPORT resolution): text must fit on screen. Raises ValueError."""
-    texts = []
-    if op.get("op") == "text":
-        texts = [(op.get("text"), op.get("size", 0.06))]
-    elif op.get("op") == "subtitles":
+    k = op.get("op")
+    if k == "lower_third":
+        try:
+            graphics.lower_third(W, H, op["title"], op.get("subtitle", ""), op.get("align", "left"), strict=True)
+        except ValueError as e:
+            raise ValueError(str(e))
+        return
+    if k == "text":
+        texts, style, size, up = [(op.get("text"), op.get("size", 0.06))], op.get("style", "luxury"), None, op.get("uppercase")
+    elif k == "subtitles":
         texts = [(c.get("text"), op.get("size", 0.05)) for c in op.get("cues", [])]
+        style, up = op.get("style") or "champagne", op.get("uppercase")
+    else:
+        return
     for i, (t, size) in enumerate(texts):
         try:
-            textrender.layout_text(textrender.clean(t), W, H, size, strict=True)
+            textrender.layout_text(textrender.clean(t, style), W, H, size, strict=True, style=style, uppercase=up)
         except ValueError as e:
-            raise ValueError(f"{'cue ' + str(i) + ': ' if op.get('op') == 'subtitles' else ''}{e}")
+            raise ValueError(f"{'cue ' + str(i) + ': ' if k == 'subtitles' else ''}{e}")
 
 
 # ---------------------------------------------------------------- MLT build (the actual engine)
@@ -275,7 +321,10 @@ def build(ops):
         for L, s0, n in plan:
             if L["kind"] == "text":
                 src = textrender.render_text_png(L["text"], W, H, L["pos"], L["size"], L["color"], L["box"],
-                                                 cache_dir=CACHE, strict=False)
+                                                 cache_dir=CACHE, strict=False, style=L["style"],
+                                                 uppercase=L["uppercase"], ornament=L["ornament"])
+            elif L["kind"] == "graphic":
+                src = graphics.render(L["gk"], W, H, CACHE, **L["params"])
             elif L["kind"] == "image":
                 src = os.path.abspath(os.path.expanduser(L["path"]))
             else:
@@ -288,9 +337,9 @@ def build(ops):
                 lay.blank(s0 - cursor - 1)   # Playlist.blank(out) takes the OUT POINT: it creates out+1 frames
             lay.append(prod, first, first + n - 1)
             cursor = s0 + n
-            if L["kind"] == "text":
+            if L["kind"] in ("text", "graphic"):
                 x, y, w, h = 0, 0, W, H
-                op, ramp = 1.0, min(fr(L["fade"]), (n - 1) // 2)
+                op, ramp = L.get("opacity", 1.0), min(fr(L["fade"]), (n - 1) // 2)
             else:
                 mg = 0.04
                 w = W * L["scale"]
@@ -368,6 +417,10 @@ def describe(o):
         return f"Texto \u201c{o['text'][:30]}\u201d de {o['start']:g} a {o['start']+o['dur']:g} s", f"text @ {o['start']:g}s {o['dur']:g}s"
     if k == "subtitles":
         return f"Subtítulos ({len(o['cues'])} líneas)", f"subtitles x{len(o['cues'])}"
+    if k == "graphic":
+        return f"Gráfico {o['kind']} de {o['start']:g} a {o['start']+o['dur']:g} s", f"graphic {o['kind']} @ {o['start']:g}s"
+    if k == "lower_third":
+        return f"Tercio inferior \u201c{o['title'][:24]}\u201d", f"lower_third @ {o['start']:g}s"
     if k == "image":
         return f"Imagen {os.path.basename(o['path'])} de {o['start']:g} a {o['start']+o['dur']:g} s", f"image @ {o['start']:g}s {o['dur']:g}s"
     return (f"Picture-in-picture: clip {o['src']} de {o['start']:g} a {o['start']+o['dur']:g} s, arriba a la derecha",
@@ -404,7 +457,7 @@ def svg_timeline(m):
         x0, x1 = sx(L["start"]), sx(L["start"] + L["dur"])
         y = rows[f"L{L['track']}"]
         label = {"pip": f"{L.get('src', '')} · PiP", "text": L.get("text", "").replace("\n", " ")[:22],
-                 "image": "imagen"}[L["kind"]]
+                 "image": "imagen", "graphic": L.get("gk", "graphic")}[L["kind"]]
         c = cls(L["src"]) if L["kind"] == "pip" else "ctext"
         out.append(f'<rect class="clip {c}" x="{x0:.1f}" y="{y}" width="{max(x1-x0, 2):.1f}" height="28" rx="3"/>'
                    f'<text class="clipT" x="{x0+7:.1f}" y="{y+18}">{html.escape(label)}</text>')

@@ -151,7 +151,7 @@ async def main():
             res, err = await call("add_text", text="Canción: ¿Mañana vendrás? Ñandú", start_s=0.5, dur_s=2.0)
             check("add_text with accents/ñ/¿", err is None and res and res["overlays"][0]["kind"] == "text", err)
             with_text = await still_gray(1.0)
-            check("text really appears in the bottom of the frame", base and with_text and changed(base, with_text, 0.7, 1.0) > 150,
+            check("text really appears in the bottom of the frame (thin default style: fewer px at 160x90)", base and with_text and changed(base, with_text, 0.7, 1.0) > 70,
                   base and with_text and changed(base, with_text, 0.7, 1.0))
             check("...and not in the top of the frame", changed(base, with_text, 0.0, 0.5) < 30, changed(base, with_text, 0.0, 0.5))
             before_t = await still_gray(3.0)
@@ -253,6 +253,69 @@ async def main():
                 fa, fb = frame_gray(2.0), frame_gray(4.5)
                 check("subtitle is burned into the exported file (and gone later)", changed(fa, fb, 0.7, 1.0) > 150, changed(fa, fb, 0.7, 1.0))
             print(f"   (100-cue contact sheet: {dt_many:.2f}s)")
+
+            # =================== luxury styles + graphics (fresh project) ===================
+            await fresh()
+            res, err = await call("list_styles")
+            check("list_styles describes styles and graphics", err is None and res and "luxury" in res["text_styles"] and "frame" in res["graphics"], err)
+            base_ = await still_gray(1.0)
+            for stl in ("luxury", "luxury-italic", "champagne", "noir", "modern", "classic"):
+                res, err = await call("add_text", text="Señor Muñoz: ¿listos?", start_s=0.5, dur_s=2.0, style=stl, position="center")
+                check(f"add_text style={stl}", err is None, err)
+                await call("undo")
+            res, err = await call("add_text", text="Inauguración", start_s=0.5, dur_s=2.0, position="center", color="#ff0000")
+            check("add_text colour override with the default (gradient) style", err is None, err)
+            await call("undo")
+            for label, kw, needle in [("unknown style", dict(text="Hola", start_s=1, dur_s=1, style="fancy"), "unknown style"),
+                                      ("bad ornament", dict(text="Hola", start_s=1, dur_s=1, ornament="swirl"), "ornament must"),
+                                      ("bad colour", dict(text="Hola", start_s=1, dur_s=1, color="gold"), "#RRGGBB")]:
+                _, err = await call("add_text", **kw)
+                check(f"add_text rejects: {label}", err is not None and needle in err, err)
+            _, err = await call("add_subtitles", cues=[{"start": 0.5, "end": 1.5, "text": "Hola"}], style="fancy")
+            check("add_subtitles rejects an unknown style", err is not None and "unknown style" in err, err)
+
+            def corner_mean(raw, w=160, h=90):      # mean luma of the 4 corner blocks
+                blk = lambda x0, y0: [raw[y * w + x] for y in range(y0, y0 + 8) for x in range(x0, x0 + 8)]
+                px = blk(0, 0) + blk(w - 8, 0) + blk(0, h - 8) + blk(w - 8, h - 8)
+                return sum(px) / len(px)
+            def top_rows(raw, w=160, h=90): return sum(raw[:w * 6]) / (w * 6)
+            await call("add_graphic", kind="vignette", start_s=0.5, dur_s=3.0, amount=0.9, fade_s=0.0)
+            vg = await still_gray(1.5)
+            check("vignette darkens the corners", base_ and vg and corner_mean(vg) < 0.8 * corner_mean(base_), (corner_mean(base_), corner_mean(vg) if vg else None))
+            await call("undo")
+            await call("add_graphic", kind="letterbox", start_s=0.5, dur_s=3.0, amount=0.12, fade_s=0.0)
+            lb = await still_gray(1.5)
+            check("letterbox paints black bars at the top", lb and top_rows(lb) < 30 and top_rows(base_) > 60, (top_rows(lb) if lb else None, top_rows(base_)))
+            await call("undo")
+            await call("add_graphic", kind="frame", start_s=0.5, dur_s=3.0, fade_s=0.0)
+            fr_ = await still_gray(1.5)
+            check("frame draws a keyline near the edges and leaves the centre alone",
+                  base_ and fr_ and changed(base_, fr_, 0.0, 1.0) > 80 and sum(abs(base_[(45 * 160) + x] - fr_[(45 * 160) + x]) for x in range(60, 100)) < 40, changed(base_, fr_) if fr_ else None)
+            await call("undo")
+            res, err = await call("add_lower_third", title="Señor Muñoz", subtitle="Director de Proyecto", start_s=1.0, dur_s=3.0)
+            check("add_lower_third", err is None and res and res["overlays"][0]["graphic"] == "lower_third", err)
+            lt = await still_gray(2.0)
+            check("lower third appears in the bottom area only", base_ and lt and changed(base_, lt, 0.6, 1.0) > 200 and changed(base_, lt, 0.0, 0.45) < 30, changed(base_, lt, 0.6, 1.0) if lt else None)
+            for label, kw, needle in [("title over 60 chars", dict(title="x" * 61), "single-line"), ("line break", dict(title="Hola\nMundo"), "single-line"),
+                                      ("glyph missing", dict(title="Hola \U0001FAE0"), "unsupported character"), ("bad align", dict(title="Hola", align="center"), "align")]:
+                _, err = await call("add_lower_third", start_s=1.0, dur_s=2.0, **kw)
+                check(f"add_lower_third rejects: {label}", err is not None and needle in err, err)
+            for label, kw, needle in [("unknown kind", dict(kind="sparkles"), "unknown graphic"), ("amount out of range", dict(kind="letterbox", amount=0.9), "amount"),
+                                      ("starts after the end", dict(kind="frame", start_s=60), "only")]:
+                kw.setdefault("start_s", 1.0)
+                _, err = await call("add_graphic", dur_s=2.0, **kw)
+                check(f"add_graphic rejects: {label}", err is not None and needle in err, err)
+            # a full luxury stack renders and exports
+            await fresh()
+            for name, kw in [("add_graphic", dict(kind="vignette", start_s=0.0, dur_s=6.0, amount=0.5)), ("add_graphic", dict(kind="frame", start_s=0.0, dur_s=6.0)),
+                             ("add_text", dict(text="Gran Inauguración", start_s=0.5, dur_s=2.5, position="top", size=0.08, style="luxury")),
+                             ("add_lower_third", dict(title="Señor Muñoz", subtitle="Director", start_s=3.0, dur_s=2.5)),
+                             ("add_subtitles", dict(cues=[{"start": 1.0, "end": 2.5, "text": "Bienvenidos, señoras y señores."}], style="champagne"))]:
+                res, err = await call(name, **kw)
+                if err: break
+            check("luxury stack (vignette + frame + title + lower third + subtitles) accepted", err is None, err)
+            ex3, err = await call("export", output_path=os.path.join(TMP, "luxury.mp4"), quality="draft")
+            check("luxury stack exports", err is None and ex3 and abs(ex3["duration_s"] - 6.0) < 0.05, err or ex3)
 
             # ---- stability: many renders in one process (repeated Factory.init / profile creation)
             t0 = time.perf_counter()

@@ -50,4 +50,55 @@ for label, kw in [("plain", {}), ("BOM + CRLF", dict(bom=True, crlf=True)), ("la
 r, m = raises(lambda: T.parse_srt(srt("1\n00:00:01 --> garbage\nhi\n")), "bad timestamp"); check("bad srt timestamp names the block", r and "block 1" in m, m)
 r, m = raises(lambda: T.parse_srt("/no/such.srt"), "not found"); check("missing srt", r, m)
 r, m = raises(lambda: T.parse_srt(srt("\n\n")), "no subtitle cues"); check("empty srt", r, m)
+
+# ---------------- styles
+import graphics as G
+check("6 styles registered", set(T.STYLE_NAMES) == {"classic", "luxury", "luxury-italic", "champagne", "noir", "modern"}, T.STYLE_NAMES)
+for st in T.STYLE_NAMES:
+    try:
+        p = T.render_text_png("Señor Muñoz: ¿Cómo estás? ¡Excelente!", 540, 960, style=st, cache_dir=tmp); bb = bbox(p)
+        check(f"style {st}: accents render inside the frame", bb and bb[0] >= 20 and bb[2] <= 520, bb)
+    except Exception as e:
+        check(f"style {st}: accents render inside the frame", False, e)
+    try:
+        bb = bbox(T.render_text_png("Una frase de subtítulo que se ajusta sola sin cortarse", 540, 960, style=st, size=0.05, box=True, cache_dir=tmp))
+        check(f"style {st}: long text wraps inside margins (with box)", bb and bb[0] >= 5 and bb[2] <= 535, bb)
+    except Exception as e:
+        check(f"style {st}: long text wraps inside margins (with box)", False, e)
+def rgb_mean(path, thr=200):
+    im = Image.open(path).convert("RGBA"); px = [p for p in im.getdata() if p[3] > thr]; return tuple(sum(c[i] for c in px) / len(px) for i in range(3)) if px else None
+gold = rgb_mean(T.render_text_png("Oro", 540, 960, style="luxury", cache_dir=tmp)); white = rgb_mean(T.render_text_png("Oro", 540, 960, style="classic", cache_dir=tmp))
+near_white = lambda p_: sum(1 for px in Image.open(p_).convert("RGBA").getdata() if px[3] > 200 and min(px[:3]) > 230)
+check("luxury text is gold (R>G>B)", gold and gold[0] > gold[1] > gold[2] + 40, gold)
+check("classic text is white (many near-white pixels)", near_white(T.render_text_png("Oro", 540, 960, style="classic", cache_dir=tmp)) > 200)
+check("luxury has (almost) no near-white pixels: it is gold, not white", near_white(T.render_text_png("Oro", 540, 960, style="luxury", cache_dir=tmp)) < 100)
+red = rgb_mean(T.render_text_png("Oro", 540, 960, style="luxury", color="#ff0000", cache_dir=tmp))
+check("explicit colour overrides the gold gradient (regression: tuple confusion)", red and red[0] > 180 and red[1] < 80 and red[2] < 80, red)
+a = bbox(T.render_text_png("Hola", 540, 960, style="champagne", cache_dir=tmp)); b = bbox(T.render_text_png("Hola", 540, 960, style="noir", cache_dir=tmp))
+check("noir is letter-spaced (wider than champagne for the same word)", (b[2] - b[0]) > 1.4 * (a[2] - a[0]), (a, b))
+up = bbox(T.render_text_png("hola", 540, 960, style="champagne", uppercase=True, cache_dir=tmp)); lo = bbox(T.render_text_png("hola", 540, 960, style="champagne", cache_dir=tmp))
+check("uppercase option changes the rendering", up != lo)
+check("ornament override works (none vs diamond differ)", bbox(T.render_text_png("Hola", 540, 960, style="luxury", ornament="none", pos="top", cache_dir=tmp)) != bbox(T.render_text_png("Hola", 540, 960, style="luxury", ornament="diamond", pos="top", cache_dir=tmp)))
+for label, kw, needle in [("unknown style", dict(style="fancy"), "unknown style"), ("bad ornament", dict(ornament="swirl"), "ornament must")]:
+    r, m = raises(lambda: T.render_text_png("Hola", 540, 960, cache_dir=tmp, **kw), needle); check(f"rejects {label}", r, m)
+check("style fonts all ship in the repo", all(os.path.isfile(T.font_path(s_)) for s_ in T.STYLE_NAMES))
+
+# ---------------- graphics
+for kind in G.KINDS:
+    for amt in (None, G.AMOUNT[kind][1], G.AMOUNT[kind][2]):
+        p = G.render(kind, 540, 960, tmp, amount=amt); im = Image.open(p)
+        check(f"graphic {kind} amount={amt}: full-frame RGBA with content", im.size == (540, 960) and im.mode == "RGBA" and im.getchannel("A").getbbox() is not None)
+    r, m = raises(lambda: G.validate(kind, {"amount": 5}), "amount"); check(f"graphic {kind}: rejects out-of-range amount", r, m)
+r, m = raises(lambda: G.validate("sparkles", {}), "unknown graphic"); check("graphic: rejects unknown kind", r, m)
+im = Image.open(G.render("letterbox", 540, 960, tmp, amount=0.1)); check("letterbox: bars at top and bottom only", im.getpixel((270, 20))[3] == 255 and im.getpixel((270, 480))[3] == 0)
+im = Image.open(G.render("vignette", 540, 960, tmp, amount=0.8)); check("vignette: transparent centre, dark corners", im.getpixel((270, 480))[3] < 15 and im.getpixel((2, 2))[3] > 100)
+for al in ("left", "right"):
+    p = G.render("lower_third", 540, 960, tmp, title="Ñandú Vázquez", subtitle="Dirección creativa", align=al); bb = bbox(p)
+    check(f"lower third ({al}) renders in the bottom area, inside the frame", bb and bb[1] > 960 * 0.6 and bb[0] >= 0 and bb[2] <= 540, bb)
+r, m = raises(lambda: G.lower_third(540, 960, "x" * 70, ""), "title max 60"); check("lower third rejects a 70-char title", r, m)
+r, m = raises(lambda: G.lower_third(540, 960, "Hola\nMundo", ""), "single lines"); check("lower third rejects line breaks", r, m)
+r, m = raises(lambda: G.lower_third(540, 960, "Hola 🫠", ""), "unsupported character"); check("lower third rejects missing glyphs", r, m)
+r, m = raises(lambda: G.lower_third(320, 180, "W" * 58, "M" * 78), "too long to fit"); check("lower third that cannot fit is refused (strict)", r, m)
+try: G.lower_third(320, 180, "W" * 58, "M" * 78, strict=False); check("...but never fails at render time (strict=False)", True)
+except Exception as e: check("...but never fails at render time (strict=False)", False, e)
 print(f"\n{len(ok)} passed, {len(bad)} failed"); sys.exit(1 if bad else 0)

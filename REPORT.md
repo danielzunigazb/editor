@@ -463,11 +463,47 @@ cientos de archivos fuente distintos.
 plano con progreso y cancelación; (3) un proceso/worker por proyecto; (4) proxies de baja resolución para vista previa;
 (5) Movit/GPU para composición; (6) límite/limpieza de la caché de texto.
 
+### 11.3 Estilo "lujo": tipografía y recursos gráficos (añadido a petición del usuario)
+
+**Estilos de texto** (`add_text`, `add_subtitles`; `list_styles` los describe): `luxury` (Playfair Display, dorado metálico con
+degradado, sombra suave y halo oscuro fino, ornamento de filete con rombo; **por defecto en títulos**), `luxury-italic`,
+`champagne` (Cormorant Garamond, marfil, caja de cristal con filete dorado; **por defecto en subtítulos**), `noir` (Cinzel,
+capitales con mucho espaciado), `modern` (Montserrat en mayúsculas, muy espaciado) y `classic` (el aspecto original). Las
+fuentes son OFL y van empaquetadas en `fonts/` con sus licencias (6 archivos, ~3 MB). Opciones nuevas: `style`, `uppercase`,
+`ornament` (none/line/diamond) y `color` opcional (vacío = color propio del estilo; un color explícito reemplaza el degradado).
+Las seis fuentes cubren acentos, ñ, ¿¡ y comillas tipográficas.
+
+**Recursos gráficos** dibujados por programa (sin imágenes binarias): `add_graphic` con `frame` (doble filete dorado con rombos en
+esquinas y puntos medios), `letterbox` (barras de cine con hilo dorado) y `vignette`; y `add_lower_third` (panel de cristal con
+barra dorada lateral, título en dorado y subtítulo en capitales marfil espaciadas, alineable a izquierda/derecha). Total: 21 herramientas.
+
+**Verificación visual:** antes de integrar, galería de los 6 estilos sobre fotogramas reales (uno claro y uno nocturno). Eso mostró
+que el dorado perdía legibilidad sobre fondo claro (se añadió un halo oscuro fino) y que el ornamento ensuciaría cada subtítulo
+(se desactiva por defecto en subtítulos).
+
+**Bug encontrado por las pruebas:** con un `color` explícito, el código confundía la tupla RGB con los tramos del degradado
+(`TypeError`); cualquier `color="#ffdd00"` con el estilo por defecto habría fallado. Corregido, con prueba de regresión.
+
+**Pruebas (todas verdes):** `test_text.py` 70/70 (estilos, acentos, ajuste, color, espaciado, gráficos, tercio inferior y sus
+rechazos), `test_engine.py` 13/13 (cuadro por cuadro; incluye pila de lujo, barras de cine, tercios inferiores consecutivos),
+`test_mcp.py` 93/93 (cada gráfico verificado en pantalla: viñeta oscurece esquinas, barras arriba, marco en bordes sin tocar el
+centro, tercio inferior solo abajo; rechazos de estilo/ornamento/color/amount/kind; pila de lujo exportada). Los umbrales se
+recalibraron dos veces por errores de la prueba, no del código (el estilo por defecto es más fino que el blanco grueso anterior).
+**Modelo real + tus clips:** pieza completa (viñeta, marco, título, tercio inferior, subtítulos) sin errores de herramientas; el
+modelo ajustó por sí mismo el tamaño del título y de los subtítulos tras ver que partían en dos líneas y tapaban al sujeto. En el
+MP4 final, 156 frames: sin destellos (luma mínima 16 en el inicio del fade-in).
+
+**Limitaciones:** solo estos 6 estilos (sin fuente propia); color de los gráficos fijo (dorado); estilos de capitales espaciadas
+(`noir`, `modern`) rechazan frases largas que `luxury`/`champagne` sí aceptan; el tamaño por defecto (0.06) parte "Gran Inauguración"
+en dos líneas en vertical, conviene 0.04-0.05; el halo ayuda pero el texto claro sobre fondos muy brillantes puede seguir cansando.
+No se ha evaluado el resultado con una persona más allá de la inspección de fotogramas.
+
 ## 10. Archivos
 
 - `poc.py`: el POC (gen/build/bench/preview/export/measure).
 - `POC_MODE=multi` en `poc.py`: multipista con composición (sección 9; requiere `xvfb-run`).
 - `POC_MODE=real` en `poc.py`: timeline con clips reales de `media_real/` (sección 8).
+- `graphics.py`, `fonts/`: recursos de lujo y fuentes OFL (sección 11.3).
 - `textrender.py`, `test_text.py`, `test_engine.py`: texto/subtítulos y pruebas cuadro a cuadro (sección 11.2).
 - `server.py`, `test_mcp.py`, `setup.sh`, `requirements.txt`, `mcp.example.json`: servidor MCP y su prueba (sección 11).
 - `live.py`, `viewer_template.html`: motor declarativo y visor de la sesión en vivo.

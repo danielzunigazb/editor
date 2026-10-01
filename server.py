@@ -40,6 +40,7 @@ def _ensure_display():
 
 _ensure_display()
 import live  # noqa: E402  (engine: layout/build/render)
+import graphics  # noqa: E402
 import textrender  # noqa: E402
 from mcp.server.fastmcp import FastMCP, Image  # noqa: E402
 
@@ -71,7 +72,7 @@ def bind(st, scale=1.0):
     live.CACHE = os.path.join(HOME, "cache")
 
 
-OVERLAYS = ("pip", "text", "subtitles", "image")
+OVERLAYS = ("pip", "text", "subtitles", "image", "graphic", "lower_third")
 
 
 def commit(st, op):
@@ -109,6 +110,8 @@ def summary(st):
             d["text"] = L["text"]
         elif L["kind"] == "image":
             d["image"] = os.path.basename(L["path"])
+        elif L["kind"] == "graphic":
+            d["graphic"] = L["gk"]
         else:
             d["source"] = L["src"]
         layers.append(d)
@@ -220,22 +223,40 @@ def add_pip(source: str, start_s: float, dur_s: float, position: str = "top-righ
 
 
 @mcp.tool()
+def list_styles() -> dict:
+    """Text styles available for add_text / add_subtitles, and the graphic kinds for add_graphic."""
+    return {"text_styles": {k: v["label"] for k, v in textrender.STYLES.items()},
+            "default_title_style": "luxury", "default_subtitle_style": "champagne",
+            "graphics": {k: f"amount = {graphics.AMOUNT[k][0]}, {graphics.AMOUNT[k][1]}-{graphics.AMOUNT[k][2]} "
+                            f"(default {graphics.AMOUNT[k][3]})" for k in graphics.KINDS},
+            "lower_third": "name + role panel with a gold side bar (add_lower_third)"}
+
+
+@mcp.tool()
 def add_text(text: str, start_s: float, dur_s: float, position: str = "bottom", size: float = 0.06,
-             color: str = "#ffffff", box: bool = False, fade_s: float = 0.15) -> dict:
+             style: str = "luxury", color: str = "", box: bool = False, uppercase: bool | None = None,
+             ornament: str = "", fade_s: float = 0.15) -> dict:
     """Show a title/caption from start_s for dur_s (TIMELINE time). Latin text with accents, ñ, ¿¡ is
     supported; use \\n for a line break. Long text is wrapped and shrunk to fit (max 4 lines, 200 chars);
     text that cannot fit, or characters the font lacks (CJK, newer emoji), are rejected with a message.
-    position: bottom | center | top. size: fraction of frame height (0.02-0.2). color: #RRGGBB.
-    box: dark rounded box behind the text. Text gets an automatic outline for readability."""
+    style: luxury (default, Playfair Display in metallic gold) | luxury-italic | champagne (Cormorant, soft ivory) |
+    noir (Cinzel capitals, wide tracking) | modern (Montserrat uppercase) | classic (plain white sans). See list_styles.
+    position: bottom | center | top. size: fraction of frame height (0.02-0.2).
+    color: optional #RRGGBB; leave empty to keep the style's own colour (gold gradient for luxury).
+    box: dark glass box behind the text. uppercase: force/forbid capitals (default per style).
+    ornament: none | line | diamond (thin gold rule; default per style). All styles add a soft shadow for readability."""
     return commit(load(), {"op": "text", "text": text, "start": start_s, "dur": dur_s, "pos": position,
-                           "size": size, "color": color, "box": box, "fade": fade_s})
+                           "size": size, "style": style, "color": color or None, "box": box,
+                           "uppercase": uppercase, "ornament": ornament or None, "fade": fade_s})
 
 
 @mcp.tool()
 def add_subtitles(srt_path: str = "", cues: list[dict] | None = None, offset_s: float = 0.0,
-                  position: str = "bottom", size: float = 0.05, color: str = "#ffffff", box: bool = True) -> dict:
+                  position: str = "bottom", size: float = 0.05, style: str = "champagne", color: str = "",
+                  box: bool = True) -> dict:
     """Add subtitles from an .srt file (srt_path) OR a list of cues [{"start":1.0,"end":2.5,"text":"Hola"}]
     (seconds, timeline time). Give exactly one. offset_s shifts every cue (positive = later).
+    style: champagne (default, elegant Cormorant on a dark glass box) | luxury | luxury-italic | noir | modern | classic.
     Same text rules as add_text (accents/ñ fine; up to 300 cues). Cues after the timeline end are
     dropped with a warning. Calling it again ADDS another subtitle track; use remove_op to replace."""
     if bool(srt_path) == bool(cues):
@@ -246,8 +267,29 @@ def add_subtitles(srt_path: str = "", cues: list[dict] | None = None, offset_s: 
         if not isinstance(c, dict) or not {"start", "end", "text"} <= set(c):
             raise ValueError(f"cue {i} must be an object with start, end and text")
         shifted.append({"start": c["start"] + offset_s, "end": c["end"] + offset_s, "text": c["text"]})
-    return commit(load(), {"op": "subtitles", "cues": shifted, "pos": position, "size": size, "color": color,
-                           "box": box, "fade": 0.0})
+    return commit(load(), {"op": "subtitles", "cues": shifted, "pos": position, "size": size, "style": style,
+                           "color": color or None, "box": box, "fade": 0.0, "ornament": "none"})
+
+
+@mcp.tool()
+def add_graphic(kind: str, start_s: float, dur_s: float, amount: float | None = None, opacity: float = 1.0,
+                fade_s: float = 0.5) -> dict:
+    """Add a luxury graphic overlay (drawn to match the video size) from start_s for dur_s (TIMELINE time).
+    kind: frame (thin double gold keyline with diamonds) | letterbox (cinema bars with a gold hairline) |
+    vignette (soft dark edges). amount (optional): frame inset 0.015-0.08 | letterbox bar height 0.04-0.25 |
+    vignette strength 0.1-1. opacity 0-1; fade_s = fade in/out at the edges. Stack with text for a polished look."""
+    return commit(load(), {"op": "graphic", "kind": kind, "start": start_s, "dur": dur_s, "amount": amount,
+                           "opacity": opacity, "fade": fade_s})
+
+
+@mcp.tool()
+def add_lower_third(title: str, subtitle: str = "", start_s: float = 0.0, dur_s: float = 4.0,
+                    align: str = "left", fade_s: float = 0.4) -> dict:
+    """Name/role caption panel at the bottom: gold side bar, title in metallic gold, subtitle in tracked ivory
+    capitals (e.g. title "Señor Muñoz", subtitle "Director de Proyecto"). Single lines only (title max 60 chars,
+    subtitle max 80). align: left | right. Shown from start_s for dur_s (TIMELINE time)."""
+    return commit(load(), {"op": "lower_third", "title": title, "subtitle": subtitle, "start": start_s,
+                           "dur": dur_s, "align": align, "fade": fade_s})
 
 
 @mcp.tool()

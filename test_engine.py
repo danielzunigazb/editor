@@ -11,7 +11,7 @@ live.CLIP_LEN = {"A": 6.0, "B": 5.0, "C": 4.0}
 live.W, live.H, live.FPS = 320, 180, 25
 live.CACHE = tempfile.mkdtemp(prefix="eng_cache_")
 BASE = [{"op": "add", "src": "A"}, {"op": "add", "src": "B"}, {"op": "crossfade", "between": [0, 1], "dur": 1.0}]  # 10 s
-OVER = ("pip", "text", "subtitles", "image")
+OVER = ("pip", "text", "subtitles", "image", "graphic", "lower_third")
 from PIL import Image
 png = os.path.join(live.CACHE, "mark.png"); Image.new("RGBA", (120, 60), (255, 0, 0, 255)).save(png)
 T = lambda t, s, d, **k: {"op": "text", "text": t, "start": s, "dur": d, **k}
@@ -27,6 +27,15 @@ SCENARIOS = {
     "image whole video + text + pip": BASE + [{"op": "image", "path": png, "start": 0.0, "dur": 10.0, "pos": "top-left", "scale": 0.2},
                                               T("Título", 1.0, 2.0), {"op": "pip", "src": "C", "start": 4.0, "dur": 3.0}],
     "crossfade + fade-out + subtitles": BASE + [{"op": "fade", "in": 0.5, "out": 1.0}, cues([(2.0, 3.5), (4.0, 5.5), (8.5, 9.8)])],
+    "luxury stack: frame + vignette + title + lower third": BASE + [
+        {"op": "graphic", "kind": "frame", "start": 0.0, "dur": 10.0}, {"op": "graphic", "kind": "vignette", "start": 0.0, "dur": 10.0},
+        T("Gran Inauguración", 1.0, 2.0, style="luxury"), {"op": "lower_third", "title": "Señor Muñoz", "subtitle": "Director", "start": 4.0, "dur": 3.0}],
+    "letterbox + noir/modern subtitles + luxury-italic title": BASE + [
+        {"op": "graphic", "kind": "letterbox", "start": 1.0, "dur": 7.0, "fade": 0.0},
+        cues([(2.0, 3.0), (3.0, 4.0)]) | {"style": "noir"}, T("Título", 5.0, 2.0, style="luxury-italic"), T("Moderno", 7.5, 1.0, style="modern")],
+    "back-to-back graphics and lower thirds (no fade)": BASE + [
+        {"op": "lower_third", "title": "Uno", "start": 1.0, "dur": 1.0, "fade": 0.0}, {"op": "lower_third", "title": "Dos", "start": 2.0, "dur": 1.0, "fade": 0.0, "align": "right"},
+        {"op": "graphic", "kind": "frame", "start": 3.0, "dur": 2.0, "fade": 0.0}, {"op": "graphic", "kind": "frame", "start": 5.0, "dur": 2.0, "fade": 0.0}],
     "40 dense cues": BASE + [cues([(round(i * 0.25, 2), round(i * 0.25 + 0.2, 2)) for i in range(40)])],
 }
 
