@@ -669,6 +669,42 @@ distintos y tercios inferiores, pistas contiguas), `test_text.py` 74, `test_mcp.
 cubre `frame`, `letterbox` y `vignette` con el mismo inicio, duración, opacidad y fade; las formas muy dispersas (como el marco, cuya caja es todo
 el cuadro) no se benefician del recorte. Se podrían dividir en bandas, sin probar.
 
+## 16. Prueba con un modelo real tras la revisión y las optimizaciones (eficiencia)
+
+Dos corridas de `claude -p --mcp-config .mcp.json --output-format json` contra el servidor actual, con los clips reales del usuario (1080x1920),
+midiendo con los datos que reporta Claude Code. Un modelo, una corrida por caso.
+
+| | A: pedido preciso | B: pedido abierto |
+|---|---|---|
+| Pedido | R1+R2, fundido, fades, viñeta, marco, título, tercio inferior, 2 subtítulos, revisar una vez | los 3 clips, ~10 s, "acabado de lujo", el modelo decide cortes, estilos y textos |
+| Tiempo total | 30.7 s (28.8 s según el cliente) | 33.5 s (31.7 s) |
+| Turnos | 19 | 20 |
+| Tokens de salida | 2.553 | 2.723 |
+| Tokens de entrada procesados | 419.403 (94% de caché) | 419.449 (94%) |
+| Costo | 0.212 USD | 0.206 USD |
+| Errores de herramientas | ninguno | ninguno |
+| Resultado verificado (ffprobe + cada frame) | 1080x1920, 6.5 s, 156 frames, sin destellos | 1080x1920, 9.8 s (3x3.8 - 2x0.8 = 9.8, exacto), 245 frames, sin destellos |
+
+**Comportamiento del modelo:** en A reconoció en la hoja de contactos que los subtítulos tapaban el tercio inferior y los movió al centro por
+su cuenta (no volvió a revisar el export final porque se le pidió revisar "una vez"). En B eligió estilos (`luxury` + `champagne`), inventó título y tres
+subtítulos con acentos, acortó uno que dejaba una palabra suelta en la segunda línea y declaró lo que no verificó (audio, video exportado).
+
+**Dónde se va el costo (medido):**
+- El tiempo es casi todo del modelo: ~22 s de API de ~30 s; el servidor aporta ms por edición, ~0.3 s por hoja de contactos y 1-3 s por export.
+- Cada turno procesa ~21.000 tokens de entrada (94% de caché) con ~135 de salida. Las **definiciones de las 21 herramientas pesan ~3.600 tokens por
+  turno** (12.466 caracteres; la mayor es `add_text`, 1.815) y las **respuestas del servidor son pequeñas: ~3.000 tokens en total** en 13 pasos (cada
+  edición devuelve el estado completo, 37 -> 1.828 caracteres, crece con el proyecto).
+- Conclusión: el costo lo marca el **número de turnos** (cada llamada a una herramienta es un turno: ~12 llamadas -> 19-20 turnos), no el peso de las
+  respuestas ni la velocidad del servidor.
+
+**Mejoras candidatas (NO implementadas, solo medidas las premisas):** (1) una herramienta de lote `apply_ops(lista)` que ejecute varias ediciones de una
+llamada: con la mitad de turnos el costo bajaría en proporción parecida (estimación, no medida); (2) respuestas de edición compactas (solo lo cambiado
+y advertencias; hoy repiten `ops` completo); (3) acortar descripciones largas; (4) **avisar de choques en pantalla** (p. ej. subtítulos abajo + tercio inferior
+a la vez): hoy solo se ven mirando la imagen.
+
+**Limitaciones:** un modelo y una corrida por caso; el tiempo incluye el arranque del cliente; los números de tokens son los del cliente y dependen del
+sistema base de Claude Code (~17K tokens por turno que no controla este servidor).
+
 ## 10. Archivos
 
 - `poc.py`: el POC (gen/build/bench/preview/export/measure).
