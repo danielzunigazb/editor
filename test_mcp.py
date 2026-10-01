@@ -110,6 +110,20 @@ async def main():
             check("export draft", err is None and ex and ex["resolution"] == "1280x720" and abs(ex["duration_s"] - 7.0) < 0.05,
                   err or ex)
 
+            # ---- regression: a fade-OUT only must not black out frame 0 (bug found by a real model run)
+            await call("set_fades", fade_in_s=0.0, fade_out_s=1.0)
+            res = await s.call_tool("get_still", {"time_s": 0.0})
+            img0 = next((c for c in res.content if c.type == "image"), None)
+            if img0:
+                import base64
+                raw = subprocess.run(["ffmpeg", "-v", "error", "-i", "-", "-frames:v", "1", "-vf", "scale=32:18,format=gray",
+                                      "-f", "rawvideo", "-"], input=base64.b64decode(img0.data), capture_output=True).stdout
+                luma = sum(raw) / max(len(raw), 1)
+                check("fade_in=0 keeps frame 0 visible", luma > 40, f"luma {luma:.1f}")
+            else:
+                check("fade_in=0 keeps frame 0 visible", False, "no image")
+            await call("set_fades", fade_in_s=0.5, fade_out_s=1.0)
+
             # ---- stability: many renders in one process (repeated Factory.init / profile creation)
             t0 = time.perf_counter()
             ok = True

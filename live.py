@@ -155,7 +155,10 @@ def build(ops):
         fi, fo = fr(m["fade"]["in"]), fr(m["fade"]["out"])
         for service, lo, hi in (("brightness", 0, 1), ("volume", -60, 0)):   # volume.level is dB
             f = mlt7.Filter(p, service)
-            f.set("level", f"0={lo};{max(fi,1)}={hi};{total-max(fo,1)}={hi};{total-1}={lo}")
+            kf = [f"0={lo};{fi}={hi}"] if fi > 0 else [f"0={hi}"]      # no fade-in => frame 0 must stay at full level
+            if fo > 0:
+                kf.append(f"{total-fo}={hi};{total-1}={lo}")
+            f.set("level", ";".join(kf))
             f.set_in_and_out(0, total - 1)          # attached filters default to in=out=0
             tr.attach(f)
     return p, tr, m, total
