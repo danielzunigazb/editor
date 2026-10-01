@@ -39,33 +39,65 @@ PLAN = [
 
 # ---------------------------------------------------------------- timeline model (pure python)
 def layout(ops):
-    """Compute entry durations/starts and effects from the op list (for validation + the SVG)."""
+    """Compute entry durations/starts and effects from the op list (for validation + the SVG).
+    Raises ValueError with a message the caller can show verbatim."""
     entries, xfades, fade, pip = [], {}, None, None
-    for o in ops:
-        k = o["op"]
+    for n, o in enumerate(ops):
+        k = o.get("op")
+        where = f"op {n} ({k})"
         if k == "add":
-            entries.append({"src": o["src"], "dur": CLIP_LEN[o["src"]]})
+            src = o.get("src")
+            if src not in CLIP_LEN:
+                raise ValueError(f"{where}: unknown source '{src}'; known: {sorted(CLIP_LEN)}")
+            start, end = float(o.get("in", 0.0)), float(o.get("end", CLIP_LEN[src]))
+            if not (0 <= start < end <= CLIP_LEN[src] + 1e-6):
+                raise ValueError(f"{where}: range {start:g}-{end:g}s outside source '{src}' (0-{CLIP_LEN[src]:g}s)")
+            entries.append({"src": src, "in": start, "dur": end - start})
         elif k == "cut":
-            e = entries[o["clip"]]
+            i = o.get("clip")
+            if not isinstance(i, int) or not 0 <= i < len(entries):
+                raise ValueError(f"{where}: no timeline entry {i} (have {len(entries)})")
+            e = entries[i]
             if not 0 < o["at"] < e["dur"]:
-                raise ValueError(f"cut at {o['at']} outside clip of {e['dur']} s")
+                raise ValueError(f"{where}: cut at {o['at']:g}s is outside entry {i} (length {e['dur']:g}s)")
             e["dur"] = o["at"]
         elif k == "crossfade":
-            a, b = o["between"]
-            if b != a + 1 or b >= len(entries):
-                raise ValueError("crossfade needs two adjacent existing entries")
-            xfades[a] = o["dur"]
+            a_, b_ = o["between"]
+            if b_ != a_ + 1 or a_ < 0 or b_ >= len(entries):
+                raise ValueError(f"{where}: needs two adjacent existing entries (have {len(entries)})")
+            if o["dur"] <= 0:
+                raise ValueError(f"{where}: dur must be > 0")
+            xfades[a_] = o["dur"]
         elif k == "fade":
-            fade = {"in": o.get("in", 0.0), "out": o.get("out", 0.0)}
+            fade = {"in": float(o.get("in", 0.0)), "out": float(o.get("out", 0.0))}
+            if fade["in"] < 0 or fade["out"] < 0:
+                raise ValueError(f"{where}: fade times must be >= 0")
         elif k == "pip":
+            src = o.get("src")
+            if src not in CLIP_LEN:
+                raise ValueError(f"{where}: unknown source '{src}'; known: {sorted(CLIP_LEN)}")
+            if o.get("pos", "top-right") not in ("top-right", "top-left", "bottom-right", "bottom-left"):
+                raise ValueError(f"{where}: pos must be top-right|top-left|bottom-right|bottom-left")
+            if not 0 < o.get("scale", 0.3) <= 1 or not 0 <= o.get("opacity", 1.0) <= 1:
+                raise ValueError(f"{where}: scale must be in (0,1] and opacity in [0,1]")
+            if o["start"] < 0 or o["dur"] <= 0 or o.get("in", 0.0) < 0 or o.get("in", 0.0) + o["dur"] > CLIP_LEN[src] + 1e-6:
+                raise ValueError(f"{where}: needs start>=0, dur>0 and in+dur <= source length {CLIP_LEN[src]:g}s")
             pip = dict(o)
         else:
-            raise ValueError(f"unknown op {k}")
+            raise ValueError(f"{where}: unknown op")
+    for i, e in enumerate(entries):   # a clip must be long enough for the dissolves on both of its sides
+        need = xfades.get(i - 1, 0.0) + xfades.get(i, 0.0)
+        if need > e["dur"] + 1e-6:
+            raise ValueError(f"entry {i} is {e['dur']:g}s long but its crossfades need {need:g}s")
     t = 0.0
     for i, e in enumerate(entries):
         e["start"] = t
         t += e["dur"] - xfades.get(i, 0.0)   # next entry starts `dur` earlier
     total = max((e["start"] + e["dur"] for e in entries), default=0.0)
+    if fade and fade["in"] + fade["out"] > total + 1e-6:
+        raise ValueError(f"fade in+out ({fade['in']+fade['out']:g}s) is longer than the timeline ({total:g}s)")
+    if pip and pip["start"] >= total:
+        raise ValueError(f"pip starts at {pip['start']:g}s but the timeline ends at {total:g}s")
     return {"entries": entries, "xfades": xfades, "fade": fade, "pip": pip, "total": total}
 
 
@@ -76,14 +108,14 @@ def build(ops):
     mlt7.Factory.init()
     p = mlt7.Profile()
     p.set_width(W); p.set_height(H); p.set_frame_rate(FPS, 1)
-    p.set_sample_aspect(1, 1); p.set_display_aspect(16, 9); p.set_progressive(1); p.set_explicit(1)
+    p.set_sample_aspect(1, 1); p.set_display_aspect(W, H); p.set_progressive(1); p.set_explicit(1)
     fr = lambda s: int(round(s * FPS))
 
     base = mlt7.Playlist(p)
     for e in m["entries"]:
         prod = mlt7.Producer(p, CLIPS[e["src"]])        # default loader: do NOT use "avformat" directly
         assert prod.is_valid(), f"cannot open {e['src']}"
-        base.append(prod, 0, fr(e["dur"]) - 1)
+        base.append(prod, fr(e["in"]), fr(e["in"]) + fr(e["dur"]) - 1)
     # crossfades, ascending; each earlier mix inserts one extra playlist entry before later clips
     done = 0
     for a in sorted(m["xfades"]):
@@ -102,7 +134,7 @@ def build(ops):
         clip = mlt7.Producer(p, CLIPS[o["src"]])
         lay = mlt7.Playlist(p)
         lay.blank(fr(o["start"]))
-        lay.append(clip, 0, fr(o["dur"]) - 1)
+        lay.append(clip, fr(o.get("in", 0.0)), fr(o.get("in", 0.0)) + fr(o["dur"]) - 1)
         mt.connect(lay, 1)
         s = o.get("scale", 0.3); mg = 0.04
         w, h = W * s, H * s
@@ -129,15 +161,15 @@ def build(ops):
     return p, tr, m, total
 
 
-def render(p, tr, out):
+def render(p, tr, out, preset="ultrafast", crf="30", abr="64k"):
     """MLT composes -> NUT over a FIFO -> ffmpeg CLI encodes the small preview."""
     import mlt7
     fifo = out + ".nut"
     if os.path.exists(fifo):
         os.remove(fifo)
     os.mkfifo(fifo)
-    ff = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-i", fifo, "-c:v", "libx264", "-preset", "ultrafast",
-                           "-crf", "30", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "64k",
+    ff = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-i", fifo, "-c:v", "libx264", "-preset", preset,
+                           "-crf", str(crf), "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", abr,
                            "-movflags", "+faststart", out], stderr=subprocess.DEVNULL)
     c = mlt7.Consumer(p, "avformat", fifo)
     for k, v in dict(f="nut", vcodec="rawvideo", acodec="pcm_s16le", real_time="0").items():

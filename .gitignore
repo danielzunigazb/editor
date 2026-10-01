@@ -2,3 +2,4 @@ media/
 out/
 __pycache__/
 media_real/
+.venv/

@@ -320,10 +320,66 @@ caché de frames o composición por GPU (Movit), nada de lo cual probé. Parte d
 `qtblend` (Qt en CPU sobre Xvfb): no medí `composite` por separado porque ignora la opacidad.
 La grabación con x11grab (a 1080x1920) añade carga: con ella el preview descartó 20 frames (vs. 6-11 sin ella). El video `preview_capture_multi.mp4` está, por tanto, grabado bajo carga y no es representativo del mejor caso.
 
+## 11. Servidor MCP (añadido a petición del usuario)
+
+`server.py` envuelve el motor (`live.py`) como servidor MCP por stdio. El LLM es el único
+control; no hay UI. Instalación: `./setup.sh`; configuración de cliente: `mcp.example.json`.
+Prueba end-to-end con un cliente MCP real (SDK, proceso aparte): `.venv/bin/python test_mcp.py`
+-> **30 de 30 comprobaciones pasan**, incluidos los errores esperados.
+
+**Herramientas (15):** `new_project`, `import_clip`, `list_sources`, `add_clip` (con rango
+`start_s..end_s`), `cut_clip`, `crossfade`, `set_fades`, `add_pip`, `get_timeline`, `undo`,
+`remove_op`, `get_still`, `get_contact_sheet`, `render_preview`, `export`.
+
+**Decisiones de diseño**
+- **Edición instantánea, render bajo demanda.** Cada edición se valida contra el timeline
+  completo con un modelo en Python puro (sin MLT) y solo entonces se guarda; una edición
+  inválida se rechaza con un mensaje accionable y deja el estado intacto (se probaron 7
+  casos: corte fuera de rango, entrada inexistente, fundido más largo que el clip, fade más
+  largo que el timeline, posición de PiP inválida, PiP fuera de la fuente, rango fuera de la
+  fuente). `remove_op` se rechaza si ediciones posteriores dependen de la quitada.
+- **El LLM "ve" con `get_contact_sheet` y `get_still`**, que devuelven imágenes PNG. Una hoja
+  de 6 frames equidistantes muestra cortes, fundidos, fades y overlays de un vistazo
+  (revisada a ojo: negro, A, mezcla A/B + PiP translúcido, B + PiP, B, negro).
+- **Estado declarativo:** el timeline siempre se reconstruye reproduciendo la lista de ops, así
+  `undo`/`remove_op` son triviales y el estado es un JSON legible (`MLT_EDITOR_HOME/project.json`).
+- **Higiene de stdout:** MLT/ffmpeg pueden escribir en el fd 1 y romper el protocolo stdio; el
+  servidor redirige el fd 1 a stderr y deja el protocolo en una copia del fd original.
+- **X11 autogestionado:** `qtblend` exige X11; si no hay `DISPLAY` el servidor arranca su
+  propio `Xvfb` (`-displayfd`) y lo cierra al salir. La prueba corre sin `DISPLAY` para demostrarlo.
+
+**Latencias medidas** (clips sintéticos 720p, 4 cores, sin GPU, a través del protocolo MCP):
+
+| Herramienta | Tiempo |
+|---|---|
+| `get_still` (primera llamada: construye + 1 frame) | 0.29 s |
+| `get_still` (media de 30 seguidas) | 183 ms |
+| `get_contact_sheet` (6 frames) | 1.0 s |
+| `export` draft (7 s de video, 1280x720) | 2.8 s |
+
+**Limitaciones y cosas no probadas (leer antes de confiar)**
+- **No se probó con un LLM real conectado**, solo con el cliente del SDK de MCP. Que un
+  modelo use bien las herramientas (nombres, descripciones, orden de llamadas) es una hipótesis
+  sin validar. Las respuestas con imagen requieren un cliente que las muestre al modelo.
+- **Un solo PiP** (uno nuevo reemplaza al anterior), una sola pista base y un solo conjunto de
+  fades; sin cambios de velocidad, texto, ni mezcla de audio por pista. Es el alcance del POC.
+- **No hay video por MCP:** `render_preview` devuelve la ruta del mp4, no el video.
+- **`export` es bloqueante** (sin progreso ni cancelación) y puede tardar más que el propio
+  video a 1080p (secciones 8 y 9). Con 3 capas a 1080x1920 fue ~2x más lento que el video.
+- **Un proyecto por proceso**, sin concurrencia ni bloqueos de archivo. `mcp` fijado a `<2`
+  porque la 2.x cambió la API. Sin prueba de fugas de memoria en sesiones largas (solo 30
+  llamadas seguidas sin problemas en un mismo proceso).
+- `setup.sh` no se ejecutó de punta a punta (ya tenía los paquetes apt instalados); sí se
+  ejecutaron por separado el `venv` y el `pip install`.
+- La prueba usa clips sintéticos; los clips reales verticales/VFR (sección 8) no pasaron por
+  el servidor. Los límites de rendimiento de las secciones 8 y 9 aplican igual.
+
 ## 10. Archivos
 
 - `poc.py`: el POC (gen/build/bench/preview/export/measure).
 - `POC_MODE=multi` en `poc.py`: multipista con composición (sección 9; requiere `xvfb-run`).
 - `POC_MODE=real` en `poc.py`: timeline con clips reales de `media_real/` (sección 8).
+- `server.py`, `test_mcp.py`, `setup.sh`, `requirements.txt`, `mcp.example.json`: servidor MCP y su prueba (sección 11).
+- `live.py`, `viewer_template.html`: motor declarativo y visor de la sesión en vivo.
 - `stress_1080p.py`: prueba extra de estrés 1080p (secuencial vs. seek aleatorio).
 - `media/`, `out/`: clips y resultados generados (ignorados por git; se regeneran con `gen` y `export`).
