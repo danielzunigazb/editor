@@ -626,6 +626,49 @@ no hay bloqueo de archivo del proyecto entre procesos; `export` acepta cualquier
 sandbox); `import_clip`, `add_image` y `srt_path` leen cualquier archivo local; las pruebas usan clips sintéticos y 3 clips reales;
 el audio se verifica por niveles, no a oído.
 
+## 15. Optimización del coste de las capas (añadido a petición del usuario)
+
+Idea: las capas de lujo eran lo que más costaba (secciones 13 y 13.1). Se implementaron dos optimizaciones, cada una con su interruptor
+(`MLT_OPT_CROP`, `MLT_OPT_MERGE`; por defecto activas, `0` las apaga) y se midieron por separado y juntas sobre el mismo timeline
+(`out/opt_*`, export borrador por el camino del servidor con 2 hilos, un run por celda):
+
+- **Recorte (`crop`)**: el PNG de texto, subtítulos y tercio inferior se recorta a la caja de sus píxeles visibles y `qtblend` compone solo ese
+  rectángulo (1:1) en vez del cuadro completo. Si la caja ocupa >60% del cuadro no se recorta.
+- **Fusión (`merge`)**: la decoración estática que se muestra **exactamente al mismo tiempo** (viñeta + marco) se pre-compone en una sola imagen,
+  así que una sola transición la dibuja. No se fusionan capas con tiempos distintos ni tercios inferiores.
+
+| Export borrador (10.4 s) | 4K | 1080p |
+|---|---|---|
+| Piso: mismo timeline **sin capas** | 22.1 s | 5.7 s |
+| Sin optimizar | 40.3 s (3.9x) | 9.6 s (0.92x) |
+| Solo recorte | 31.5 s (-22%) | 8.1 s (-16%) |
+| Solo fusión | 31.3 s (-22%) | 8.2 s (-15%) |
+| **Recorte + fusión** | **27.6 s (-32%, 2.7x)** | **7.4 s (-23%, 0.71x)** |
+
+Coste que añaden las capas sobre el piso: 4K **18.2 s -> 5.5 s** (-70%); 1080p **3.9 s -> 1.7 s** (-56%).
+
+**Fidelidad:** el recorte es **idéntico al píxel** (diferencia máxima 0 en todos los frames comparados y PSNR infinito en los exports 4K).
+La fusión **no es idéntica**: PSNR medio 41-42.6 dB (mínimo 36.6-37.7 dB) y hasta 12/255 en un canal, solo en frames de rampa de fade, porque
+dos capas con opacidad animada por separado no suman exactamente igual que una capa fusionada con una sola opacidad. Es un compromiso entre exactitud
+y velocidad; se deja activo por defecto pero se puede apagar con `MLT_OPT_MERGE=0`.
+
+**Reproducción en tiempo real a 1080p con las 5 capas** (frames descartados de 312, 3 corridas, reproductor `sdl2` bajo Xvfb):
+| | sin optimizar | optimizado |
+|---|---|---|
+| `real_time=1` | 64 / 65 / 62 (~20%) | 11 / 16 / 10 (~4%) |
+| `real_time=3` | 10 / 12 / 20 (~4.5%) | 0 / 11 / 4 (~1.6%) |
+
+**Efectos secundarios:** la memoria pico sube (4K: 3.3 -> 4.1 GB con ambas; 1080p: 0.9 -> 1.2 GB) y el 4K sigue sin ser interactivo (el piso sin capas
+ya es 2.1x la duración). Se descubrió además un fallo latente: MLT **se cae (segfault) si las pistas del multitrack no son contiguas**; la
+fusión dejaba una pista vacía y lo destapó. `build()` ahora renumera las pistas de forma contigua.
+
+**Pruebas:** `test_engine.py` 38 (7 nuevas: recorte idéntico, fusión y fusión+recorte dentro de tolerancia, `_merge_decor` con tiempos iguales,
+distintos y tercios inferiores, pistas contiguas), `test_text.py` 74, `test_mcp.py` 101: todas pasan con las optimizaciones activas.
+
+**No se probó / limitaciones:** no se midió la reproducción en vivo a 4K tras la optimización; una corrida por celda en los exports; la fusión solo
+cubre `frame`, `letterbox` y `vignette` con el mismo inicio, duración, opacidad y fade; las formas muy dispersas (como el marco, cuya caja es todo
+el cuadro) no se benefician del recorte. Se podrían dividir en bandas, sin probar.
+
 ## 10. Archivos
 
 - `poc.py`: el POC (gen/build/bench/preview/export/measure).

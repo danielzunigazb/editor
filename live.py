@@ -30,6 +30,59 @@ CLIP_LEN = {"A": 6.0, "B": 5.0, "C": 4.0}
 W, H, FPS = 640, 360, 25
 CACHE = os.path.join(LIVE, "cache")     # rendered text PNGs (server points this at the project dir)
 MAX_LAYER_TRACKS = 6
+_BBOX = {}                              # cropped-overlay cache: png path -> (cropped path, x, y, w, h) or None
+
+
+def _opt(name):                         # evaluated per build so tests can toggle them
+    return os.environ.get(name, "1") == "1"
+
+
+def _crop_to_content(path, W_, H_):
+    """Crop a full-frame RGBA overlay to the bounding box of its visible pixels. qtblend then composites only that
+    rectangle instead of a whole 4K frame. Returns (path, x, y, w, h), or None when cropping would not pay off."""
+    if path in _BBOX:
+        return _BBOX[path]
+    from PIL import Image
+    res = None
+    with Image.open(path) as im:
+        im = im.convert("RGBA")
+        bb = im.getchannel("A").getbbox()
+        if bb is not None:
+            pad = 2
+            x0, y0 = max(0, bb[0] - pad), max(0, bb[1] - pad)
+            x1, y1 = min(im.width, bb[2] + pad), min(im.height, bb[3] + pad)
+            if (x1 - x0) * (y1 - y0) < 0.6 * im.width * im.height:        # a near-full-frame overlay gains nothing
+                out = path[:-4] + "_crop.png"
+                if not os.path.exists(out):
+                    tmp = out + f".{os.getpid()}.tmp"
+                    im.crop((x0, y0, x1, y1)).save(tmp, format="PNG")
+                    os.replace(tmp, out)
+                res = (out, x0, y0, x1 - x0, y1 - y0)
+    _BBOX[path] = res
+    return res
+
+
+def _merge_decor(layers):
+    """Layers that are static decoration shown at exactly the same time (e.g. vignette + frame for the whole video)
+    are drawn by ONE qtblend: their PNGs are pre-composited. Returns the list of layers to build."""
+    groups, order = {}, []
+    for L in layers:
+        if L["kind"] == "graphic" and L["gk"] in graphics.KINDS:
+            key = (round(L["start"], 4), round(L["dur"], 4), L["opacity"], L["fade"])
+            if key not in groups:
+                groups[key] = []; order.append(key)
+            groups[key].append(L)
+    drop = set()
+    merged = {}
+    for key in order:
+        grp = groups[key]
+        if len(grp) > 1:
+            first = grp[0]
+            merged[id(first)] = dict(first, gk="merged", params={"parts": [(g["gk"], g["params"]) for g in grp]})
+            drop.update(id(g) for g in grp[1:])
+    return [merged.get(id(L), L) for L in layers if id(L) not in drop]
+
+
 POS_PIP = ("top-right", "top-left", "bottom-right", "bottom-left")
 POS_IMG = POS_PIP + ("center",)
 _IMG_CACHE = {}
@@ -318,14 +371,15 @@ def build(ops):
     total = base.get_playtime()
     assert total == m["total_f"], f"timeline model ({m['total_f']} frames) and MLT ({total}) disagree"
 
+    layers_to_build = _merge_decor(m["layers"]) if _opt("MLT_OPT_MERGE") else m["layers"]
     by_track = {}
-    for L in m["layers"]:
+    for L in layers_to_build:
         by_track.setdefault(L["track"], []).append(L)
-    for ti in sorted(by_track):
-        lay = mlt7.Playlist(p)
+    for ti, track_key in enumerate(sorted(by_track), 1):   # MLT needs CONTIGUOUS track numbers: a gap (e.g. after merging
+        lay = mlt7.Playlist(p)                             # two layers into one) segfaults the multitrack
         mt.connect(lay, ti)                  # connect first, then fill: transitions refer to this track index
         cursor, plan = 0, []
-        for L in by_track[ti]:
+        for L in by_track[track_key]:
             s0 = max(fr(L["start"]), cursor)             # frame rounding must never overlap two layers on a track
             n = min(max(1, fr(L["dur"])), total - s0)
             if n < 1:
@@ -342,11 +396,17 @@ def build(ops):
                                                  cache_dir=CACHE, strict=False, style=L["style"],
                                                  uppercase=L["uppercase"], ornament=L["ornament"])
             elif L["kind"] == "graphic":
-                src = graphics.render(L["gk"], W, H, CACHE, **L["params"])
+                src = (graphics.render_merged(L["params"]["parts"], W, H, CACHE) if L["gk"] == "merged"
+                       else graphics.render(L["gk"], W, H, CACHE, **L["params"]))
             elif L["kind"] == "image":
                 src = os.path.abspath(os.path.expanduser(L["path"]))
             else:
                 src = CLIPS[L["src"]]; has_pip = True
+            crop = None
+            if L["kind"] in ("text", "graphic") and _opt("MLT_OPT_CROP"):
+                crop = _crop_to_content(src, W, H)         # draw only the visible rectangle, 1:1 (full-frame PNGs cost ~2.4 s/s at 4K)
+                if crop:
+                    src = crop[0]
             prod = mlt7.Producer(p, src)
             if not prod.is_valid():
                 raise RuntimeError(f"cannot open overlay source {src}")
@@ -356,7 +416,7 @@ def build(ops):
             lay.append(prod, first, first + n - 1)
             cursor = s0 + n
             if L["kind"] in ("text", "graphic"):
-                x, y, w, h = 0, 0, W, H
+                x, y, w, h = crop[1:] if crop else (0, 0, W, H)
                 op, ramp = L.get("opacity", 1.0), min(fr(L["fade"]), (n - 1) // 2)
             else:
                 mg = 0.04

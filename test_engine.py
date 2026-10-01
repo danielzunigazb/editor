@@ -156,4 +156,38 @@ mixed = os.path.join(tmpd, "mixed.mp4"); live.render(p, tr, mixed)
 kinds = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type", "-of", "csv=p=0", mixed], capture_output=True, text=True).stdout.split()
 chk("silent clip + clip with audio + crossfade exports with video and audio", sorted(kinds) == ["audio", "video"], kinds)
 
+# =================== overlay optimizations (crop to content, merge simultaneous decoration) ===================
+STACK = BASE + [{"op": "fade", "in": 0.5, "out": 1.0},
+                {"op": "graphic", "kind": "vignette", "start": 0, "dur": 10, "amount": 0.55}, {"op": "graphic", "kind": "frame", "start": 0, "dur": 10},
+                T("Gran Inauguración", 1.0, 2.5, pos="top", size=0.075, style="luxury"),
+                {"op": "lower_third", "title": "Señor Muñoz", "subtitle": "Director", "start": 4.0, "dur": 2.5},
+                cues([(1.5, 3.0), (6.8, 9.0)]) | {"style": "champagne"}]
+def stack_frames(crop, merge):
+    os.environ["MLT_OPT_CROP"], os.environ["MLT_OPT_MERGE"] = crop, merge
+    live._BBOX.clear(); live.CACHE = tempfile.mkdtemp(prefix="eng_opt_")
+    p, tr, mm, total = live.build(STACK); out = []
+    for f in range(0, total, 5):
+        tr.seek(f); out.append(bytes(tr.get_frame().get_image(mlt7.mlt_image_rgb, 320, 180)))
+    return out
+ref_f = stack_frames("0", "0")
+def worst(a_list, b_list):
+    return max(max(abs(x - y) for x, y in zip(a[::7], b[::7])) for a, b in zip(a_list, b_list)), sum(max(abs(x - y) for x, y in zip(a[::7], b[::7])) > 6 for a, b in zip(a_list, b_list))
+w, nb = worst(ref_f, stack_frames("1", "0"))
+chk("crop-to-content is pixel-identical to full-frame overlays", w == 0, (w, nb))
+w, nb = worst(ref_f, stack_frames("0", "1"))
+chk("merging simultaneous decoration stays within tolerance (differs only on fade-ramp frames)", w <= 20 and nb <= 3, (w, nb))
+w, nb = worst(ref_f, stack_frames("1", "1"))
+chk("crop + merge together stay within tolerance (and MLT does not crash on the freed track)", w <= 20 and nb <= 3, (w, nb))
+os.environ["MLT_OPT_CROP"] = os.environ["MLT_OPT_MERGE"] = "1"
+mk = lambda kind, start, **k: {"kind": "graphic", "gk": kind, "params": {"amount": None}, "start": start, "dur": 10.0, "opacity": 1.0, "fade": 0.4, "track": 1, **k}
+merged = live._merge_decor([mk("vignette", 0.0), mk("frame", 0.0)])
+chk("_merge_decor merges two decorations with identical timing into one layer", len(merged) == 1 and merged[0]["gk"] == "merged" and len(merged[0]["params"]["parts"]) == 2, merged)
+kept = live._merge_decor([mk("vignette", 0.0), mk("frame", 1.0)])
+chk("_merge_decor does NOT merge decorations with different timing", len(kept) == 2, kept)
+lt = [{"kind": "graphic", "gk": "lower_third", "params": {"title": "a"}, "start": 0.0, "dur": 3.0, "opacity": 1.0, "fade": 0.4, "track": 1} for _ in range(2)]
+chk("lower thirds are never merged (they carry text)", len(live._merge_decor(lt)) == 2)
+# the track left empty by a merge must not leave a hole in the multitrack
+p, tr, mm, tot = live.build(STACK)
+chk("a merge leaves contiguous MLT tracks (no segfault)", tot == live.layout(STACK)["total_f"])
+
 print(f"\n{len(SCENARIOS)+1+extra-bad} passed, {bad} failed"); sys.exit(1 if bad else 0)

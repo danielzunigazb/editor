@@ -128,6 +128,23 @@ def lower_third(W, H, title, subtitle="", align="left", strict=True):
     return img
 
 
+def render_merged(parts, W, H, cache_dir):
+    """Alpha-composite several graphics (list of (kind, params)) into ONE cached PNG, so a single qtblend draws them."""
+    key = "merged|" + "|".join(f"{k}:{sorted(p.items())}" for k, p in parts)
+    out = os.path.join(cache_dir, f"gfx_{hashlib.sha1(f'v1|{key}|{W}|{H}'.encode()).hexdigest()[:16]}.png")
+    if os.path.exists(out):
+        return out
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    for kind, params in parts:
+        with Image.open(render(kind, W, H, cache_dir, **params)) as layer:
+            img = Image.alpha_composite(img, layer.convert("RGBA"))
+    os.makedirs(cache_dir, exist_ok=True)
+    tmp = out + f".{os.getpid()}.tmp"
+    img.save(tmp, format="PNG")
+    os.replace(tmp, out)
+    return out
+
+
 def validate(kind, params):
     """Raise ValueError for bad graphic params (pure checks, no rendering)."""
     if kind not in KINDS:
