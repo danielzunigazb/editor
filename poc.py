@@ -43,7 +43,48 @@ def gen():
     print("generated", CLIP_A, CLIP_B)
 
 
+REAL = [os.path.join(HERE, "media_real", f"real{i}.mp4") for i in (1, 2, 3)]
+
+
+def build_real():
+    """Real phone clips (vertical, VFR, mixed codecs/resolutions/sample rates) on a 1080x1920@24 profile.
+    real1[0..3s] -0.5s luma-> real2[0..4s] -0.5s luma-> real3[0..3s], fade in/out."""
+    import mlt7
+    t = {}
+    mlt7.Factory.init()
+    profile = mlt7.Profile()
+    profile.set_width(1080); profile.set_height(1920)
+    profile.set_frame_rate(24, 1); profile.set_sample_aspect(1, 1)
+    profile.set_display_aspect(9, 16); profile.set_progressive(1); profile.set_explicit(1)
+    fps = 24
+    pl = mlt7.Playlist(profile)
+    s0 = time.perf_counter()
+    prods = [mlt7.Producer(profile, p) for p in REAL]
+    t["open 3 clips"] = round((time.perf_counter() - s0) * 1000, 2)
+    assert all(p.is_valid() for p in prods), "failed to open a real clip"
+    pl.append(prods[0], 0, 3 * fps - 1)
+    pl.append(prods[1], 0, 4 * fps - 1)
+    pl.mix(0, fps // 2, mlt7.Transition(profile, "luma"))
+    pl.mix_add(0, mlt7.Transition(profile, "mix"))
+    pl.append(prods[2], 0, 3 * fps - 1)
+    pl.mix(2, fps // 2, mlt7.Transition(profile, "luma"))
+    pl.mix_add(2, mlt7.Transition(profile, "mix"))
+    total = pl.get_playtime()
+    fi, fo = fps // 2, fps
+    for service, kf in (("brightness", f"0=0;{fi}=1;{total-fo}=1;{total-1}=0"),
+                        ("volume", f"0=-60;{fi}=0;{total-fo}=0;{total-1}=-60")):
+        f = mlt7.Filter(profile, service); f.set("level", kf)
+        f.set_in_and_out(0, total - 1); pl.attach(f)
+    return profile, pl, t
+
+
 def build():
+    if os.environ.get("POC_MODE") == "real":
+        return build_real()
+    return _build_synthetic()
+
+
+def _build_synthetic():
     """Returns (profile, playlist, timings_ms). All edits go through the Playlist API."""
     import mlt7
     t = {}
@@ -97,14 +138,15 @@ def build():
 def cmd_build(_):
     import mlt7
     profile, pl, t = build()
-    print(f"profile {PROFILE}; playlist clips={pl.count()} length={pl.get_playtime()} frames "
-          f"({pl.get_playtime()/FPS:.2f}s)")
+    fps = profile.fps()
+    print(f"profile {profile.width()}x{profile.height()}@{fps:g}; playlist clips={pl.count()} "
+          f"length={pl.get_playtime()} frames ({pl.get_playtime()/fps:.2f}s)")
     for i in range(pl.count()):
         info = pl.clip_info(i)
         print(f"  entry {i}: resource={os.path.basename(info.resource or '<mix>')} "
               f"in={info.frame_in} out={info.frame_out} len={info.frame_count}")
     os.makedirs(OUT, exist_ok=True)
-    xml = mlt7.Consumer(profile, "xml", os.path.join(OUT, "timeline.mlt"))
+    xml = mlt7.Consumer(profile, "xml", os.path.join(OUT, "timeline_real.mlt" if os.environ.get("POC_MODE") == "real" else "timeline.mlt"))
     xml.connect(pl)
     xml.run()
     print("API timings (ms):", json.dumps(t, indent=2))
@@ -121,17 +163,17 @@ def cmd_bench(_):
         pl.seek(i)
         s = time.perf_counter()
         fr = pl.get_frame()
-        fr.get_image(mlt7.mlt_image_yuv422, 1280, 720)
+        fr.get_image(mlt7.mlt_image_yuv422, profile.width(), profile.height())
         lat.append((time.perf_counter() - s) * 1000)
     wall = time.perf_counter() - start
     lat.sort()
     q = lambda p: lat[min(len(lat) - 1, int(len(lat) * p))]
     print(json.dumps({
         "frames": len(lat), "wall_s": round(wall, 2),
-        "throughput_fps": round(len(lat) / wall, 1), "realtime_budget_ms": 40,
+        "throughput_fps": round(len(lat) / wall, 1), "realtime_budget_ms": round(1000 / profile.fps(), 1),
         "ms_p50": round(q(.5), 2), "ms_p95": round(q(.95), 2),
         "ms_p99": round(q(.99), 2), "ms_max": round(lat[-1], 2),
-        "frames_over_budget": sum(x > 40 for x in lat)}, indent=2))
+        "frames_over_budget": sum(x > 1000 / profile.fps() for x in lat)}, indent=2))
 
 
 def cmd_preview(args):
@@ -150,7 +192,7 @@ def cmd_preview(args):
         time.sleep(0.05)
     wall = time.perf_counter() - start
     c.stop()
-    print(json.dumps({"timeline_s": pl.get_playtime() / FPS, "wall_s": round(wall, 2),
+    print(json.dumps({"timeline_s": pl.get_playtime() / profile.fps(), "wall_s": round(wall, 2),
                       "drop_count": c.get_int("drop_count"),
                       "consumer_real_time": c.get_int("real_time")}, indent=2))
 
@@ -161,8 +203,9 @@ def cmd_export(args):
     import mlt7
     profile, pl, _t = build()
     os.makedirs(OUT, exist_ok=True)
-    out = os.path.join(OUT, "final.mp4")
+    out = os.path.join(OUT, "final_real.mp4" if os.environ.get("POC_MODE") == "real" else "final.mp4")
     fifo = os.path.join(OUT, "pipe.nut")
+    sys.stdout.flush()
     if os.path.exists(fifo):
         os.remove(fifo)
     os.mkfifo(fifo)

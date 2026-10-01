@@ -177,9 +177,9 @@ medí cómo crece con más pistas o clips.
   `dummy`. `drop_count=0` y el reloj correcto indican que MLT cumplió el tiempo real, pero
   no valida sincronía A/V percibida, tearing ni latencia de display real. Hay que probarlo en
   un escritorio real.
-- **Contenido sintético y pequeño** (testsrc2, barras, mandelbrot). Video real (cámara,
-  4K, HEVC, 10-bit, VFR, múltiples pistas con compositing pesado) no se probó. El único
-  contenido "difícil" es el 1080p mandelbrot de ~8 s.
+- **Contenido mayormente sintético y pequeño** en las secciones 2-4 (testsrc2, barras,
+  mandelbrot). La sección 8 añade 3 clips reales de celular; siguen sin probarse 4K, 10-bit,
+  clips largos y múltiples pistas con composición pesada.
 - **Sin GPU:** no probé Movit (filtros GPU) ni rendimiento con efectos pesados.
 - **Una sola máquina de 4 cores**: sin comparativa con hardware modesto.
 - **Una pista de video**. No probé multipista, composición (`composite`), cambios de
@@ -221,8 +221,53 @@ medí cómo crece con más pistas o clips.
    comparación rápida de costo/beneficio *antes* de comprometerse. Si se quiere preview
    interactivo, MLT es la mejor opción de las tres.
 
+## 8. Prueba con clips reales (añadida después)
+
+Tres videos de celular que subió el usuario (el cuarto, `VID-20260814-WA0016.mp4`, no llegó a
+probarse: no se compartió su enlace). Se ejecuta con `POC_MODE=real /usr/bin/python3.12 poc.py <cmd>`
+y los archivos deben estar en `media_real/` (ignorado por git: son videos personales).
+
+| Clip | Códec | Resolución | FPS prom. | Audio |
+|---|---|---|---|---|
+| real1 | H.264 Constrained Baseline | 1088x1936 vertical | ~23.7 (VFR) | mono 44.1 kHz |
+| real2 | H.264 High | 474x850 vertical | ~18.8 (VFR) | mono 44.1 kHz |
+| real3 | **HEVC** Main | 1080x1920 vertical | ~24 (VFR) | estéreo 44.1 kHz |
+
+Timeline: real1[0-3 s] → disolvencia 0.5 s → real2[0-4 s] → disolvencia 0.5 s → real3[0-3 s],
+con fade-in/out, en un perfil personalizado 1080x1920@24 (216 frames = 9.00 s).
+
+**Resultado: funcionó a la primera con la capa ya corregida.** Mezcla sin problemas
+resoluciones distintas (reescalado sin deformar), códecs H.264/HEVC, mono/estéreo, 44.1 kHz→48 kHz
+y VFR→24 fps constante. `final_real.mp4`: h264+aac, 1080x1920, 9.000 s exactos. Revisé frames a
+ojo en cada tramo (fade desde negro, clip 1, disolvencia, clip 2, clip 3, fade a negro) y
+audio con `volumedetect` (-87 dB al inicio, -68 dB al final, niveles intermedios acordes a cada
+clip). No hubo errores nuevos de API. Los avisos de timestamps de NUT siguen apareciendo.
+
+| Medida (1080x1920@24, 4 cores, sin GPU) | Resultado |
+|---|---|
+| Abrir 3 clips | 179 ms (los sintéticos: 9-17 ms c/u) |
+| Decodificación secuencial, sin display (216 frames) | p50 11.7 ms, p95 24.6 ms, p99 70 ms, máx 172 ms; **4 de 216 sobre 41.7 ms**; 68 fps |
+| Preview real-time (sdl2, Xvfb 1080x1920, audio dummy) | 9.11 s de reloj para 9.0 s, **0 descartados** |
+| Seek aleatorio (scrubbing), 80 saltos | **p50 47 ms, p95 237 ms, máx 297 ms; 48 de 80 sobre presupuesto** |
+| CPU/RAM bench secuencial | 193% media, 314% pico (de 1 core); RSS pico 297 MB |
+| CPU/RAM export (MLT→NUT→ffmpeg x264 medium) | 330% media, 399% pico; **RSS pico 910 MB**; 13 s para 9 s de video (~1.4x tiempo real) |
+
+Lectura honesta, comparada con la prueba sintética:
+- Con video real vertical 1080p la reproducción sigue cumpliendo, pero **con mucho menos
+  margen**: p50 de 11.7 ms por frame (antes 1.7 ms) y 4 frames fuera de presupuesto en
+  decodificación pura. Un solo núcleo ya iba al límite en picos; en una máquina más modesta
+  o con más pistas no daría.
+- **El scrubbing es el punto débil confirmado**: la mitad de los saltos aleatorios supera
+  el presupuesto de un frame, sobre todo por HEVC y H.264 de GOP largo. Hace falta proxy.
+- **El export es ~1.4x tiempo real** y usa casi todos los cores y ~0.9 GB de RAM. Pasa de
+  2.7x en 720p sintético a 1.4x aquí.
+- El "preview" sigue siendo headless (no se ha visto ni oído en una pantalla real).
+- Sigue sin cubrir: multipista con composición, 4K, clips largos, 10-bit, rotación por metadata
+  (estos clips ya venían en vertical sin flag de rotación), el cuarto video.
+
 ## 7. Archivos
 
 - `poc.py`: el POC (gen/build/bench/preview/export/measure).
+- `POC_MODE=real` en `poc.py`: timeline con clips reales de `media_real/` (sección 8).
 - `stress_1080p.py`: prueba extra de estrés 1080p (secuencial vs. seek aleatorio).
 - `media/`, `out/`: clips y resultados generados (ignorados por git; se regeneran con `gen` y `export`).
