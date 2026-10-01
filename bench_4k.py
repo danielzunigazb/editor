@@ -77,14 +77,17 @@ async def main():
                             ("add_subtitles", dict(cues=[{"start": 1.0, "end": 3.2, "text": "Bienvenidos a esta noche especial."}, {"start": 6.8, "end": 9.5, "text": "¿Listos para la inauguración?"}], style="champagne"))]:
                 await call(name, a)
             tl = json.loads((await call("get_timeline", {}))[0]); print("timeline:", tl["duration_s"], "s", flush=True)
-            _, img, _ = await call("get_still", dict(time_s=2.0)); open(f"{OUT}/still_half.png", "wb").write(base64.b64decode(img))
-            _, img, _ = await call("get_still", dict(time_s=2.0, full_res=True), "get_still (full 4K)"); open(f"{OUT}/still_4k.png", "wb").write(base64.b64decode(img))
-            _, img, _ = await call("get_contact_sheet", dict(count=6)); open(f"{OUT}/sheet.png", "wb").write(base64.b64decode(img))
+            for rep in ("cold", "warm"):          # second call hits the text/graphic PNG cache and warm file cache
+                _, img, _ = await call("get_still", dict(time_s=2.0), f"get_still half 1080p ({rep})"); open(f"{OUT}/still_half.png", "wb").write(base64.b64decode(img))
+            for rep in ("cold", "warm"):
+                _, img, _ = await call("get_still", dict(time_s=2.0, full_res=True), f"get_still full 4K ({rep})"); open(f"{OUT}/still_4k.png", "wb").write(base64.b64decode(img))
+            for rep in ("cold", "warm"):
+                _, img, _ = await call("get_contact_sheet", dict(count=6), f"get_contact_sheet 6 ({rep})"); open(f"{OUT}/sheet.png", "wb").write(base64.b64decode(img))
             for q in ("draft", "high"):
                 txt, _, err = await call("export", dict(output_path=f"{OUT}/export_{q}.mp4", quality=q), f"export {q}")
             await call("render_preview", {})
     smp.stop = True
-    json.dump({"timeline_s": tl["duration_s"], "calls": log}, open(f"{OUT}/bench.json", "w"), indent=1)
+    json.dump({"timeline_s": tl["duration_s"], "calls": log}, open(f"{OUT}/bench2.json", "w"), indent=1)
     print("DONE", flush=True)
 
 asyncio.run(main())
