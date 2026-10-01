@@ -89,7 +89,8 @@ def build_multi():
     t = {}
     mlt7.Factory.init()
     profile = mlt7.Profile()
-    profile.set_width(1080); profile.set_height(1920)
+    scale = float(os.environ.get("POC_SCALE", "1"))  # 0.5 -> 540x960 proxy-resolution preview
+    profile.set_width(int(1080 * scale)); profile.set_height(int(1920 * scale))
     profile.set_frame_rate(24, 1); profile.set_sample_aspect(1, 1)
     profile.set_display_aspect(9, 16); profile.set_progressive(1); profile.set_explicit(1)
     fps = 24
@@ -273,14 +274,15 @@ def cmd_export(args):
     import mlt7
     profile, pl, _t = build()
     os.makedirs(OUT, exist_ok=True)
-    out = os.path.join(OUT, f"final_{MODE}.mp4" if MODE else "final.mp4")
+    out = os.path.join(OUT, f"final_{MODE}{'_preview' if os.environ.get('POC_SCALE') else ''}.mp4" if MODE else "final.mp4")
     fifo = os.path.join(OUT, "pipe.nut")
     sys.stdout.flush()
     if os.path.exists(fifo):
         os.remove(fifo)
     os.mkfifo(fifo)
     ff = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-i", fifo,
-                           "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
+                           "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                           *(["-preset", "ultrafast", "-crf", "30"] if os.environ.get("POC_SCALE") else ["-preset", "medium", "-crf", "20"]),
                            "-c:a", "aac", "-b:a", "160k", out])
     c = mlt7.Consumer(profile, "avformat", fifo)
     c.set("f", "nut"); c.set("vcodec", "rawvideo"); c.set("acodec", "pcm_s16le")
@@ -292,6 +294,20 @@ def cmd_export(args):
     ff.wait()
     os.remove(fifo)
     print(f"exported {out} in {time.perf_counter()-start:.2f}s (ffmpeg rc={ff.returncode})")
+
+
+def cmd_still(args):
+    """Render ONE frame at --t seconds to a PNG (the LLM's 'look at this moment' tool)."""
+    import mlt7
+    profile, pl, _t = build()
+    os.makedirs(OUT, exist_ok=True)
+    out = os.path.join(OUT, f"still_{args.t:g}.png")
+    pl.seek(int(args.t * profile.fps()))
+    img = pl.get_frame().get_image(mlt7.mlt_image_rgb, profile.width(), profile.height())
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
+                    "-s", f"{profile.width()}x{profile.height()}", "-i", "-", out],
+                   input=bytes(img), check=True)
+    print("still ->", out)
 
 
 def cmd_measure(args):
@@ -360,6 +376,7 @@ if __name__ == "__main__":
     sp.add_parser("gen").set_defaults(fn=lambda a: gen())
     for n, f in [("build", cmd_build), ("bench", cmd_bench), ("preview", cmd_preview), ("export", cmd_export)]:
         sp.add_parser(n).set_defaults(fn=f)
+    st = sp.add_parser("still"); st.add_argument("--t", type=float, default=0.0); st.set_defaults(fn=cmd_still)
     m = sp.add_parser("measure"); m.add_argument("sub", choices=["bench", "preview", "export"])
     m.set_defaults(fn=cmd_measure)
     a = ap.parse_args(); a.fn(a)

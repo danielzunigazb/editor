@@ -1,0 +1,136 @@
+<title>Monitor de edición</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one working surface. Stage (video + stats) left, operation log right, timeline across the bottom. */
+:root {
+  --bg: #eef1f4;          /* cool grey, leans toward the accent hue */
+  --surface: #ffffff;
+  --line: #d5dbe2;
+  --fg: #141a21;
+  --muted: #566170;
+  --accent: #0a62c4;
+  --playhead: #d03a2f;
+  --ca: #1b7a63;          /* clip A */
+  --cb: #6a4cc4;          /* clip B */
+  --cc: #b85f17;          /* clip C */
+  --fx: #8a6d12;
+  --lane: #e6eaef;
+  --ok: #1b7a43;
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1217; --surface: #161b22; --line: #28313c; --fg: #e5e9ee; --muted: #8f9cab;
+    --accent: #6cb0ff; --playhead: #ff6a5e; --lane: #1d242d; --fx: #d4b04a; --ok: #4cc287;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1217; --surface: #161b22; --line: #28313c; --fg: #e5e9ee; --muted: #8f9cab;
+  --accent: #6cb0ff; --playhead: #ff6a5e; --lane: #1d242d; --fx: #d4b04a; --ok: #4cc287;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-ui); }
+* { box-sizing: border-box; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 32px; display: grid; gap: 16px; }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 16px; }
+.eyebrow { font: 500 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+h1 { margin: 0; font-size: 26px; line-height: 1.1; font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
+.step { font: 500 12px/1 var(--font-mono); padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+.step b { color: var(--ok); font-weight: 500; }
+.main { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); align-items: start; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.stage { padding: 12px; display: grid; gap: 10px; }
+.screen { background: #000; border-radius: 4px; overflow: hidden; aspect-ratio: 16 / 9; max-width: 100%; }
+.screen video { width: 100%; height: 100%; display: block; object-fit: contain; background: #000; }
+.timecode { display: flex; justify-content: space-between; font: 500 13px/1 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.timecode #tc { color: var(--fg); }
+dl.stats { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px 16px; padding-top: 10px; border-top: 1px solid var(--line); }
+dl.stats div { min-width: 0; }
+dl.stats dt { font-size: 11px; color: var(--muted); letter-spacing: .02em; }
+dl.stats dd { margin: 3px 0 0; font: 500 15px/1.2 var(--font-mono); font-variant-numeric: tabular-nums; }
+h2 { margin: 0; padding: 12px 14px 10px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); }
+ol.ops { list-style: none; margin: 0; padding: 4px 0; }
+.op { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px 14px; border-left: 3px solid transparent; }
+.op + .op { border-top: 1px solid var(--line); }
+.op .n { font: 500 12px/20px var(--font-mono); color: var(--muted); }
+.op .t { font-size: 14px; line-height: 20px; overflow-wrap: anywhere; }
+.op code { display: block; font: 400 12px/1.5 var(--font-mono); color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
+.op .ms { font: 400 11px/20px var(--font-mono); color: var(--muted); white-space: nowrap; }
+.op.done .n { color: var(--ok); }
+.op.now { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+.op.now .ms { color: var(--accent); }
+.op.todo .t, .op.todo code { opacity: .55; }
+.tlp { overflow: hidden; }
+.tlscroll { overflow-x: auto; padding: 10px 14px 14px; }
+svg.tl { display: block; width: 100%; min-width: 560px; height: auto; }
+.tl .grid { stroke: var(--line); stroke-width: 1; }
+.tl .tick, .tl .lane { font: 400 10px var(--font-mono); fill: var(--muted); }
+.tl .laneBg { fill: var(--lane); }
+.tl .clip { stroke: none; }
+.tl .ca { fill: var(--ca); } .tl .cb { fill: var(--cb); } .tl .cc { fill: var(--cc); }
+.tl .clipT { font: 500 11px var(--font-mono); fill: #fff; }
+.tl .xf { fill: #fff; opacity: .38; }
+.tl .fx { fill: var(--fx); opacity: .85; }
+.tl .ph { stroke: var(--playhead); stroke-width: 1.5; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 0 14px 12px; font-size: 12px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 2px; vertical-align: -1px; background: var(--c); }
+footer { font-size: 12px; line-height: 1.5; color: var(--muted); max-width: 70ch; }
+@media (max-width: 860px) { .main { grid-template-columns: minmax(0, 1fr); } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <p class="eyebrow">POC · MLT para vista previa, FFmpeg para exportar</p>
+      <h1>Monitor de edición</h1>
+    </div>
+    <div class="step">Paso <b>@@STEP@@</b> de @@TOTAL@@</div>
+  </header>
+
+  <div class="main">
+    <section class="panel stage" aria-label="Vista previa">
+      <div class="screen">
+        <video id="v" autoplay muted loop playsinline controls src="data:video/mp4;base64,@@VIDEO@@"></video>
+      </div>
+      <div class="timecode"><span id="tc">0:00.0</span><span id="dur">0:00.0</span></div>
+      <dl class="stats">@@STATS@@</dl>
+    </section>
+
+    <section class="panel" aria-label="Operaciones">
+      <h2>Operaciones enviadas por el LLM</h2>
+      <ol class="ops">@@ITEMS@@</ol>
+    </section>
+  </div>
+
+  <section class="panel tlp" aria-label="Línea de tiempo">
+    <h2>Línea de tiempo</h2>
+    <div class="tlscroll">@@SVG@@</div>
+    <div class="legend">
+      <span style="--c:var(--ca)">Clip A</span><span style="--c:var(--cb)">Clip B</span><span style="--c:var(--cc)">Clip C</span>
+      <span style="--c:var(--fx)">Fade</span><span style="--c:rgba(128,128,128,.5)">Fundido cruzado</span>
+    </div>
+  </section>
+
+  <footer>El LLM no usa controles: cada edición es una operación declarativa. El motor reconstruye el timeline con MLT, renderiza este preview de baja resolución (640×360, clips sintéticos) y la página se republica; las vistas abiertas se actualizan solas.</footer>
+</div>
+
+<script>
+(function () {
+  var DUR = @@DUR@@, v = document.getElementById('v'), ph = document.getElementById('ph');
+  var tc = document.getElementById('tc'), dur = document.getElementById('dur');
+  var X0 = 44, X1 = 800 - 12;
+  function fmt(t) { var m = Math.floor(t / 60), s = (t % 60).toFixed(1); return m + ':' + (s < 10 ? '0' : '') + s; }
+  dur.textContent = fmt(DUR);
+  function tick() {
+    var t = Math.min(v.currentTime || 0, DUR), x = X0 + (X1 - X0) * (DUR ? t / DUR : 0);
+    if (ph) { ph.setAttribute('x1', x); ph.setAttribute('x2', x); }
+    tc.textContent = fmt(t);
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+  var p = v.play(); if (p && p.catch) p.catch(function () {});
+})();
+</script>
