@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """4K benchmark through the real MCP server: timings, peak RSS and CPU per tool, output verification.
-Run: .venv/bin/python bench_4k.py   (needs media_4k/*.mp4 from the generation commands in REPORT.md section 13)"""
+Run: .venv/bin/python bench_4k.py [--res 1920x1080 --media media_1080 --prefix cam_{codec}_1080p --out 1080p]"""
 import asyncio, base64, json, os, subprocess, sys, tempfile, threading, time
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-M = lambda n: os.path.join(HERE, "media_4k", n)
-OUT = os.path.join(HERE, "out", "4k"); os.makedirs(OUT, exist_ok=True)
+import argparse
+ap = argparse.ArgumentParser(); ap.add_argument("--res", default="3840x2160"); ap.add_argument("--media", default="media_4k")
+ap.add_argument("--prefix", default="cam_{codec}_4k"); ap.add_argument("--out", default="4k"); ARGS = ap.parse_args()
+RW, RH = map(int, ARGS.res.split("x"))
+M = lambda n: os.path.join(HERE, ARGS.media, n)
+OUT = os.path.join(HERE, "out", ARGS.out); os.makedirs(OUT, exist_ok=True)
 CLK = os.sysconf("SC_CLK_TCK")
 
 
@@ -65,8 +69,8 @@ async def main():
                 log.append(row); print(f"{row['tool']:34s} {dt:7.2f} s  rss {m['peak_rss_mb']:5d} MB  cpu {m['cpu_pct_of_1core']:4d}%" + (f"  ERROR {txt[:100]}" if err else ""), flush=True)
                 return txt, img, err
 
-            await call("new_project", dict(width=3840, height=2160, fps=30))
-            for n, i in (("cam_h264_4k30.mp4", "A"), ("cam_hevc10_4k30.mp4", "B"), ("cam_h264_4k60.mp4", "C")):
+            await call("new_project", dict(width=RW, height=RH, fps=30))
+            for n, i in ((ARGS.prefix.format(codec="h264") + "30.mp4", "A"), (ARGS.prefix.format(codec="hevc10") + "30.mp4", "B"), (ARGS.prefix.format(codec="h264") + "60.mp4", "C")):
                 await call("import_clip", dict(path=M(n), id=i), f"import_clip {i}")
             for name, a in [("add_clip", dict(source="A", start_s=0, end_s=4.5)), ("add_clip", dict(source="B", start_s=0, end_s=4.5)),
                             ("crossfade", dict(first_index=0, dur_s=0.8)), ("add_clip", dict(source="C", start_s=0, end_s=3.0)),
@@ -87,7 +91,7 @@ async def main():
                 txt, _, err = await call("export", dict(output_path=f"{OUT}/export_{q}.mp4", quality=q), f"export {q}")
             await call("render_preview", {})
     smp.stop = True
-    json.dump({"timeline_s": tl["duration_s"], "calls": log}, open(f"{OUT}/bench2.json", "w"), indent=1)
+    json.dump({"timeline_s": tl["duration_s"], "calls": log}, open(f"{OUT}/bench.json", "w"), indent=1)
     print("DONE", flush=True)
 
 asyncio.run(main())
