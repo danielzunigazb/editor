@@ -1,0 +1,326 @@
+<title>Editor de video MCP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Playfair+Display:wght@500;600&display=swap">
+<style>
+/* Layout: dark editing-suite surface. Result video + facts first, then a step-by-step session viewer (the proof),
+   rejected calls, style gallery, a stability chart, honest limits. One accent: brass gold; everything else neutral. */
+:root {
+  --bg: #eef0f3;            /* cool grey, leans toward the dark ink used in dark mode */
+  --surface: #ffffff;
+  --surface-2: #f3f4f7;
+  --line: #d5d9e0;
+  --fg: #14171d;
+  --muted: #566070;
+  --gold: #8a6516;          /* darker brass so it keeps contrast on light */
+  --gold-soft: color-mix(in srgb, var(--gold) 12%, var(--surface));
+  --ok: #1c7a46;
+  --err: #b3392f;
+  --code-bg: #f3f4f7;
+  --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c0e12; --surface: #14171d; --surface-2: #1a1e26; --line: #262b35; --fg: #e9e6df; --muted: #98a0ad;
+    --gold: #d9b25a; --ok: #5ec28a; --err: #ee8479; --code-bg: #10131a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c0e12; --surface: #14171d; --surface-2: #1a1e26; --line: #262b35; --fg: #e9e6df; --muted: #98a0ad;
+  --gold: #d9b25a; --ok: #5ec28a; --err: #ee8479; --code-bg: #10131a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-ui); line-height: 1.55; }
+a { color: var(--gold); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 3px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 56px; display: grid; gap: 40px; }
+.eyebrow { font: 500 11px/1 var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--gold); margin: 0 0 12px; }
+h1 { font: 600 clamp(28px, 5vw, 46px)/1.08 var(--font-display); margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+h2 { font: 600 24px/1.15 var(--font-display); margin: 0 0 6px; text-wrap: balance; }
+.lede { max-width: 62ch; color: var(--muted); margin: 14px 0 0; font-size: 16px; }
+.sub { color: var(--muted); margin: 0 0 18px; max-width: 70ch; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+
+/* hero */
+.hero { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); align-items: start; }
+.screen { background: #000; border-radius: 6px; overflow: hidden; aspect-ratio: 16 / 9; max-width: 100%; border: 1px solid var(--line); }
+.screen video { width: 100%; height: 100%; display: block; background: #000; }
+.cap { font-size: 12px; color: var(--muted); margin: 8px 2px 0; }
+dl.facts { margin: 0; padding: 16px 18px; display: grid; gap: 14px; }
+dl.facts div { min-width: 0; }
+dl.facts dt { font-size: 12px; color: var(--muted); }
+dl.facts dd { margin: 2px 0 0; font: 500 18px/1.25 var(--font-mono); font-variant-numeric: tabular-nums; }
+dl.facts dd small { font: 400 12px/1.4 var(--font-ui); color: var(--muted); display: block; margin-top: 2px; }
+
+/* session viewer */
+.session { display: grid; grid-template-columns: minmax(250px, 340px) minmax(0, 1fr); overflow: hidden; }
+.steps { list-style: none; margin: 0; padding: 6px 0; border-right: 1px solid var(--line); max-height: 640px; overflow: auto; }
+.steps button { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px;
+  padding: 9px 14px; border-left: 3px solid transparent; align-items: baseline; }
+.steps button:hover { background: var(--surface-2); }
+.steps button[aria-current="step"] { border-left-color: var(--gold); background: var(--gold-soft); }
+.steps .n { font: 500 12px/1.4 var(--font-mono); color: var(--muted); }
+.steps .t { font: 500 13px/1.35 var(--font-mono); overflow-wrap: anywhere; }
+.steps .l { display: block; font: 400 12px/1.35 var(--font-ui); color: var(--muted); }
+.steps .ms { font: 400 11px/1.4 var(--font-mono); color: var(--muted); white-space: nowrap; }
+.detail { padding: 16px; display: grid; gap: 14px; min-width: 0; align-content: start; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn { font: 500 13px/1 var(--font-ui); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); cursor: pointer; }
+.btn:hover { border-color: var(--gold); }
+.btn.primary { background: var(--gold); border-color: var(--gold); color: #17110a; }
+.chip { font: 500 11px/1 var(--font-mono); padding: 5px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.sheet { background: #000; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); min-height: 120px; display: grid; place-items: center; }
+.sheet img { display: block; width: 100%; height: auto; }
+.nosheet { padding: 28px 18px; color: var(--muted); font-size: 13px; text-align: center; max-width: 52ch; }
+.label { font: 600 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+pre { margin: 0; padding: 12px 14px; background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; font: 400 12px/1.55 var(--font-mono); overflow: auto; max-height: 260px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.summary { font: 500 13px/1.5 var(--font-mono); color: var(--fg); }
+details summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+
+/* rejections */
+.rej { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+.rej article { padding: 14px 16px; display: grid; gap: 8px; align-content: start; }
+.rej .what { font-weight: 600; font-size: 14px; }
+.rej .msg { font: 400 12.5px/1.55 var(--font-mono); color: var(--fg); overflow-wrap: anywhere; }
+.tag { display: inline-flex; gap: 6px; align-items: center; font: 600 11px/1 var(--font-mono); color: var(--err); letter-spacing: .04em; text-transform: uppercase; }
+.tag svg { width: 12px; height: 12px; }
+
+/* styles */
+.styles { overflow: hidden; }
+.styles img { display: block; width: 100%; height: auto; }
+ul.legend { list-style: none; margin: 0; padding: 14px 16px; display: grid; gap: 6px 24px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); font-size: 13px; }
+ul.legend b { font: 500 12px var(--font-mono); color: var(--gold); }
+
+/* chart */
+.chartwrap { padding: 14px 16px 12px; position: relative; }
+svg.lc { display: block; width: 100%; height: auto; overflow: visible; }
+.lc .grid { stroke: var(--line); stroke-width: 1; }
+.lc .axis, .lc .ptitle { font: 400 10px var(--font-mono); fill: var(--muted); }
+.lc .ptitle { font-weight: 500; }
+.lc .ref { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 3; fill: none; opacity: .75; }
+.lc .meas { stroke: var(--gold); stroke-width: 2; fill: none; stroke-linejoin: round; }
+.lc .dip { fill: var(--surface); stroke: var(--err); stroke-width: 2; }
+.lc .note { font: 500 11px var(--font-mono); fill: var(--err); }
+.lc .cross { stroke: var(--fg); stroke-width: 1; opacity: .35; }
+.tip { position: absolute; pointer-events: none; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font: 400 12px/1.5 var(--font-mono);
+  min-width: 190px; z-index: 2; box-shadow: 0 4px 16px rgba(0, 0, 0, .25); }
+.keys { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: var(--muted); padding: 0 0 8px; }
+.keys i { display: inline-block; width: 22px; height: 0; border-top: 2px solid var(--gold); vertical-align: middle; margin-right: 6px; }
+.keys i.r { border-top: 2px dashed var(--muted); }
+table { border-collapse: collapse; font: 400 12px/1.5 var(--font-mono); width: 100%; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+th { color: var(--muted); font-weight: 500; }
+.tscroll { overflow-x: auto; }
+.tests { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.tests article { padding: 14px 16px; }
+.tests .big { font: 500 28px/1 var(--font-mono); color: var(--ok); }
+.tests .nm { font: 500 12px var(--font-mono); color: var(--muted); margin-bottom: 6px; }
+.tests p { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+.twocol { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+ul.limits { margin: 0; padding-left: 18px; display: grid; gap: 8px; max-width: 80ch; }
+ul.limits li::marker { color: var(--gold); }
+code { font: 400 12.5px var(--font-mono); background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--line); }
+footer { font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; max-width: 80ch; }
+@media (max-width: 860px) {
+  .hero, .session, .twocol { grid-template-columns: minmax(0, 1fr); }
+  .steps { border-right: 0; border-bottom: 1px solid var(--line); max-height: 260px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Servidor MCP · MLT para componer, FFmpeg para exportar</p>
+    <h1>Un editor de video que se maneja solo con un LLM</h1>
+    <p class="lede">Sin interfaz y sin controles: el modelo manda una operación por vez y el servidor valida, compone y devuelve imágenes para que revise su propio trabajo. Todo lo que sigue sale de una sesión real contra el servidor, con material sintético.</p>
+  </header>
+
+  <section class="hero" aria-label="Resultado">
+    <div>
+      <div class="screen"><video id="final" muted loop playsinline controls preload="auto" poster="data:image/jpeg;base64,@@POSTER@@" src="data:video/mp4;base64,@@VIDEO@@"></video></div>
+      <p class="cap">Resultado exportado de la sesión de abajo: @@DUR@@ s, 1280×720. Cortes, fundido cruzado, fades, viñeta, marco, título, tercio inferior y subtítulos con acentos. El video está en silencio al abrir; el audio está en el archivo.</p>
+    </div>
+    <dl class="facts panel" aria-label="Cifras de la sesión">
+      <div><dt>Herramientas que expone el servidor</dt><dd>@@NTOOLS@@</dd></div>
+      <div><dt>Una edición (validar y guardar)</dt><dd>3–60 ms<small>sin renderizar nada</small></dd></div>
+      <div><dt>Ver el resultado (hoja de contactos de 6 fotogramas)</dt><dd>≈ @@SHEET_MS@@ ms<small>media de esta sesión</small></dd></div>
+      <div><dt>Exportar el video final</dt><dd>@@RENDER@@ s<small>para @@DUR@@ s de video, en CPU</small></dd></div>
+    </dl>
+  </section>
+
+  <section aria-labelledby="h-session">
+    <h2 id="h-session">La sesión, llamada por llamada</h2>
+    <p class="sub">Elige un paso o usa “Reproducir”. A la derecha ves la llamada exacta que hizo el modelo, lo que respondió el servidor y cómo se ve el video después de ese cambio.</p>
+    <div class="session panel">
+      <ol class="steps" id="steps"></ol>
+      <div class="detail">
+        <div class="bar">
+          <button class="btn" id="prev" type="button">← Anterior</button>
+          <button class="btn" id="next" type="button">Siguiente →</button>
+          <button class="btn primary" id="play" type="button">▶ Reproducir</button>
+          <span class="chip" id="chip-ms"></span><span class="chip" id="chip-sheet"></span>
+        </div>
+        <div><p class="label">Video después de este paso (6 fotogramas equidistantes)</p><div class="sheet" id="sheet"></div></div>
+        <div><p class="label">Llamada</p><pre id="args"></pre></div>
+        <div><p class="label">Estado del timeline</p><p class="summary" id="summary"></p>
+          <details><summary>Ver la respuesta completa del servidor</summary><pre id="resp" style="margin-top:8px"></pre></details></div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-rej">
+    <h2 id="h-rej">Lo que rechaza, con el mensaje real</h2>
+    <p class="sub">Cada edición se valida contra todo el timeline antes de guardarse. Si algo no se puede, el servidor lo dice con una frase que el modelo puede usar para corregirse, y no cambia nada.</p>
+    <div class="rej" id="rej"></div>
+  </section>
+
+  <section aria-labelledby="h-styles">
+    <h2 id="h-styles">Seis estilos de texto</h2>
+    <p class="sub">Fuentes de licencia libre incluidas en el repositorio, con acentos, ñ y ¿¡. El texto se ajusta solo a varias líneas o se rechaza si no cabe.</p>
+    <div class="styles panel">
+      <img alt="Seis estilos de texto aplicados a un título y a un subtítulo sobre fondos de seda dorada y teal" src="data:image/jpeg;base64,@@STYLES_IMG@@">
+      <ul class="legend" id="legend"></ul>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-stab">
+    <h2 id="h-stab">Por qué confío en que es estable</h2>
+    <p class="sub">Un modelo notó cuadros negros que no entendía. Al medir cada frame del video apareció el origen: <code>Playlist.blank(n)</code> de MLT crea <code>n+1</code> frames, y cada hueco entre capas desplazaba todo un frame. Este gráfico compara el mismo timeline de la sesión con ese desfase reintroducido y con el arreglo.</p>
+    <div class="panel chartwrap" id="chart-box">
+      <div class="keys"><span><i></i>Con las capas (medido)</span><span><i class="r"></i>El mismo timeline sin ninguna capa (referencia)</span></div>
+      <svg class="lc" id="lc" viewBox="0 0 800 300" role="img" aria-label="Luminancia media por frame, con y sin el desfase de Playlist.blank"></svg>
+      <div class="tip" id="tip" hidden></div>
+      <details style="margin-top:10px"><summary>Ver como tabla</summary>
+        <div class="tscroll"><table><thead><tr><th>Frame</th><th>Tiempo</th><th>Referencia</th><th>Con el desfase</th><th>Corregido</th></tr></thead><tbody id="ttab"></tbody></table></div>
+      </details>
+    </div>
+    <p class="sub" style="margin-top:14px">En esta línea de tiempo el desfase causa <b>1 frame</b> con solo @@DIPPCT@@% de la luminancia esperada (frame @@DIP@@, t = @@DIPT@@ s); con el arreglo, ninguno. En una prueba con clips reales de celular fueron 6 de 156 frames.</p>
+    <div class="tests" style="margin-top:6px">
+      <article class="panel"><div class="nm">test_text.py</div><div class="big">@@N_TEXT@@</div><p>de @@N_TEXT@@ pruebas: renderizado de texto, acentos, ajuste de líneas, estilos, gráficos y subtítulos <code>.srt</code>.</p></article>
+      <article class="panel"><div class="nm">test_engine.py</div><div class="big">@@N_ENG@@</div><p>de @@N_ENG@@ escenarios comparados <b>cuadro por cuadro</b> con el mismo timeline sin capas: sin destellos, sin residuos y con cada subtítulo en su frame exacto. Con el bug reintroducido, 8 de 10 fallaban.</p></article>
+      <article class="panel"><div class="nm">test_mcp.py</div><div class="big">@@N_MCP@@</div><p>de @@N_MCP@@ comprobaciones a través de un cliente MCP real, incluidos los rechazos y que cada gráfico aparezca donde debe.</p></article>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-lim">
+    <h2 id="h-lim">Límites</h2>
+    <ul class="limits">
+      <li>Esta demo usa material sintético. Con clips reales verticales (H.264 y HEVC, FPS variable) también funcionó, pero no los muestro aquí.</li>
+      <li>Un proceso atiende un proyecto y una llamada a la vez. El export bloquea el servidor y no tiene progreso ni cancelación.</li>
+      <li>Cada herramienta de render reconstruye el timeline completo (~9 ms por entrada). Con 3 capas a 1080p vertical en CPU el preview ya descarta frames.</li>
+      <li>Las capas se fijan en segundos de la línea de tiempo y no se mueven si luego se editan clips anteriores.</li>
+      <li>Nada impide que dos capas se pisen visualmente (un subtítulo sobre un tercio inferior). Aviso el solapamiento de tiempo, no el de pantalla.</li>
+      <li>El dorado del estilo <code>luxury</code> pierde contraste sobre fondos dorados o muy claros. Rinde mejor sobre fondos oscuros o fríos, como en el teal de arriba.</li>
+      <li>Solo 6 estilos y escritura latina. No hay fuentes personalizadas.</li>
+      <li>El audio se verificó por niveles, no a oído.</li>
+    </ul>
+  </section>
+
+  <footer>Código y reporte completo en <code>poc_mlt/</code> (rama <code>ccr-1cd92fcd-v4wnqr</code>). Para reproducir esta sesión: <code>.venv/bin/python demo_session.py &amp;&amp; .venv/bin/python build_demo.py</code>. Las cifras de arriba se midieron en una máquina de 4 núcleos sin GPU.</footer>
+</div>
+
+<script>
+(function () {
+  var STEPS = @@STEPS@@, REJ = @@REJ@@, CH = @@CHART@@, STYLES = @@STYLES@@;
+  var $ = function (id) { return document.getElementById(id); };
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function esc(s) { return String(s).replace(/[&<>]/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;'}[c]; }); }
+
+  /* ---- video: autoplay muted unless reduced motion */
+  var v = $('final'); if (!reduce) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+
+  /* ---- session viewer */
+  var cur = STEPS.length - 1, timer = null;
+  var list = $('steps');
+  STEPS.forEach(function (s, i) {
+    var li = document.createElement('li');
+    li.innerHTML = '<button type="button" data-i="' + i + '"><span class="n">' + s.n + '</span><span><span class="t">' + esc(s.tool) +
+      '</span><span class="l">' + esc(s.label) + '</span></span><span class="ms">' + s.ms + ' ms</span></button>';
+    list.appendChild(li);
+  });
+  function show(i) {
+    cur = Math.max(0, Math.min(STEPS.length - 1, i)); var s = STEPS[cur];
+    Array.prototype.forEach.call(list.querySelectorAll('button'), function (b, k) {
+      if (k === cur) { b.setAttribute('aria-current', 'step'); } else { b.removeAttribute('aria-current'); }
+    });
+    var cb = list.querySelector('[aria-current]');                       /* scroll only inside the list, never the page */
+    if (cb) { var top = cb.offsetTop, h = cb.offsetHeight; if (top < list.scrollTop || top + h > list.scrollTop + list.clientHeight) list.scrollTop = top - list.clientHeight / 2 + h / 2; }
+    $('sheet').innerHTML = s.image ? '<img alt="Hoja de contactos tras el paso ' + s.n + '" src="' + s.image + '">' :
+      '<div class="nosheet">Este paso prepara el proyecto y todavía no cambia el timeline, así que no hay imagen que mostrar.</div>';
+    $('args').textContent = s.tool + '(' + s.args + ')';
+    $('summary').textContent = s.summary;
+    $('resp').textContent = s.response;
+    $('chip-ms').textContent = 'llamada ' + s.ms + ' ms';
+    $('chip-sheet').textContent = s.sheet_ms ? 'hoja de contactos ' + s.sheet_ms + ' ms' : 'sin render';
+    $('prev').disabled = cur === 0; $('next').disabled = cur === STEPS.length - 1;
+  }
+  list.addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) { stop(); show(+b.getAttribute('data-i')); } });
+  $('prev').onclick = function () { stop(); show(cur - 1); };
+  $('next').onclick = function () { stop(); show(cur + 1); };
+  function stop() { if (timer) { clearInterval(timer); timer = null; $('play').textContent = '▶ Reproducir'; } }
+  $('play').onclick = function () {
+    if (timer) { stop(); return; }
+    if (cur >= STEPS.length - 1) show(0);
+    $('play').textContent = '❚❚ Pausa';
+    timer = setInterval(function () { if (cur >= STEPS.length - 1) { stop(); } else { show(cur + 1); } }, reduce ? 2600 : 1500);
+  };
+  show(cur);
+
+  /* ---- rejections */
+  $('rej').innerHTML = REJ.map(function (r) {
+    return '<article class="panel"><span class="tag"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>Rechazado</span>' +
+      '<div class="what">' + esc(r.label) + '</div><code>' + esc(r.tool) + '(' + esc(r.args.length > 90 ? r.args.slice(0, 88) + '…' : r.args) + ')</code>' +
+      '<div class="msg">' + esc(r.msg) + '</div></article>';
+  }).join('');
+
+  /* ---- style legend */
+  $('legend').innerHTML = STYLES.map(function (s) { return '<li><b>' + s[0] + '</b> · ' + esc(s[1]) + '</li>'; }).join('');
+
+  /* ---- stability chart: two panels, same y scale, shared x */
+  var N = CH.ref.length, X0 = 46, X1 = 790, PH = 104, GAP = 46, TOP = 22;
+  var ymax = Math.ceil(Math.max.apply(null, CH.ref.concat(CH.bug, CH.fixed)) / 10) * 10;
+  var xs = function (i) { return X0 + (X1 - X0) * i / (N - 1); };
+  var panels = [{key: 'bug', title: 'Con el desfase de Playlist.blank (error)', y0: TOP}, {key: 'fixed', title: 'Corregido', y0: TOP + PH + GAP}];
+  var svg = $('lc'), out = '';
+  panels.forEach(function (pn) {
+    var ys = function (v) { return pn.y0 + PH - PH * v / ymax; };
+    out += '<text class="ptitle" x="' + X0 + '" y="' + (pn.y0 - 8) + '">' + pn.title + '</text>';
+    [0, ymax / 2, ymax].forEach(function (g) {
+      out += '<line class="grid" x1="' + X0 + '" x2="' + X1 + '" y1="' + ys(g) + '" y2="' + ys(g) + '"/><text class="axis" x="' + (X0 - 6) + '" y="' + (ys(g) + 3) + '" text-anchor="end">' + g + '</text>';
+    });
+    var path = function (a) { return a.map(function (v, i) { return (i ? 'L' : 'M') + xs(i).toFixed(1) + ' ' + ys(v).toFixed(1); }).join(''); };
+    out += '<path class="ref" d="' + path(CH.ref) + '"/><path class="meas" d="' + path(CH[pn.key]) + '"/>';
+    if (pn.key === 'bug') {
+      var dx = xs(CH.dip), dy = ys(CH.bug[CH.dip]);
+      out += '<circle class="dip" cx="' + dx + '" cy="' + dy + '" r="5"/><text class="note" x="' + (dx + 10) + '" y="' + (dy - 2) + '">frame ' + CH.dip + ': ' + CH.dip_pct + '% de lo esperado</text>';
+    }
+  });
+  var bottom = TOP + 2 * PH + GAP;
+  for (var s = 0; s <= N / CH.fps; s += 1) {
+    out += '<text class="axis" x="' + xs(s * CH.fps) + '" y="' + (bottom + 16) + '" text-anchor="middle">' + s + ' s</text>';
+  }
+  out += '<line class="cross" id="cross" x1="0" x2="0" y1="' + (TOP - 4) + '" y2="' + bottom + '" visibility="hidden"/>';
+  out += '<rect id="hit" x="' + X0 + '" y="' + (TOP - 12) + '" width="' + (X1 - X0) + '" height="' + (bottom - TOP + 14) + '" fill="transparent"/>';
+  svg.setAttribute('viewBox', '0 0 800 ' + (bottom + 28));
+  svg.innerHTML = out;
+  var tip = $('tip'), cross = $('cross'), box = $('chart-box');
+  function at(ev) {
+    var r = svg.getBoundingClientRect(), rb = box.getBoundingClientRect(), k = 800 / r.width;
+    var px = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * k;
+    var i = Math.max(0, Math.min(N - 1, Math.round((px - X0) / (X1 - X0) * (N - 1))));
+    cross.setAttribute('x1', xs(i)); cross.setAttribute('x2', xs(i)); cross.setAttribute('visibility', 'visible');
+    tip.hidden = false;
+    tip.innerHTML = 'frame ' + i + ' · ' + (i / CH.fps).toFixed(2) + ' s<br>referencia ' + CH.ref[i].toFixed(1) + '<br>con el desfase ' + CH.bug[i].toFixed(1) + '<br>corregido ' + CH.fixed[i].toFixed(1);
+    var left = (r.left - rb.left) + xs(i) / k + 14; if (left + 200 > rb.width) left -= 230;
+    tip.style.left = left + 'px'; tip.style.top = (r.top - rb.top + 30) + 'px';
+  }
+  var hit = $('hit');
+  hit.addEventListener('mousemove', at); hit.addEventListener('touchmove', at, {passive: true}); hit.addEventListener('touchstart', at, {passive: true});
+  hit.addEventListener('mouseleave', function () { tip.hidden = true; cross.setAttribute('visibility', 'hidden'); });
+  var rows = [CH.dip - 2, CH.dip - 1, CH.dip, CH.dip + 1, CH.dip + 2];
+  $('ttab').innerHTML = rows.map(function (i) {
+    return '<tr' + (i === CH.dip ? ' style="color:var(--err)"' : '') + '><td>' + i + '</td><td>' + (i / CH.fps).toFixed(2) + ' s</td><td>' + CH.ref[i].toFixed(1) + '</td><td>' + CH.bug[i].toFixed(1) + '</td><td>' + CH.fixed[i].toFixed(1) + '</td></tr>';
+  }).join('');
+})();
+</script>
