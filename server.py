@@ -27,8 +27,11 @@ def _ensure_display():
     if os.environ.get("DISPLAY"):
         return
     r, w = os.pipe()
+    def die_with_parent():                 # MCP clients usually SIGKILL stdio servers, so atexit never runs:
+        import ctypes, signal              # ask the kernel to SIGTERM Xvfb when this process dies (PR_SET_PDEATHSIG)
+        ctypes.CDLL("libc.so.6", use_errno=True).prctl(1, signal.SIGTERM)
     proc = subprocess.Popen(["Xvfb", "-displayfd", str(w), "-screen", "0", "1280x720x24", "-nolisten", "tcp"],
-                            pass_fds=[w], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            pass_fds=[w], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, preexec_fn=die_with_parent)
     os.close(w)
     num = os.read(r, 16).decode().strip()
     if not num:

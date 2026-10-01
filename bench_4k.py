@@ -49,7 +49,9 @@ async def main():
     async with stdio_client(sp) as (r, w):
         async with ClientSession(r, w) as s:
             await s.initialize()
-            smp.pid = next(int(d) for d in os.listdir("/proc") if d.isdigit() and "server.py" in open(f"/proc/{d}/cmdline", "rb").read().decode(errors="ignore") and "bench" not in open(f"/proc/{d}/cmdline", "rb").read().decode(errors="ignore"))
+            # the server is OUR child (other server.py processes may exist, e.g. one kept by a Claude Code session)
+            kids = [int(k) for k in open(f"/proc/{os.getpid()}/task/{os.getpid()}/children").read().split()]
+            smp.pid = next(k for k in kids if "server.py" in open(f"/proc/{k}/cmdline", "rb").read().decode(errors="ignore"))
 
             async def call(name, args, label=None):
                 smp.begin(); t0 = time.perf_counter()
