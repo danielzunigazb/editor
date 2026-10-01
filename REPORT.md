@@ -374,6 +374,23 @@ Prueba end-to-end con un cliente MCP real (SDK, proceso aparte): `.venv/bin/pyth
 - La prueba usa clips sintéticos; los clips reales verticales/VFR (sección 8) no pasaron por
   el servidor. Los límites de rendimiento de las secciones 8 y 9 aplican igual.
 
+### 11.1 Corrida con un modelo real y clips reales (vía `.mcp.json` de Claude Code)
+
+`claude -p --mcp-config .mcp.json` con los 3 clips reales (vertical, VFR, H.264/HEVC). El modelo
+hizo 14 llamadas a herramientas sin ayuda (proyecto 1080x1920@24, 3 imports, 2 `add_clip`,
+`crossfade` 0.5 s, `add_pip` abajo a la izquierda, `set_fades`, `get_contact_sheet`, `get_still`
+a resolución completa, `export` draft) y no necesitó corregir nada. Duración del timeline 6.5 s y
+export draft 6.5 s de render. **Verificación independiente del mp4** (`real_mcp.mp4`):
+h264+aac, 1080x1920, 6.500 s exactos; luma 7.7 en t=0 -> 108 en t=1 -> 7.2 en t=6.4 (fade-in y
+fade-out presentes); audio -87 dB en ambos extremos y -31 dB en medio; PiP visible abajo a la
+izquierda durante el cruce y después; dissolve visible a ojo. El modelo declaró honestamente lo
+que no pudo verificar (opacidad, fade-out, audio, archivo final); esas cuatro cosas resultaron
+estar correctas al comprobarlas aparte.
+
+Observaciones: el modelo acortó el PiP a 2.5 s por su cuenta (de 2 a 4.5 s, lo pedido);
+R2 (474x850) se escala ~2.3x y se ve blando (limitación de la fuente, no del motor).
+Sigue siendo **una sola corrida** de **un** modelo.
+
 ## 10. Archivos
 
 - `poc.py`: el POC (gen/build/bench/preview/export/measure).
