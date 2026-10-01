@@ -254,7 +254,9 @@ def cmd_preview(args):
     c = mlt7.Consumer(profile, "sdl2")
     if not c.is_valid():
         sys.exit("sdl2 consumer unavailable")
-    c.set("real_time", "1")        # allow frame dropping to stay in sync
+    # real_time=N: N render threads WITH frame dropping. 1080p + 5 layers, 3 runs each, dropped of 312: N=1 -> 80/68/77,
+    # N=2 -> 26/32/29, N=3 -> 23/15/14 (see REPORT section 13.1). Override with MLT_PLAY_THREADS.
+    c.set("real_time", os.environ.get("MLT_PLAY_THREADS", "3"))
     c.set("terminate_on_pause", 1)
     c.connect(pl)
     start = time.perf_counter()

@@ -551,6 +551,42 @@ También se corrigió que el servidor dejaba procesos `Xvfb` huérfanos (ahora m
   tamaño sin agotar su tiempo de espera; tampoco se probó un modelo real a 4K.
 - Una sola corrida por medición, material sintético, una máquina de 4 núcleos sin GPU.
 
+### 13.1 Comparación con 1080p (añadido tras la pregunta del usuario)
+
+Misma prueba y mismos pasos que en 4K, pero a **1920x1080@30** (clips generados: H.264 16 Mbps, H.264 60 fps 24 Mbps, HEVC 10 bits
+10 Mbps, también con ruido de sensor), a través del servidor MCP con la optimización de 2 hilos ya aplicada. 312 frames, misma pila de
+cinco capas. Exports verificados: 1920x1080, 10.4 s, 312 frames, sin destellos.
+
+| Medida | 1080p | 4K |
+|---|---|---|
+| `get_still` a medio tamaño, frío / caliente | 1.6 / 1.3 s | 5.9 / 5.1 s |
+| `get_still` a tamaño completo, frío / caliente | 2.6 / 1.9 s | 12.4 / 8.7 s |
+| `get_contact_sheet` 6 frames, frío / caliente | 2.9 / 2.9 s | 12.1 / 10.3 s |
+| `export` borrador (servidor, 2 hilos) | **9.6 s** (0.9x la duración) | ~36 s (3.5x) |
+| `export` alta calidad | 21.0 s (2.0x) | 92.6 s (8.9x, antes de los 2 hilos) |
+| `render_preview` | 7.8 s | 43.4 s (antes de los 2 hilos) |
+| RAM pico export borrador / alta | 1.15 / 1.9 GB | 3.1 / 4.8 GB (antes de los 2 hilos) |
+
+Las filas de 4K marcadas "antes de los 2 hilos" se midieron antes de la optimización; el borrador a 4K con 2 hilos se midió aparte
+(36.2 s). Por eso esas columnas no son estrictamente comparables, y el 4K con 2 hilos tampoco se repitió por el servidor completo.
+
+**Render paralelo a 1080p** (export borrador por el camino del servidor): 1 hilo 15.7 s, **2 hilos 8.5 s (1.85x)**, 4 hilos 9.3 s (peor
+que 2 por contención). Dos hilos es el valor correcto en ambas resoluciones.
+
+**Reproducción en tiempo real** (reproductor `sdl2` bajo Xvfb con audio ficticio; frames descartados de 312):
+| Caso | Descartados |
+|---|---|
+| 1080p, sin capas | **0** (0%) |
+| 1080p, 5 capas, `real_time=1` (3 corridas) | 80 / 68 / 77 (~24%) |
+| 1080p, 5 capas, `real_time=2` (3 corridas) | 26 / 32 / 29 (~9%) |
+| 1080p, 5 capas, `real_time=3` (3 corridas) | 23 / 15 / 14 (~5%) |
+| 4K, 5 capas, `real_time=1` (1 corrida) | 265 (85%), tarda 18.2 s en reproducir 10.4 s |
+
+Conclusión: **sin capas, 1080p es perfectamente fluido; las capas de lujo son lo que rompe la fluidez** (igual que en el export). Varios
+hilos de reproducción reducen el descarte unas 4 veces a 1080p pero no lo eliminan (~5% sigue siendo un tirón perceptible); a 4K no
+alcanza. `poc.py preview` ahora usa 3 hilos (`MLT_PLAY_THREADS`). Limitaciones: Xvfb renderiza por software y sin GPU real los números
+pueden diferir; la sincronía A/V no se evaluó; una corrida por caso a 4K y tres a 1080p.
+
 ## 10. Archivos
 
 - `poc.py`: el POC (gen/build/bench/preview/export/measure).
