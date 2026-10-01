@@ -8,7 +8,7 @@ Edits are cheap and validated instantly (pure-python timeline model); rendering 
 Run (stdio):  .venv/bin/python server.py          [MLT_EDITOR_HOME=<project dir>]
 Needs the apt binding (python3-mlt) -> use the venv built with --system-site-packages on python3.12.
 """
-import io, json, os, re, subprocess, sys, time
+import contextlib, fcntl, io, json, os, re, subprocess, sys, time
 
 # ---- stdout hygiene: MLT/ffmpeg/LADSPA may print to fd 1, which would corrupt the stdio protocol.
 _real = os.dup(1)
@@ -54,17 +54,54 @@ mcp = FastMCP("mlt-video-editor")
 
 # ------------------------------------------------------------------ project state
 DEFAULT = {"sources": {}, "ops": [], "width": 1280, "height": 720, "fps": 25}
+LOCK = os.path.join(HOME, "project.lock")
+MAX_OPS, MAX_SOURCES = 500, 50
+SUBPROCESS_TIMEOUT = 60          # ffprobe / still-encode: a hung or hostile file must not freeze the server
+ROOTS = [os.path.realpath(os.path.expanduser(r)) for r in os.environ.get("MLT_EDITOR_ROOTS", "").split(os.pathsep) if r]
+
+
+def _safe_path(path, what, must_exist=True):
+    """Resolve `path` (symlinks included) and, if MLT_EDITOR_ROOTS is set, require it to live under one of those
+    directories. An LLM-driven editor reads and writes arbitrary paths otherwise; this is the opt-in fence."""
+    if not isinstance(path, str) or not path.strip() or "\0" in path:
+        raise ValueError(f"{what}: path must be a non-empty string")
+    p = os.path.realpath(os.path.expanduser(path))
+    if ROOTS and not any(p == r or p.startswith(r + os.sep) for r in ROOTS):
+        raise ValueError(f"{what}: '{path}' is outside the allowed folders (MLT_EDITOR_ROOTS = {os.pathsep.join(ROOTS)})")
+    if must_exist and not os.path.exists(p):
+        raise ValueError(f"{what}: file not found: {p}")
+    return p
+
+
+@contextlib.contextmanager
+def locked():
+    """Exclusive cross-process lock around a read-modify-write of project.json (two server processes or a CLI
+    sharing one project would otherwise lose each other's edits). Blocking, released on exit or process death."""
+    with open(LOCK, "a+") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
 
 
 def load():
-    if os.path.exists(PROJECT):
-        return json.load(open(PROJECT))
-    return json.loads(json.dumps(DEFAULT))
+    if not os.path.exists(PROJECT):
+        return json.loads(json.dumps(DEFAULT))
+    try:
+        with open(PROJECT) as f:
+            st = json.load(f)
+        assert isinstance(st, dict) and {"sources", "ops", "width", "height", "fps"} <= set(st)
+        return st
+    except (ValueError, AssertionError, OSError) as e:
+        raise RuntimeError(f"project file {PROJECT} is unreadable ({e}); fix or delete it, or call new_project")
 
 
 def save(st):
-    tmp = PROJECT + ".tmp"
-    json.dump(st, open(tmp, "w"), indent=1)
+    tmp = f"{PROJECT}.{os.getpid()}.tmp"
+    with open(tmp, "w") as f:
+        json.dump(st, f, indent=1)
+        f.flush(); os.fsync(f.fileno())               # a crash must leave the old file or the new one, never half
     os.replace(tmp, PROJECT)
 
 
@@ -95,12 +132,16 @@ def _validate(st, op):
                          f"or check offset_s")
 
 
-def commit(st, op):
-    """Validate the op against the whole timeline, then persist. Nothing is saved on error."""
-    _validate(st, op)
-    st["ops"].append(op)
-    save(st)
-    return summary(st)
+def commit(op):
+    """Validate the op against the whole timeline, then persist (under the project lock). Nothing is saved on error."""
+    with locked():
+        st = load()
+        if len(st["ops"]) >= MAX_OPS:
+            raise ValueError(f"the project already has {MAX_OPS} edits (the limit); export it or start a new project")
+        _validate(st, op)
+        st["ops"].append(op)
+        save(st)
+        return summary(st)
 
 
 # ---- one builder per edit tool: (tool arguments) -> engine op. The tools and apply_ops share them, so a batch behaves
@@ -139,7 +180,7 @@ def _b_add_subtitles(srt_path="", cues=None, offset_s=0.0, position="bottom", si
                      box=True):
     if bool(srt_path) == bool(cues):
         raise ValueError("give exactly one of srt_path or cues")
-    items = textrender.parse_srt(srt_path) if srt_path else cues
+    items = textrender.parse_srt(_safe_path(srt_path, "add_subtitles")) if srt_path else cues
     shifted = []
     for i, c in enumerate(items):
         if not isinstance(c, dict) or not {"start", "end", "text"} <= set(c):
@@ -162,14 +203,16 @@ def _b_add_lower_third(title, subtitle="", start_s=0.0, dur_s=4.0, align="left",
 
 
 def _b_add_image(path, start_s, dur_s, position="center", scale=0.3, opacity=1.0):
-    return {"op": "image", "path": os.path.abspath(os.path.expanduser(path)), "start": start_s, "dur": dur_s,
+    return {"op": "image", "path": _safe_path(path, "add_image"), "start": start_s, "dur": dur_s,
             "pos": position, "scale": scale, "opacity": opacity}
 
 
 BUILDERS = {n[3:]: f for n, f in list(globals().items()) if n.startswith("_b_")}
 
 
-def summary(st):
+def summary(st, full=False):
+    """Timeline as JSON. Edit tools return the compact form (the model already knows the op it just sent);
+    get_timeline/undo/remove_op return `full` with the numbered op list."""
     bind(st)
     m = live.layout(st["ops"])
     layers, seen = [], {}
@@ -192,7 +235,7 @@ def summary(st):
         else:
             d["source"] = L["src"]
         layers.append(d)
-    return {
+    out = {
         "duration_s": round(m["total"], 3),
         "entries": [{"index": i, "source": e["src"], "source_in_s": round(e["in"], 3),
                      "start_s": round(e["start"], 3), "end_s": round(e["start"] + e["dur"], 3)}
@@ -201,14 +244,20 @@ def summary(st):
         "fade": m["fade"],
         "overlays": layers,
         "warnings": m["warnings"],
-        "ops": [{"index": i, **({k: v for k, v in o.items() if k != "cues"}), **({"cues": len(o["cues"])} if "cues" in o else {})}
-                for i, o in enumerate(st["ops"])],
+        "op_count": len(st["ops"]),
     }
+    if full:
+        out["ops"] = [{"index": i, **({k: v for k, v in o.items() if k != "cues"}), **({"cues": len(o["cues"])} if "cues" in o else {})}
+                      for i, o in enumerate(st["ops"])]
+    return out
 
 
 def _probe(path):
-    r = subprocess.run(["ffprobe", "-v", "error", "-print_format", "json", "-show_format", "-show_streams", path],
-                       capture_output=True, text=True)
+    try:
+        r = subprocess.run(["ffprobe", "-v", "error", "-print_format", "json", "-show_format", "-show_streams", path],
+                           capture_output=True, text=True, timeout=SUBPROCESS_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        raise ValueError(f"ffprobe timed out reading '{path}' (is it a network mount or a corrupt file?)")
     if r.returncode:
         raise ValueError(f"ffprobe could not read '{path}': {r.stderr.strip() or 'unknown error'}")
     info = json.loads(r.stdout)
@@ -231,10 +280,11 @@ def _probe(path):
 def new_project(width: int = 1280, height: int = 720, fps: int = 25) -> dict:
     """Start an empty project (discards the current timeline and imported sources).
     width/height/fps define the final export format; previews are rendered at half size."""
-    if width < 64 or height < 64 or not 1 <= fps <= 120:
-        raise ValueError("width/height must be >= 64 and fps in 1..120")
+    if not (64 <= width <= 7680 and 64 <= height <= 4320 and 1 <= fps <= 120):
+        raise ValueError("width 64-7680, height 64-4320, fps 1-120")
     st = {**json.loads(json.dumps(DEFAULT)), "width": width, "height": height, "fps": fps}
-    save(st)
+    with locked():
+        save(st)
     return {"ok": True, "format": f"{width}x{height}@{fps}"}
 
 
@@ -242,18 +292,21 @@ def new_project(width: int = 1280, height: int = 720, fps: int = 25) -> dict:
 def import_clip(path: str, id: str = "") -> dict:
     """Register a video file as a source and return its id. Use the id in add_clip / add_pip.
     `id` is optional (letters/digits/_ ); default is S1, S2, ..."""
-    path = os.path.abspath(os.path.expanduser(path))
+    path = _safe_path(path, "import_clip")
     if not os.path.isfile(path):
-        raise ValueError(f"file not found: {path}")
-    st = load()
-    sid = id or f"S{len(st['sources']) + 1}"
-    if not re.fullmatch(r"[A-Za-z0-9_]+", sid):
-        raise ValueError("id must be letters, digits or underscore")
-    if sid in st["sources"]:
-        raise ValueError(f"source id '{sid}' already exists")
-    info = _probe(path)
-    st["sources"][sid] = {"path": path, **info}
-    save(st)
+        raise ValueError(f"not a file: {path}")
+    if id and not re.fullmatch(r"[A-Za-z0-9_]{1,32}", id):
+        raise ValueError("id must be 1-32 letters, digits or underscore")
+    info = _probe(path)                                     # slow (spawns ffprobe): done outside the lock
+    with locked():
+        st = load()
+        sid = id or f"S{len(st['sources']) + 1}"
+        if sid in st["sources"]:
+            raise ValueError(f"source id '{sid}' already exists")
+        if len(st["sources"]) >= MAX_SOURCES:
+            raise ValueError(f"the project already has {MAX_SOURCES} sources (the limit)")
+        st["sources"][sid] = {"path": path, **info}
+        save(st)
     return {"id": sid, **info}
 
 
@@ -268,28 +321,28 @@ def list_sources() -> dict:
 def add_clip(source: str, start_s: float = 0.0, end_s: float | None = None) -> dict:
     """Append a clip (or the range start_s..end_s of it) to the end of the main track.
     Returns the updated timeline. The new entry's index is the last one."""
-    return commit(load(), _b_add_clip(source, start_s, end_s))
+    return commit(_b_add_clip(source, start_s, end_s))
 
 
 @mcp.tool()
 def cut_clip(index: int, at_s: float) -> dict:
     """Cut timeline entry `index` at `at_s` seconds from the ENTRY's own start and drop everything after
     (the entry becomes `at_s` long). Later entries shift earlier."""
-    return commit(load(), _b_cut_clip(index, at_s))
+    return commit(_b_cut_clip(index, at_s))
 
 
 @mcp.tool()
 def crossfade(first_index: int, dur_s: float = 1.0) -> dict:
     """Dissolve (video) and crossfade (audio) between entry `first_index` and the next one.
     The two entries overlap by dur_s, so the timeline gets shorter by dur_s."""
-    return commit(load(), _b_crossfade(first_index, dur_s))
+    return commit(_b_crossfade(first_index, dur_s))
 
 
 @mcp.tool()
 def set_fades(fade_in_s: float = 0.0, fade_out_s: float = 0.0) -> dict:
     """Fade from black/silence at the start and to black/silence at the end of the whole timeline.
     Replaces any previous fade setting."""
-    return commit(load(), _b_set_fades(fade_in_s, fade_out_s))
+    return commit(_b_set_fades(fade_in_s, fade_out_s))
 
 
 @mcp.tool()
@@ -299,7 +352,7 @@ def add_pip(source: str, start_s: float, dur_s: float, position: str = "top-righ
     position: top-right | top-left | bottom-right | bottom-left. scale: fraction of frame width (0-1].
     opacity 0-1 (fades in/out at the edges). Calls accumulate (several PiPs are allowed, up to 6 overlays
     at the same moment). Overlays are placed in timeline seconds and do NOT move if you later edit earlier clips."""
-    return commit(load(), _b_add_pip(source, start_s, dur_s, position, scale, opacity, source_in_s))
+    return commit(_b_add_pip(source, start_s, dur_s, position, scale, opacity, source_in_s))
 
 
 @mcp.tool()
@@ -325,7 +378,7 @@ def add_text(text: str, start_s: float, dur_s: float, position: str = "bottom", 
     color: optional #RRGGBB; leave empty to keep the style's own colour (gold gradient for luxury).
     box: dark glass box behind the text. uppercase: force/forbid capitals (default per style).
     ornament: none | line | diamond (thin gold rule; default per style). All styles add a soft shadow for readability."""
-    return commit(load(), _b_add_text(text, start_s, dur_s, position, size, style, color, box, uppercase, ornament, fade_s))
+    return commit(_b_add_text(text, start_s, dur_s, position, size, style, color, box, uppercase, ornament, fade_s))
 
 
 @mcp.tool()
@@ -337,7 +390,7 @@ def add_subtitles(srt_path: str = "", cues: list[dict] | None = None, offset_s: 
     style: champagne (default, elegant Cormorant on a dark glass box) | luxury | luxury-italic | noir | modern | classic.
     Same text rules as add_text (accents/ñ fine; up to 300 cues). Cues after the timeline end are
     dropped with a warning. Calling it again ADDS another subtitle track; use remove_op to replace."""
-    return commit(load(), _b_add_subtitles(srt_path, cues, offset_s, position, size, style, color, box))
+    return commit(_b_add_subtitles(srt_path, cues, offset_s, position, size, style, color, box))
 
 
 @mcp.tool()
@@ -347,7 +400,7 @@ def add_graphic(kind: str, start_s: float, dur_s: float, amount: float | None = 
     kind: frame (thin double gold keyline with diamonds) | letterbox (cinema bars with a gold hairline) |
     vignette (soft dark edges). amount (optional): frame inset 0.015-0.08 | letterbox bar height 0.04-0.25 |
     vignette strength 0.1-1. opacity 0-1; fade_s = fade in/out at the edges. Stack with text for a polished look."""
-    return commit(load(), _b_add_graphic(kind, start_s, dur_s, amount, opacity, fade_s))
+    return commit(_b_add_graphic(kind, start_s, dur_s, amount, opacity, fade_s))
 
 
 @mcp.tool()
@@ -356,7 +409,7 @@ def add_lower_third(title: str, subtitle: str = "", start_s: float = 0.0, dur_s:
     """Name/role caption panel at the bottom: gold side bar, title in metallic gold, subtitle in tracked ivory
     capitals (e.g. title "Señor Muñoz", subtitle "Director de Proyecto"). Single lines only (title max 60 chars,
     subtitle max 80). align: left | right. Shown from start_s for dur_s (TIMELINE time)."""
-    return commit(load(), _b_add_lower_third(title, subtitle, start_s, dur_s, align, fade_s))
+    return commit(_b_add_lower_third(title, subtitle, start_s, dur_s, align, fade_s))
 
 
 @mcp.tool()
@@ -365,7 +418,7 @@ def add_image(path: str, start_s: float, dur_s: float, position: str = "center",
     """Show a PNG/JPG/WebP (logo, arrow, reference graphic; transparency is kept) from start_s for dur_s
     (TIMELINE time). position: center | top-right | top-left | bottom-right | bottom-left. scale: fraction
     of frame width (0-1], aspect ratio preserved. Max 25 MB / 8000 px per side."""
-    return commit(load(), _b_add_image(path, start_s, dur_s, position, scale, opacity))
+    return commit(_b_add_image(path, start_s, dur_s, position, scale, opacity))
 
 
 @mcp.tool()
@@ -380,7 +433,14 @@ def apply_ops(ops: list[dict]) -> dict:
     Prefer this to many single calls: it is the same result with far fewer round trips."""
     if not isinstance(ops, list) or not 1 <= len(ops) <= 50:
         raise ValueError("ops must be a list of 1-50 items")
+    with locked():
+        return _apply_ops(ops)
+
+
+def _apply_ops(ops):
     st = load()
+    if len(st["ops"]) + len(ops) > MAX_OPS:
+        raise ValueError(f"this batch would take the project past {MAX_OPS} edits (it has {len(st['ops'])})")
     for i, spec in enumerate(ops):
         if not isinstance(spec, dict) or not isinstance(spec.get("tool"), str):
             raise ValueError(f"item {i}: needs a 'tool' key naming an edit tool; nothing was applied")
@@ -407,44 +467,78 @@ def get_timeline() -> dict:
     """Current timeline: entries with start/end times, crossfades, fades, overlays (pip/text/subtitles/image, with their
     track), warnings (overlays trimmed or hidden by later cuts) and the full op list
     (each op has an index usable with remove_op)."""
-    return summary(load())
+    return summary(load(), full=True)
 
 
 @mcp.tool()
 def undo() -> dict:
     """Remove the last edit."""
-    st = load()
-    if not st["ops"]:
-        raise ValueError("nothing to undo")
-    removed = st["ops"].pop()
-    save(st)
-    return {"removed": removed, **summary(st)}
+    with locked():
+        st = load()
+        if not st["ops"]:
+            raise ValueError("nothing to undo")
+        removed = st["ops"].pop()
+        save(st)
+        return {"removed": removed, **summary(st, full=True)}
 
 
 @mcp.tool()
 def remove_op(index: int) -> dict:
     """Remove edit number `index` (see get_timeline). Rejected, with nothing changed, if later edits
     depend on it (e.g. removing an add_clip that a later cut refers to)."""
-    st = load()
-    if not 0 <= index < len(st["ops"]):
-        raise ValueError(f"no op {index} (have {len(st['ops'])})")
-    bind(st)
-    rest = st["ops"][:index] + st["ops"][index + 1:]
-    live.layout(rest)          # raises if the remaining ops are no longer valid
-    removed = st["ops"][index]
-    st["ops"] = rest
-    save(st)
-    return {"removed": removed, **summary(st)}
+    with locked():
+        st = load()
+        if not 0 <= index < len(st["ops"]):
+            raise ValueError(f"no op {index} (have {len(st['ops'])})")
+        bind(st)
+        rest = st["ops"][:index] + st["ops"][index + 1:]
+        live.layout(rest)          # raises if the remaining ops are no longer valid
+        removed = st["ops"][index]
+        st["ops"] = rest
+        save(st)
+        return {"removed": removed, **summary(st, full=True)}
 
 
 # ------------------------------------------------------------------ tools: seeing + exporting (rendering)
+_TRACTORS = {}          # key -> (tractor, model, total); tiny LRU of built timelines for stills (see _built)
+_TRACTOR_SLOTS = 2      # stills (0.5x) and contact sheets (0.25x) alternate; more would pin many open 4K decoders
+
+
+def _state_key(st, scale):
+    """Everything a built timeline depends on: the edit list, the format, and the files behind it (path+mtime+size)."""
+    files = []
+    for p in sorted({v["path"] for v in st["sources"].values()} | {o["path"] for o in st["ops"] if o.get("op") == "image"}):
+        try:
+            stt = os.stat(p); files.append((p, stt.st_mtime_ns, stt.st_size))
+        except OSError:
+            files.append((p, None, None))
+    return json.dumps([st["ops"], st["width"], st["height"], st["fps"], scale, files], sort_keys=True)
+
+
+def _built(st, scale):
+    """Build the timeline for stills, or reuse the one built by the previous call if nothing it depends on changed.
+    Opening the producers is ~80% of a 4K build (2.1 s of 2.6 s), and the model usually looks at stills in bursts.
+    Only for stills: a tractor that a consumer has rendered cannot be rendered again, so preview/export build their own.
+    MLT_TRACTOR_CACHE=0 disables it."""
+    bind(st, scale)
+    if os.environ.get("MLT_TRACTOR_CACHE", "1") != "1":
+        return live.build(st["ops"])
+    key = _state_key(st, scale)
+    hit = _TRACTORS.pop(key, None)
+    if hit is None:
+        hit = live.build(st["ops"])
+    _TRACTORS[key] = hit                                    # (re)insert as most recent
+    while len(_TRACTORS) > _TRACTOR_SLOTS:
+        _TRACTORS.pop(next(iter(_TRACTORS)))
+    return hit
+
+
 def _frames(st, times, scale):
     """Render stills at the given timeline times with one engine build. Returns [(w, h, rgb_bytes)]."""
     import mlt7
     if not st["ops"]:
         raise ValueError("the timeline is empty; add_clip first")
-    bind(st, scale)
-    p, tr, m, total = live.build(st["ops"])
+    p, tr, m, total = _built(st, scale)
     out = []
     for t in times:
         if not 0 <= t <= m["total"]:
@@ -463,7 +557,10 @@ def _png(frames, tile=None):
     else:
         cmd += ["-frames:v", "1"]
     cmd += ["-f", "image2pipe", "-vcodec", "png", "-"]
-    r = subprocess.run(cmd, input=b"".join(f[2] for f in frames), capture_output=True)
+    try:
+        r = subprocess.run(cmd, input=b"".join(f[2] for f in frames), capture_output=True, timeout=SUBPROCESS_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"ffmpeg took more than {SUBPROCESS_TIMEOUT}s to encode the still")
     if r.returncode:
         raise RuntimeError(r.stderr.decode()[-300:])
     return r.stdout
@@ -523,7 +620,7 @@ def export(output_path: str, quality: str = "high", overwrite: bool = False) -> 
     st = load()
     if not st["ops"]:
         raise ValueError("the timeline is empty; add_clip first")
-    out = os.path.abspath(os.path.expanduser(output_path))
+    out = _safe_path(output_path, "export", must_exist=False)
     if not out.lower().endswith((".mp4", ".mov")):
         raise ValueError("output_path must end in .mp4 or .mov")
     if os.path.isdir(out):
@@ -540,5 +637,31 @@ def export(output_path: str, quality: str = "high", overwrite: bool = False) -> 
             "size_kb": os.path.getsize(out) // 1024, "render_s": round(time.perf_counter() - t0, 2)}
 
 
+def prune_cache(max_mb=500, max_age_days=14):
+    """The rendered-PNG cache (text, graphics, cropped overlays) only grows. Drop what is old, then the oldest until
+    the folder fits max_mb; everything in it is regenerated on demand. Returns the number of files removed."""
+    cache = os.path.join(HOME, "cache")
+    if not os.path.isdir(cache):
+        return 0
+    files = []
+    for name in os.listdir(cache):
+        p = os.path.join(cache, name)
+        try:
+            if os.path.isfile(p):
+                stt = os.stat(p); files.append((stt.st_mtime, stt.st_size, p))
+        except OSError:
+            pass
+    files.sort()
+    cutoff, total, removed = time.time() - max_age_days * 86400, sum(f[1] for f in files), 0
+    for mt, size, p in files:
+        if mt < cutoff or total > max_mb * 1_000_000:
+            try:
+                os.remove(p); total -= size; removed += 1
+            except OSError:
+                pass
+    return removed
+
+
 if __name__ == "__main__":
+    prune_cache()
     mcp.run()

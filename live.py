@@ -39,9 +39,24 @@ def _opt(name):                         # evaluated per build so tests can toggl
 
 def _crop_to_content(path, W_, H_):
     """Crop a full-frame RGBA overlay to the bounding box of its visible pixels. qtblend then composites only that
-    rectangle instead of a whole 4K frame. Returns (path, x, y, w, h), or None when cropping would not pay off."""
+    rectangle instead of a whole 4K frame. Returns (path, x, y, w, h), or None when cropping would not pay off.
+    The result is also stored in a `<png>_crop.json` sidecar, so a later process (or a rebuild after the in-memory memo
+    is gone) skips decoding the full-size PNG (0.37 s per 4K overlay)."""
     if path in _BBOX:
         return _BBOX[path]
+    out, side = path[:-4] + "_crop.png", path[:-4] + "_crop.json"
+    try:                                                    # sidecar is only trusted if it is newer than the source PNG
+        if os.path.getmtime(side) >= os.path.getmtime(path):
+            with open(side) as f:
+                d = json.load(f)
+            if d is None:
+                _BBOX[path] = None
+                return None
+            if os.path.exists(out):
+                _BBOX[path] = res = (out, *[int(d[k]) for k in ("x", "y", "w", "h")])
+                return res
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
     from PIL import Image
     res = None
     with Image.open(path) as im:
@@ -52,12 +67,15 @@ def _crop_to_content(path, W_, H_):
             x0, y0 = max(0, bb[0] - pad), max(0, bb[1] - pad)
             x1, y1 = min(im.width, bb[2] + pad), min(im.height, bb[3] + pad)
             if (x1 - x0) * (y1 - y0) < 0.6 * im.width * im.height:        # a near-full-frame overlay gains nothing
-                out = path[:-4] + "_crop.png"
-                if not os.path.exists(out):
+                if not os.path.exists(out) or os.path.getmtime(out) < os.path.getmtime(path):
                     tmp = out + f".{os.getpid()}.tmp"
                     im.crop((x0, y0, x1, y1)).save(tmp, format="PNG")
                     os.replace(tmp, out)
                 res = (out, x0, y0, x1 - x0, y1 - y0)
+    tmp = side + f".{os.getpid()}.tmp"
+    with open(tmp, "w") as f:
+        json.dump(None if res is None else dict(zip("xywh", res[1:])), f)
+    os.replace(tmp, side)
     _BBOX[path] = res
     return res
 
@@ -99,9 +117,27 @@ PLAN = [
 
 
 # ---------------------------------------------------------------- timeline model (pure python)
+def _check_finite(v, where):
+    """NaN/inf compare False with everything, so they slip through range checks (`not 0 <= x < y`) and then poison the
+    frame grid; reject them up front. Walks nested dicts/lists (subtitle cues)."""
+    if isinstance(v, float) and v != v or isinstance(v, float) and v in (float("inf"), float("-inf")):
+        raise ValueError(f"{where}: numbers must be finite (got {v})")
+    if isinstance(v, dict):
+        for x in v.values():
+            _check_finite(x, where)
+    elif isinstance(v, list):
+        for x in v:
+            _check_finite(x, where)
+
+
+MAX_LAYERS = 1000                       # overlays in one project (a 300-cue subtitle file counts 300)
+
+
 def layout(ops):
     """Compute entry durations/starts and effects from the op list (for validation + the SVG).
     Raises ValueError with a message the caller can show verbatim."""
+    for n, o in enumerate(ops):
+        _check_finite(o, f"op {n} ({o.get('op')})")
     # Everything on the base track lives on the FRAME GRID: MLT rounds each clip to whole frames, so computing in raw
     # seconds drifted (40 entries of 0.1 s: layout said 100 frames, MLT built 80) and overlays landed on the wrong frame.
     fps = FPS
@@ -223,6 +259,8 @@ def layout(ops):
         raise ValueError(f"fade in+out ({fade['in']+fade['out']:g}s) is longer than the timeline ({total:g}s)")
     # Overlays live in TIMELINE time: they do not move when earlier clips are edited. Anything now beyond the end
     # (e.g. after a cut) is clipped or dropped with a warning instead of rejecting the edit.
+    if len(layers) > MAX_LAYERS:
+        raise ValueError(f"{len(layers)} overlays (subtitle cues count one each); the limit is {MAX_LAYERS}")
     warnings, kept = [], []
     for L in layers:
         if L["start"] >= total - 1e-6:
@@ -520,11 +558,10 @@ def render(p, tr, out, preset="ultrafast", crf="30", abr="64k"):
     fails, and never leaves a FIFO, a stray ffmpeg or a half-written output behind.
     A built timeline can be rendered ONCE (a second render of the same tractor emits no frames, verified); build a new
     one per render, as the server does. A fresh build after a failed render works."""
-    import mlt7, tempfile
-    fifo = out + ".nut"
-    if os.path.exists(fifo):
-        os.remove(fifo)
-    os.mkfifo(fifo)
+    import mlt7, shutil, tempfile
+    fifo_dir = tempfile.mkdtemp(prefix="mltfifo_")           # private (0700) dir: no predictable name next to `out`
+    fifo = os.path.join(fifo_dir, "pipe.nut")                # for another user/process to pre-create or race on
+    os.mkfifo(fifo, 0o600)
     errlog = tempfile.TemporaryFile()
     ff = None
     try:
@@ -555,8 +592,7 @@ def render(p, tr, out, preset="ultrafast", crf="30", abr="64k"):
         if ff is not None and ff.poll() is None:
             ff.kill(); ff.wait()
         errlog.close()
-        if os.path.exists(fifo):
-            os.remove(fifo)
+        shutil.rmtree(fifo_dir, ignore_errors=True)
 
 
 # ---------------------------------------------------------------- state + viewer

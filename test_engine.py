@@ -132,6 +132,8 @@ p, tr, mm, tot = live.build([{"op": "add", "src": "A", "in": 0, "end": 1.0}])   
 good = os.path.join(tmpd, "ok.mp4"); live.render(p, tr, good)
 chk("a freshly built timeline renders fine after a failed render", os.path.getsize(good) > 5000)
 chk("...and leaves no FIFO behind either", not os.path.exists(good + ".nut"))
+import glob
+chk("render() uses a private temp dir for its FIFO and removes it (failed and successful renders)", not glob.glob(os.path.join(tempfile.gettempdir(), "mltfifo_*")))
 
 # text PNG cache must be consulted BEFORE rendering
 cdir = tempfile.mkdtemp(prefix="eng_cache2_")
@@ -189,5 +191,39 @@ chk("lower thirds are never merged (they carry text)", len(live._merge_decor(lt)
 # the track left empty by a merge must not leave a hole in the multitrack
 p, tr, mm, tot = live.build(STACK)
 chk("a merge leaves contiguous MLT tracks (no segfault)", tot == live.layout(STACK)["total_f"])
+
+# ---- hardening: crop sidecar, layer cap, non-finite numbers
+live.CACHE = tempfile.mkdtemp(prefix="eng_hard_"); live._BBOX.clear()
+big = os.path.join(live.CACHE, "big.png"); im = Image.new("RGBA", (640, 360), (0, 0, 0, 0)); im.paste((255, 255, 255, 255), (100, 50, 180, 90)); im.save(big)
+r1 = live._crop_to_content(big, 640, 360)
+chk("crop writes a sidecar next to the cropped PNG", r1 is not None and os.path.exists(big[:-4] + "_crop.json"), r1)
+live._BBOX.clear()
+real_open = Image.open
+def _no_decode(*a, **k): raise AssertionError("PNG was decoded although a valid sidecar exists")
+Image.open = _no_decode
+try: r2 = live._crop_to_content(big, 640, 360); ok = r2 == r1
+except AssertionError as ex: ok = False; r2 = str(ex)
+finally: Image.open = real_open
+chk("a later process/rebuild reuses the sidecar without decoding the full-size PNG", ok, r2)
+time.sleep(0.02); im.paste((255, 255, 255, 255), (300, 200, 400, 300)); im.save(big); live._BBOX.clear()      # the PNG changes -> sidecar is stale
+r3 = live._crop_to_content(big, 640, 360)
+chk("a changed PNG invalidates its sidecar (new bounding box)", r3 is not None and r3 != r1 and r3[3] > r1[3], (r1, r3))
+full = os.path.join(live.CACHE, "full.png"); Image.new("RGBA", (64, 36), (255, 0, 0, 255)).save(full); live._BBOX.clear()
+chk("a near-full-frame overlay is remembered as 'not worth cropping' (sidecar says null)", live._crop_to_content(full, 64, 36) is None and
+    open(full[:-4] + "_crop.json").read() == "null")
+live._BBOX.clear(); open(big[:-4] + "_crop.json", "w").write("{broken")
+chk("a corrupt sidecar is ignored and rebuilt", live._crop_to_content(big, 640, 360) == r3)
+
+for label, badv in [("NaN", float("nan")), ("inf", float("inf")), ("-inf", float("-inf"))]:
+    try: live.layout(BASE + [T("x", badv, 1.0)]); e = None
+    except ValueError as ex: e = str(ex)
+    chk(f"layout rejects a {label} start with a clear message", e is not None and "finite" in e, e)
+try: live.layout(BASE + [cues([(float("nan"), 1.0)])]); e = None
+except ValueError as ex: e = str(ex)
+chk("layout rejects NaN inside nested subtitle cues", e is not None and "finite" in e, e)
+too_many = BASE + [{"op": "subtitles", "cues": [{"start": 0.0, "end": 0.4, "text": f"c{i}"} for i in range(1)]} for _ in range(live.MAX_LAYERS + 1)]
+try: live.layout(too_many); e = None
+except ValueError as ex: e = str(ex)
+chk("layout rejects more than MAX_LAYERS overlays", e is not None and "limit" in e, e)
 
 print(f"\n{len(SCENARIOS)+1+extra-bad} passed, {bad} failed"); sys.exit(1 if bad else 0)

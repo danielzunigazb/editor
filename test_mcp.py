@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """End-to-end test of server.py through a real MCP stdio client (spawns the server as a subprocess).
 Run: .venv/bin/python test_mcp.py      (needs media/clip_{a,b,c}.mp4 -> `/usr/bin/python3.12 poc.py gen`)"""
-import asyncio, json, os, subprocess, sys, tempfile, time
+import asyncio, glob, json, os, shutil, subprocess, sys, tempfile, textwrap, time
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -26,17 +26,22 @@ async def main():
         async with ClientSession(r, w) as s:
             await s.initialize()
 
-            async def call(name, **kw):
-                res = await s.call_tool(name, kw)
-                if res.isError:
-                    return None, res.content[0].text
-                if res.structuredContent is not None:
-                    return res.structuredContent.get("result", res.structuredContent), None
-                txt = next((c.text for c in res.content if c.type == "text"), None)
-                try:
-                    return json.loads(txt), None
-                except (TypeError, ValueError):
-                    return txt, None
+            def mkcall(sess):
+                async def call(name, **kw):
+                    res = await sess.call_tool(name, kw)
+                    if res.isError:
+                        return None, res.content[0].text
+                    if res.structuredContent is not None:
+                        return res.structuredContent.get("result", res.structuredContent), None
+                    txt = next((c.text for c in res.content if c.type == "text"), None)
+                    try:
+                        return json.loads(txt), None
+                    except (TypeError, ValueError):
+                        return txt, None
+
+                return call
+
+            call = mkcall(s)
 
             tools = {t.name for t in (await s.list_tools()).tools}
             want = {"new_project", "import_clip", "list_sources", "add_clip", "cut_clip", "crossfade", "set_fades",
@@ -350,7 +355,7 @@ async def main():
                 await call("new_project", width=1280, height=720, fps=25)
                 for n in "ab":
                     await call("import_clip", path=M(n), id=n.upper())
-            strip = lambda tl: {k: v for k, v in tl.items() if k != "applied"}
+            strip = lambda tl: {k: v for k, v in tl.items() if k not in ("applied", "ops")}   # edit responses are compact: no op list
             await clean_project()
             res, err = await call("apply_ops", ops=LUX)
             check("apply_ops builds a 9-edit luxury project in ONE call", err is None and res and res["applied"] == 9 and abs(res["duration_s"] - 7.2) < 1e-6, err)
@@ -359,6 +364,7 @@ async def main():
             for spec in LUX:
                 await call(spec["tool"], **{k: v for k, v in spec.items() if k != "tool"})
             seq_tl, _ = await call("get_timeline")
+            seq_tl = strip(seq_tl)
             check("...and the result is IDENTICAL to making the same 9 calls one by one", batch_tl == seq_tl, None if batch_tl == seq_tl else "timelines differ")
 
             before_tl, _ = await call("get_timeline")
@@ -402,6 +408,141 @@ async def main():
             check("moving the subtitles to the centre clears the warning", err is None and res and res["warnings"] == [], res and res["warnings"])
             res, err = await call("add_text", text="Otro texto", start_s=2.5, dur_s=1.0, position="center")
             check("two texts in the same place at the same time warn", err is None and res and any("overlap" in w for w in res["warnings"]), res and res["warnings"])
+
+
+            # =================== efficiency + robustness hardening ===================
+            async def still_b64(sess, t, full=False):
+                res = await sess.call_tool("get_still", {"time_s": t, "full_res": full})
+                return None if res.isError else next(c.data for c in res.content if c.type == "image")
+            ALLOWED = os.path.join(TMP, "allowed"); os.makedirs(ALLOWED)
+            INV = os.path.join(ALLOWED, "inv.mp4"); INV2 = os.path.join(ALLOWED, "inv2.mp4")
+            shutil.copy(M("a"), INV); shutil.copy(M("a"), INV2)
+
+            await clean_project()
+            res, err = await call("add_clip", source="A", end_s=4.0)
+            check("edit responses are compact: no op-list echo, but an op_count", err is None and res and "ops" not in res and res["op_count"] == 1, res)
+            tl, _ = await call("get_timeline")
+            check("get_timeline still lists the numbered ops", tl and len(tl["ops"]) == 1 and tl["ops"][0]["index"] == 0, tl)
+            t0 = time.perf_counter(); s1 = await still_b64(s, 1.0); d_cold = time.perf_counter() - t0
+            t0 = time.perf_counter(); s2 = await still_b64(s, 1.0); d_warm = time.perf_counter() - t0
+            check("tractor cache: a repeated still is byte-identical", s1 is not None and s1 == s2)
+            print(f"      still cold {d_cold*1000:.0f} ms, warm {d_warm*1000:.0f} ms")
+            await call("add_text", text="Hola", start_s=0.5, dur_s=2.0, position="center")
+            s3 = await still_b64(s, 1.0)
+            check("an edit invalidates the cached timeline (the new text shows)", s3 is not None and s3 != s1)
+
+            # a second server, with the cache OFF and a path fence ON, is the reference for 'cached == fresh'
+            env2 = {k: v for k, v in env.items()}
+            env2.update(MLT_EDITOR_HOME=os.path.join(TMP, "home2"), MLT_TRACTOR_CACHE="0", MLT_EDITOR_ROOTS=ALLOWED)
+            params2 = StdioServerParameters(command=params.command, args=params.args, env=env2)
+            async with stdio_client(params2) as (r2, w2):
+                async with ClientSession(r2, w2) as s2:
+                    await s2.initialize()
+                    call2 = mkcall(s2)
+                    await call2("new_project", width=1280, height=720, fps=25)
+                    ra, err = await call2("import_clip", path=INV2, id="A")
+                    check("fence: a file inside MLT_EDITOR_ROOTS is accepted", err is None, err)
+                    await call2("add_clip", source="A", end_s=4.0)
+                    f1 = await still_b64(s2, 1.0)
+                    check("cached still == fresh build (no cache), plain timeline", f1 is not None and f1 == s1)
+                    await call2("add_text", text="Hola", start_s=0.5, dur_s=2.0, position="center")
+                    f3 = await still_b64(s2, 1.0)
+                    check("cached still == fresh build (no cache), with text", f3 is not None and f3 == s3)
+                    # fence
+                    _, err = await call2("import_clip", path=M("b"), id="B")
+                    check("fence: a file outside the roots is rejected", err is not None and "outside the allowed folders" in err, err)
+                    link = os.path.join(ALLOWED, "link.mp4"); os.symlink(M("b"), link)
+                    _, err = await call2("import_clip", path=link, id="L")
+                    check("fence: a symlink inside the roots that points outside is rejected", err is not None and "outside the allowed folders" in err, err)
+                    _, err = await call2("import_clip", path=os.path.join(ALLOWED, "..", os.path.basename(M("b"))), id="D")
+                    check("fence: '..' traversal is rejected", err is not None, err)
+                    _, err = await call2("export", output_path=os.path.join(TMP, "escape.mp4"), quality="draft")
+                    check("fence: export outside the roots is rejected", err is not None and "outside the allowed folders" in err and not os.path.exists(os.path.join(TMP, "escape.mp4")), err)
+                    _, err = await call2("add_image", path=img_path, start_s=0.5, dur_s=1.0)
+                    check("fence: add_image outside the roots is rejected", err is not None and "outside the allowed folders" in err, err)
+                    srt2 = os.path.join(TMP, "outside.srt"); open(srt2, "w").write("1\n00:00:01,000 --> 00:00:02,000\nHola\n")
+                    _, err = await call2("add_subtitles", srt_path=srt2)
+                    check("fence: an .srt outside the roots is rejected", err is not None and "outside the allowed folders" in err, err)
+                    ex_in, err = await call2("export", output_path=os.path.join(ALLOWED, "ok.mp4"), quality="draft")
+                    check("fence: export inside the roots works", err is None and ex_in, err)
+
+                    # source files that change on disk must invalidate the cached timeline
+                    await call("new_project", width=1280, height=720, fps=25)
+                    await call("import_clip", path=INV, id="X")
+                    await call("add_clip", source="X", end_s=3.0)
+                    x1 = await still_b64(s, 1.0)
+                    shutil.copy(M("c"), INV)
+                    x2 = await still_b64(s, 1.0)
+                    check("replacing a source file on disk invalidates the cached timeline", x1 is not None and x2 is not None and x1 != x2)
+                    shutil.copy(M("c"), INV2)
+                    await call2("new_project", width=1280, height=720, fps=25)
+                    await call2("import_clip", path=INV2, id="X")
+                    await call2("add_clip", source="X", end_s=3.0)
+                    xf = await still_b64(s2, 1.0)
+                    check("...and the refreshed still equals a fresh build of the new file", xf is not None and xf == x2)
+
+            # robustness: a second PROCESS editing the same project must not lose edits (flock around read-modify-write)
+            await clean_project()
+            await call("add_clip", source="A", end_s=4.0)
+            helper = textwrap.dedent("""
+                import sys; sys.path.insert(0, %r)
+                import server
+                for i in range(20):
+                    server.commit(server._b_add_text("p%%d" %% i, 0.2 * i, 0.05, "center"))
+                """ % HERE)
+            envh = {k: v for k, v in env.items()}
+            hp = subprocess.Popen([params.command, "-c", helper], env=envh, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+            for i in range(20):
+                _, err = await call("add_text", text=f"m{i}", start_s=0.2 * i + 0.1, dur_s=0.05, position="center")
+                if err: break
+            hrc = hp.wait(timeout=120)
+            tl, _ = await call("get_timeline")
+            check("two processes editing one project: all 41 edits survive (no lost update)",
+                  hrc == 0 and tl and tl["op_count"] == 41, (hrc, tl and tl["op_count"], hp.stderr.read().decode()[-300:]))
+            check("...and the project file is valid JSON", isinstance(json.load(open(os.path.join(TMP, "project.json"))), dict))
+
+            # bad numbers
+            n0 = tl["op_count"]
+            for label, spec, needle in [
+                    ("NaN time", {"tool": "add_text", "text": "x", "start_s": float("nan"), "dur_s": 1.0}, ""),
+                    ("infinite duration", {"tool": "add_text", "text": "x", "start_s": 0.0, "dur_s": float("inf")}, ""),
+                    ("a string where a number belongs", {"tool": "add_graphic", "kind": "frame", "start_s": "abc", "dur_s": 1.0}, "item 0")]:
+                _, err = await call("apply_ops", ops=[spec])
+                check(f"apply_ops rejects {label} without crashing", err is not None and needle in err, err)
+            tl, _ = await call("get_timeline")
+            check("...and none of them changed the project", tl["op_count"] == n0, tl["op_count"])
+            _, err = await call("new_project", width=100000, height=720, fps=25)
+            check("new_project rejects absurd sizes", err is not None, err)
+            await clean_project()
+
+            # a damaged project file is reported clearly (and new_project repairs it), never a bare traceback
+            open(os.path.join(TMP, "project.json"), "w").write("{not json")
+            _, err = await call("get_timeline")
+            check("corrupt project.json gives a clear error", err is not None and "unreadable" in err, err)
+            check("new_project recovers from a corrupt project file", (await call("new_project", width=1280, height=720, fps=25))[1] is None)
+            await clean_project()
+
+            # cache pruning + ffprobe timeout (called in-process in a helper: they are internals, not tools)
+            h2 = textwrap.dedent("""
+                import os, sys, time; sys.path.insert(0, %r)
+                import server
+                c = os.path.join(server.HOME, "cache"); os.makedirs(c, exist_ok=True)
+                for n, age in (("old.png", 30), ("new.png", 0), ("new2.png", 0)):
+                    p = os.path.join(c, n); open(p, "wb").write(b"x" * 1000)
+                    os.utime(p, (time.time() - age * 86400,) * 2)
+                assert server.prune_cache() == 1 and sorted(os.listdir(c)) == ["new.png", "new2.png"], os.listdir(c)
+                assert server.prune_cache(max_mb=0.0015) == 1 and len(os.listdir(c)) == 1       # over budget: drop the oldest
+                server.SUBPROCESS_TIMEOUT = 0.0001
+                try: server._probe(%r); raise SystemExit("probe did not time out")
+                except ValueError as e: assert "timed out" in str(e), e
+                print("ok")
+                """ % (HERE, M("a")))
+            envp = dict(env); envp["MLT_EDITOR_HOME"] = os.path.join(TMP, "home3")
+            r = subprocess.run([params.command, "-c", h2], env=envp, capture_output=True, text=True, timeout=120)
+            check("cache pruning (age, size) and ffprobe timeout", r.returncode == 0 and "ok" in r.stdout, r.stderr[-400:] + r.stdout[-200:])
+            check("renders leave no private FIFO directory behind", not glob.glob(os.path.join(tempfile.gettempdir(), "mltfifo_*")))
+
+            await call("add_clip", source="A")
 
             # ---- stability: many renders in one process (repeated Factory.init / profile creation)
             t0 = time.perf_counter()

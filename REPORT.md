@@ -741,6 +741,52 @@ momento, decoración, textos en el mismo lugar, solape <0.1 s, PiP, mismas edici
 tipografías anchas); no mide el solape real renderizado; `apply_ops` no incluye `import_clip`, `new_project`, `undo` ni `remove_op` (siguen siendo
 llamadas aparte).
 
+## 18. Eficiencia, robustez y seguridad (objetivo: "mejora la eficiencia sin sacrificar calidad; código robusto y seguro")
+
+Método: perfilar primero (`cProfile` de un build 4K en caliente: 2.11 s, de los cuales `new_Producer` = 2.11 s en 8 llamadas y `_crop_to_content`
+0.43 s, de ellos 0.37 s en `PIL.convert`), cambiar solo lo que el perfil señala, medir antes/después y volver a pasar las tres suites.
+
+### 18.1 Eficiencia (medido en un proyecto 4K 3840x2160@30 con viñeta + marco + título + tercio inferior + subtítulos)
+| Cambio | Antes | Después |
+|---|---|---|
+| `get_still` repetido (reutiliza el timeline construido) | 2.81 s (media de 3) | **0.46 s** (media de 3) → ~6x |
+| Build a resolución de exportación con el recorte ya calculado en un `.json` junto al PNG | 1.46 s | **1.10 s** (-0.36 s) |
+| Respuesta de cada edición (sin eco de `ops`) | listado completo | solo `op_count`; `get_timeline` conserva el listado |
+| Caché de PNG (texto/gráficos/recortes) | crecía sin límite | poda al arrancar: >14 días o por encima de 500 MB |
+| 30 `get_still` seguidos a 720p (prueba MCP) | 87 ms c/u | 72 ms c/u |
+
+- La caché guarda como máximo 2 timelines (cuadros a 0.5x y hojas de contacto a 0.25x se alternan). La clave incluye la lista de ediciones, el formato
+  y `ruta+mtime+tamaño` de cada fuente e imagen: editar, deshacer o reemplazar un archivo en disco la invalida.
+  No se usa para `render_preview`/`export` (un timeline ya renderizado no se puede renderizar de nuevo).
+- La hoja de contactos a 4K sigue limitada por decodificar 6 cuadros sueltos del H.264 de 4K (~2.7 s); la caché solo ahorra la construcción.
+- El sidecar de recorte solo se confía si es más nuevo que el PNG, y un sidecar corrupto se ignora y se regenera.
+
+### 18.2 Robustez y seguridad
+| Riesgo | Antes | Ahora |
+|---|---|---|
+| Dos procesos editando el mismo proyecto | última escritura gana (ediciones perdidas) | `flock` exclusivo alrededor de leer-modificar-guardar; `fsync` antes del `os.replace`; temporal con pid |
+| `project.json` corrupto | traceback sin contexto | error claro ("unreadable"); `new_project` lo repara |
+| Rutas arbitrarias (leer fuentes/imágenes/.srt, escribir export) | cualquier ruta | opcional `MLT_EDITOR_ROOTS` (realpath: enlaces simbólicos y `..` no escapan) en las 4 vías de entrada/salida |
+| FIFO del render | `<salida>.nut`, nombre predecible | directorio privado `mkdtemp` (0700), borrado siempre |
+| `ffprobe`/`ffmpeg` colgado | bloqueaba el servidor | `timeout` de 60 s con error claro |
+| NaN / ±inf en tiempos | pasaban las comparaciones (`not 0 <= x`) y envenenaban la rejilla | rechazados con mensaje, también dentro de cues anidadas |
+| Sin topes | cantidad ilimitada | 500 ediciones, 50 fuentes, 1000 capas, `new_project` ≤ 7680x4320 y fps 1-120, id de fuente ≤ 32 caracteres |
+
+Pruebas nuevas: `test_mcp.py` 121 → **148** (respuestas compactas; cuadro en caché == cuadro sin caché, con y sin texto; edición y reemplazo de archivo
+invalidan; cinco intentos de escape de la valla; dos procesos × 20 ediciones sin perder ninguna; NaN/inf/texto donde va un número; archivo corrupto;
+poda; timeout de `ffprobe`; sin directorios FIFO residuales), `test_engine.py` 38 → **49** (sidecar: se crea, evita decodificar, se invalida, `null`,
+corrupto; NaN/inf; tope de capas), `test_text.py` 85 sin cambios. `pyflakes` limpio.
+
+**Calidad sin regresión (verificado):** una exportación 720p con crossfade, fades, viñeta, marco, título de lujo, tercio inferior y PiP se renderizó
+con el código anterior (commit `6e2e4c5`) y con el nuevo: los 719 hashes de paquete de `ffmpeg -f framemd5` (vídeo + audio) son **idénticos**.
+Los cuadros de la caché son idénticos byte a byte a los de un servidor sin caché.
+
+**No verificado / límites:** la valla de rutas es opcional y está desactivada por defecto; no hay límite de memoria ni cancelación de `export`
+(sigue siendo síncrono); el `flock` protege procesos en el mismo equipo (no un NFS sin soporte de bloqueo); la caché de timelines mantiene abiertos los
+decodificadores de hasta 2 timelines: a 4K el proceso llegó a ~1.07 GB de RSS con la caché y ~0.73 GB sin ella (+~340 MB, medido alternando
+cuadros a 0.5x y hojas a 0.25x; `MLT_TRACTOR_CACHE=0` la desactiva); el tope de 8000 px de imágenes ya existía y es lo que
+protege de bombas de descompresión (se lee solo la cabecera); no se repitió la prueba con un modelo real tras estos cambios.
+
 ## 10. Archivos
 
 - `poc.py`: el POC (gen/build/bench/preview/export/measure).
