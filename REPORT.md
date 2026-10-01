@@ -439,6 +439,30 @@ por pista con keyframes por capa. (La misma resta de 1 se aplicó al POC multipi
 - El MP4 se verificó por frames y luma, no a oído ni en un reproductor real. `-ss` de ffmpeg puede mostrar el frame
   vecino al muestrear tiempos (lo confundí una vez); la verificación exacta usa el índice de frame.
 
+## 12. Estabilidad y escalabilidad: mediciones (añadido tras la pregunta del usuario)
+
+Medido en el motor (`live.py`), 640x360, 4 cores, sin GPU, clips cortos repetidos (solo 2 archivos fuente distintos).
+
+| Prueba | Resultado |
+|---|---|
+| Construir timeline vs. nº de entradas (3 s c/u, sin fundidos) | 10: 143 ms · 50: 415 ms · 200: 1.7 s · 500 (25 min): 4.4 s (~9 ms/entrada, lineal) |
+| Con un fundido cruzado entre cada par | 50: 510 ms · 200: 2.2 s |
+| Ver un frame de un timeline ya construido | 19-91 ms, casi independiente de la longitud |
+| 300 subtítulos sobre 10 min (200 entradas) | construir 4.8 s (~3 s más que sin subtítulos); 1 sola pista de capas |
+| 300 x (construir + renderizar un frame) en un mismo proceso | RSS 233 -> 242 MB (+10 MB); tiempo por llamada 146 ms (primeras 10) -> 125 ms (últimas 10); sin fugas visibles |
+
+**Conclusión:** estable para un usuario y videos cortos/medios dentro de lo probado. Cada herramienta de render
+**reconstruye el timeline completo** (sin caché), de modo que el costo crece lineal con el tamaño del proyecto.
+
+**Límites conocidos / no probados:** export bloqueante sin progreso ni cancelación (sec. 9 y 11); un proceso = un proyecto
+y las llamadas se serializan, sin pruebas de concurrencia ni de múltiples usuarios; solo CPU; las capas usan tiempo
+absoluto; la caché de PNG de texto no se limpia; no se probó una sesión de horas, la caída a mitad de un export, 4K, ni
+cientos de archivos fuente distintos.
+
+**Si hiciera falta escalar:** (1) cachear el tractor construido entre llamadas e invalidarlo al editar; (2) export en segundo
+plano con progreso y cancelación; (3) un proceso/worker por proyecto; (4) proxies de baja resolución para vista previa;
+(5) Movit/GPU para composición; (6) límite/limpieza de la caché de texto.
+
 ## 10. Archivos
 
 - `poc.py`: el POC (gen/build/bench/preview/export/measure).
