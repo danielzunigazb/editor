@@ -113,4 +113,31 @@ check("300 clean() calls are cheap once warm", _t.perf_counter() - t0 < 0.1 and 
 check("font objects are cached", T.make_font("luxury", 40) is T.make_font("luxury", 40))
 a1 = T.render_text_png("Strict", 640, 360, cache_dir=tmp, strict=True); a2 = T.render_text_png("Strict", 640, 360, cache_dir=tmp, strict=False)
 check("strict and non-strict renders are cached separately", a1 != a2)
+
+# ---------------- on-screen collision warnings (pure layout, no MLT)
+import live as L
+L.CLIPS = {"A": "x"}; L.CLIP_LEN = {"A": 8.0}
+def warns(w, h, *extra):
+    L.W, L.H, L.FPS = w, h, 24
+    return L.layout([{"op": "add", "src": "A"}, *extra])["warnings"]
+sub = lambda pos="bottom", a=3.4, b=5.2: {"op": "subtitles", "pos": pos, "cues": [{"start": a, "end": b, "text": "¿Quién trae el balón?"}]}
+lt = {"op": "lower_third", "title": "Señor Muñoz", "subtitle": "Director de Proyecto", "start": 3.2, "dur": 2.8}
+ttl = {"op": "text", "text": "Gran Inauguración", "start": 0.5, "dur": 2.5, "pos": "top", "size": 0.06}
+w1 = warns(1080, 1920, sub(), lt)
+check("collision: subtitles bottom + lower third (the real run-A case) warn", len(w1) == 1 and "overlap" in w1[0] and "3.4s to 5.2s" in w1[0], w1)
+check("collision: subtitles in the centre + lower third do not warn", warns(1080, 1920, sub("center"), lt) == [])
+check("collision: subtitles bottom but at a different time do not warn", warns(1080, 1920, sub(a=0.5, b=2.0), lt) == [])
+check("collision: title at the top + lower third do not warn", warns(1080, 1920, ttl, lt) == [])
+check("collision: full-frame decoration never warns", warns(1080, 1920, {"op": "graphic", "kind": "frame", "start": 0, "dur": 8}, sub(), ttl) == [])
+t2 = lambda s, pos: {"op": "text", "text": "Hola mundo", "start": s, "dur": 2.0, "pos": pos}
+check("collision: two texts at the same place and time warn", len(warns(1280, 720, t2(1.0, "bottom"), t2(1.5, "bottom"))) == 1)
+check("collision: two texts at different places do not", warns(1280, 720, t2(1.0, "top"), t2(1.5, "bottom")) == [])
+check("collision: overlap shorter than 0.1 s is ignored", warns(1280, 720, t2(1.0, "bottom"), t2(2.95, "bottom")) == [])
+pipA = {"op": "pip", "src": "A", "start": 1.0, "dur": 3.0, "pos": "top-right", "scale": 0.3}
+check("collision: PiP top-right + a wide title at the top warn", len(warns(1080, 1920, pipA, ttl)) == 1)
+check("collision: same-edit layers (overlapping cues of ONE subtitle op) never self-warn",
+      warns(1280, 720, {"op": "subtitles", "cues": [{"start": 1, "end": 3, "text": "Uno"}, {"start": 2, "end": 4, "text": "Dos"}]}) == [])
+many = [{"op": "subtitles", "cues": [{"start": 1, "end": 3, "text": f"Línea {i}"}]} for i in range(6)]
+wm = warns(1280, 720, *many)
+check("collision: many overlapping pairs are capped with a summary line", len(wm) == 5 and "more overlapping pairs" in wm[-1], wm)
 print(f"\n{len(ok)} passed, {len(bad)} failed"); sys.exit(1 if bad else 0)

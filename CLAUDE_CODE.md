@@ -17,7 +17,7 @@ La configuración ya está en `.mcp.json` (raíz del repo, ámbito de proyecto):
 4. **Aprobar el servidor.** Claude Code pide aprobación manual para los servidores de un `.mcp.json`
    de proyecto (protección contra código ajeno). Se aprueba en el aviso al abrir, o con `/mcp`.
    Hasta entonces `claude mcp list` lo muestra como "Pending approval". No se aprueba por archivo a propósito.
-5. Comprobar: `/mcp` debe listar `mlt-video-editor` con 21 herramientas (clips, cortes, fundidos, PiP, **texto y subtítulos con 6 estilos, gráficos de lujo, tercio inferior, imágenes**, vista y export). `list_styles` describe los estilos.
+5. Comprobar: `/mcp` debe listar `mlt-video-editor` con 22 herramientas (clips, cortes, fundidos, PiP, **texto y subtítulos con 6 estilos, gráficos de lujo, tercio inferior, imágenes**, vista y export). `list_styles` describe los estilos.
 
 ## Ejemplo de prompt
 > Con mlt-video-editor: crea un proyecto, importa `poc_mlt/media/clip_a.mp4` (id A) y `clip_b.mp4` (id B),
@@ -35,3 +35,6 @@ La configuración ya está en `.mcp.json` (raíz del repo, ámbito de proyecto):
   Esa ejecución además destapó un bug (frame 0 negro con `fade_in=0`), ya corregido y con prueba de regresión.
 - No verificado: la aprobación interactiva del servidor, el flujo con `/mcp` en la TUI, ni una sesión larga
   de edición (solo una corrida corta de un modelo).
+
+## Eficiencia
+Para varias ediciones seguidas conviene `apply_ops` (una llamada, todo o nada) en vez de una llamada por edición: en la prueba con un modelo real bajó de 19 a 11 turnos y de 0.21 a 0.15 USD (sección 17 del reporte). Las respuestas de edición incluyen `warnings`, que avisan de elementos que pueden pisarse en pantalla.

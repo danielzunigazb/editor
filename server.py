@@ -81,8 +81,8 @@ def bind(st, scale=1.0):
 OVERLAYS = ("pip", "text", "subtitles", "image", "graphic", "lower_third")
 
 
-def commit(st, op):
-    """Validate the op against the whole timeline, then persist. Nothing is saved on error."""
+def _validate(st, op):
+    """Check `op` against the whole timeline as it is NOW (st['ops'] included). Raises ValueError. Saves nothing."""
     bind(st)                                   # export resolution: text-fit is checked at full size
     before = live.layout(st["ops"])["total"]
     live.layout(st["ops"] + [op])
@@ -93,9 +93,80 @@ def commit(st, op):
     if op["op"] == "subtitles" and all(c["start"] >= before - 1e-6 for c in op["cues"]):
         raise ValueError(f"every subtitle starts after the end of the timeline ({before:g}s); add the clips first "
                          f"or check offset_s")
+
+
+def commit(st, op):
+    """Validate the op against the whole timeline, then persist. Nothing is saved on error."""
+    _validate(st, op)
     st["ops"].append(op)
     save(st)
     return summary(st)
+
+
+# ---- one builder per edit tool: (tool arguments) -> engine op. The tools and apply_ops share them, so a batch behaves
+# exactly like the same calls made one by one.
+def _b_add_clip(source, start_s=0.0, end_s=None):
+    op = {"op": "add", "src": source, "in": start_s}
+    if end_s is not None:
+        op["end"] = end_s
+    return op
+
+
+def _b_cut_clip(index, at_s):
+    return {"op": "cut", "clip": index, "at": at_s}
+
+
+def _b_crossfade(first_index, dur_s=1.0):
+    return {"op": "crossfade", "between": [first_index, first_index + 1], "dur": dur_s}
+
+
+def _b_set_fades(fade_in_s=0.0, fade_out_s=0.0):
+    return {"op": "fade", "in": fade_in_s, "out": fade_out_s}
+
+
+def _b_add_pip(source, start_s, dur_s, position="top-right", scale=0.3, opacity=1.0, source_in_s=0.0):
+    return {"op": "pip", "src": source, "start": start_s, "dur": dur_s, "pos": position, "scale": scale,
+            "opacity": opacity, "in": source_in_s}
+
+
+def _b_add_text(text, start_s, dur_s, position="bottom", size=0.06, style="luxury", color="", box=False,
+                uppercase=None, ornament="", fade_s=0.15):
+    return {"op": "text", "text": text, "start": start_s, "dur": dur_s, "pos": position, "size": size, "style": style,
+            "color": color or None, "box": box, "uppercase": uppercase, "ornament": ornament or None, "fade": fade_s}
+
+
+def _b_add_subtitles(srt_path="", cues=None, offset_s=0.0, position="bottom", size=0.05, style="champagne", color="",
+                     box=True):
+    if bool(srt_path) == bool(cues):
+        raise ValueError("give exactly one of srt_path or cues")
+    items = textrender.parse_srt(srt_path) if srt_path else cues
+    shifted = []
+    for i, c in enumerate(items):
+        if not isinstance(c, dict) or not {"start", "end", "text"} <= set(c):
+            raise ValueError(f"cue {i} must be an object with start, end and text")
+        if not all(isinstance(c[k], (int, float)) and not isinstance(c[k], bool) for k in ("start", "end")):
+            raise ValueError(f"cue {i}: start and end must be numbers (seconds)")
+        shifted.append({"start": c["start"] + offset_s, "end": c["end"] + offset_s, "text": c["text"]})
+    return {"op": "subtitles", "cues": shifted, "pos": position, "size": size, "style": style,
+            "color": color or None, "box": box, "fade": 0.0, "ornament": "none"}
+
+
+def _b_add_graphic(kind, start_s, dur_s, amount=None, opacity=1.0, fade_s=0.5):
+    return {"op": "graphic", "kind": kind, "start": start_s, "dur": dur_s, "amount": amount, "opacity": opacity,
+            "fade": fade_s}
+
+
+def _b_add_lower_third(title, subtitle="", start_s=0.0, dur_s=4.0, align="left", fade_s=0.4):
+    return {"op": "lower_third", "title": title, "subtitle": subtitle, "start": start_s, "dur": dur_s, "align": align,
+            "fade": fade_s}
+
+
+def _b_add_image(path, start_s, dur_s, position="center", scale=0.3, opacity=1.0):
+    return {"op": "image", "path": os.path.abspath(os.path.expanduser(path)), "start": start_s, "dur": dur_s,
+            "pos": position, "scale": scale, "opacity": opacity}
+
+
+BUILDERS = {n[3:]: f for n, f in list(globals().items()) if n.startswith("_b_")}
 
 
 def summary(st):
@@ -197,31 +268,28 @@ def list_sources() -> dict:
 def add_clip(source: str, start_s: float = 0.0, end_s: float | None = None) -> dict:
     """Append a clip (or the range start_s..end_s of it) to the end of the main track.
     Returns the updated timeline. The new entry's index is the last one."""
-    op = {"op": "add", "src": source, "in": start_s}
-    if end_s is not None:
-        op["end"] = end_s
-    return commit(load(), op)
+    return commit(load(), _b_add_clip(source, start_s, end_s))
 
 
 @mcp.tool()
 def cut_clip(index: int, at_s: float) -> dict:
     """Cut timeline entry `index` at `at_s` seconds from the ENTRY's own start and drop everything after
     (the entry becomes `at_s` long). Later entries shift earlier."""
-    return commit(load(), {"op": "cut", "clip": index, "at": at_s})
+    return commit(load(), _b_cut_clip(index, at_s))
 
 
 @mcp.tool()
 def crossfade(first_index: int, dur_s: float = 1.0) -> dict:
     """Dissolve (video) and crossfade (audio) between entry `first_index` and the next one.
     The two entries overlap by dur_s, so the timeline gets shorter by dur_s."""
-    return commit(load(), {"op": "crossfade", "between": [first_index, first_index + 1], "dur": dur_s})
+    return commit(load(), _b_crossfade(first_index, dur_s))
 
 
 @mcp.tool()
 def set_fades(fade_in_s: float = 0.0, fade_out_s: float = 0.0) -> dict:
     """Fade from black/silence at the start and to black/silence at the end of the whole timeline.
     Replaces any previous fade setting."""
-    return commit(load(), {"op": "fade", "in": fade_in_s, "out": fade_out_s})
+    return commit(load(), _b_set_fades(fade_in_s, fade_out_s))
 
 
 @mcp.tool()
@@ -231,8 +299,7 @@ def add_pip(source: str, start_s: float, dur_s: float, position: str = "top-righ
     position: top-right | top-left | bottom-right | bottom-left. scale: fraction of frame width (0-1].
     opacity 0-1 (fades in/out at the edges). Calls accumulate (several PiPs are allowed, up to 6 overlays
     at the same moment). Overlays are placed in timeline seconds and do NOT move if you later edit earlier clips."""
-    return commit(load(), {"op": "pip", "src": source, "start": start_s, "dur": dur_s, "pos": position,
-                           "scale": scale, "opacity": opacity, "in": source_in_s})
+    return commit(load(), _b_add_pip(source, start_s, dur_s, position, scale, opacity, source_in_s))
 
 
 @mcp.tool()
@@ -258,9 +325,7 @@ def add_text(text: str, start_s: float, dur_s: float, position: str = "bottom", 
     color: optional #RRGGBB; leave empty to keep the style's own colour (gold gradient for luxury).
     box: dark glass box behind the text. uppercase: force/forbid capitals (default per style).
     ornament: none | line | diamond (thin gold rule; default per style). All styles add a soft shadow for readability."""
-    return commit(load(), {"op": "text", "text": text, "start": start_s, "dur": dur_s, "pos": position,
-                           "size": size, "style": style, "color": color or None, "box": box,
-                           "uppercase": uppercase, "ornament": ornament or None, "fade": fade_s})
+    return commit(load(), _b_add_text(text, start_s, dur_s, position, size, style, color, box, uppercase, ornament, fade_s))
 
 
 @mcp.tool()
@@ -272,18 +337,7 @@ def add_subtitles(srt_path: str = "", cues: list[dict] | None = None, offset_s: 
     style: champagne (default, elegant Cormorant on a dark glass box) | luxury | luxury-italic | noir | modern | classic.
     Same text rules as add_text (accents/ñ fine; up to 300 cues). Cues after the timeline end are
     dropped with a warning. Calling it again ADDS another subtitle track; use remove_op to replace."""
-    if bool(srt_path) == bool(cues):
-        raise ValueError("give exactly one of srt_path or cues")
-    items = textrender.parse_srt(srt_path) if srt_path else cues
-    shifted = []
-    for i, c in enumerate(items):
-        if not isinstance(c, dict) or not {"start", "end", "text"} <= set(c):
-            raise ValueError(f"cue {i} must be an object with start, end and text")
-        if not all(isinstance(c[k], (int, float)) and not isinstance(c[k], bool) for k in ("start", "end")):
-            raise ValueError(f"cue {i}: start and end must be numbers (seconds)")
-        shifted.append({"start": c["start"] + offset_s, "end": c["end"] + offset_s, "text": c["text"]})
-    return commit(load(), {"op": "subtitles", "cues": shifted, "pos": position, "size": size, "style": style,
-                           "color": color or None, "box": box, "fade": 0.0, "ornament": "none"})
+    return commit(load(), _b_add_subtitles(srt_path, cues, offset_s, position, size, style, color, box))
 
 
 @mcp.tool()
@@ -293,8 +347,7 @@ def add_graphic(kind: str, start_s: float, dur_s: float, amount: float | None = 
     kind: frame (thin double gold keyline with diamonds) | letterbox (cinema bars with a gold hairline) |
     vignette (soft dark edges). amount (optional): frame inset 0.015-0.08 | letterbox bar height 0.04-0.25 |
     vignette strength 0.1-1. opacity 0-1; fade_s = fade in/out at the edges. Stack with text for a polished look."""
-    return commit(load(), {"op": "graphic", "kind": kind, "start": start_s, "dur": dur_s, "amount": amount,
-                           "opacity": opacity, "fade": fade_s})
+    return commit(load(), _b_add_graphic(kind, start_s, dur_s, amount, opacity, fade_s))
 
 
 @mcp.tool()
@@ -303,8 +356,7 @@ def add_lower_third(title: str, subtitle: str = "", start_s: float = 0.0, dur_s:
     """Name/role caption panel at the bottom: gold side bar, title in metallic gold, subtitle in tracked ivory
     capitals (e.g. title "Señor Muñoz", subtitle "Director de Proyecto"). Single lines only (title max 60 chars,
     subtitle max 80). align: left | right. Shown from start_s for dur_s (TIMELINE time)."""
-    return commit(load(), {"op": "lower_third", "title": title, "subtitle": subtitle, "start": start_s,
-                           "dur": dur_s, "align": align, "fade": fade_s})
+    return commit(load(), _b_add_lower_third(title, subtitle, start_s, dur_s, align, fade_s))
 
 
 @mcp.tool()
@@ -313,8 +365,41 @@ def add_image(path: str, start_s: float, dur_s: float, position: str = "center",
     """Show a PNG/JPG/WebP (logo, arrow, reference graphic; transparency is kept) from start_s for dur_s
     (TIMELINE time). position: center | top-right | top-left | bottom-right | bottom-left. scale: fraction
     of frame width (0-1], aspect ratio preserved. Max 25 MB / 8000 px per side."""
-    return commit(load(), {"op": "image", "path": os.path.abspath(os.path.expanduser(path)), "start": start_s,
-                           "dur": dur_s, "pos": position, "scale": scale, "opacity": opacity})
+    return commit(load(), _b_add_image(path, start_s, dur_s, position, scale, opacity))
+
+
+@mcp.tool()
+def apply_ops(ops: list[dict]) -> dict:
+    """Apply several edits in ONE call (all or nothing). Each item is {"tool": "<edit tool name>", ...that tool's
+    arguments}, e.g. [{"tool":"add_clip","source":"A","end_s":3}, {"tool":"add_clip","source":"B"},
+    {"tool":"crossfade","first_index":0,"dur_s":0.5}, {"tool":"add_text","text":"Hola","start_s":0.5,"dur_s":2}].
+    Allowed tools: add_clip, cut_clip, crossfade, set_fades, add_pip, add_text, add_subtitles, add_graphic,
+    add_lower_third, add_image (import_clip and new_project are separate calls). Items are validated in order against
+    the timeline as the previous items leave it; if ANY item is invalid nothing is applied and the error names the
+    item. Up to 50 items. Returns the final timeline (check `warnings`: it flags overlays that may overlap on screen).
+    Prefer this to many single calls: it is the same result with far fewer round trips."""
+    if not isinstance(ops, list) or not 1 <= len(ops) <= 50:
+        raise ValueError("ops must be a list of 1-50 items")
+    st = load()
+    for i, spec in enumerate(ops):
+        if not isinstance(spec, dict) or not isinstance(spec.get("tool"), str):
+            raise ValueError(f"item {i}: needs a 'tool' key naming an edit tool; nothing was applied")
+        tool = spec["tool"]
+        builder = BUILDERS.get(tool)
+        if builder is None:
+            raise ValueError(f"item {i}: unknown tool '{tool}'; allowed: {', '.join(sorted(BUILDERS))}; nothing was applied")
+        try:
+            op = builder(**{k: v for k, v in spec.items() if k != "tool"})
+            _validate(st, op)
+        except TypeError as e:
+            import inspect
+            raise ValueError(f"item {i} ({tool}): bad arguments ({e}); expected {tool}{inspect.signature(builder)}; "
+                             f"nothing was applied")
+        except ValueError as e:
+            raise ValueError(f"item {i} ({tool}): {e}; nothing was applied")
+        st["ops"].append(op)                       # in memory only until every item has passed
+    save(st)
+    return {"applied": len(ops), **summary(st)}
 
 
 @mcp.tool()

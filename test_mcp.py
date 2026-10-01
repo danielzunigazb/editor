@@ -41,7 +41,7 @@ async def main():
             tools = {t.name for t in (await s.list_tools()).tools}
             want = {"new_project", "import_clip", "list_sources", "add_clip", "cut_clip", "crossfade", "set_fades",
                     "add_pip", "get_timeline", "undo", "remove_op", "get_still", "get_contact_sheet",
-                    "render_preview", "export"}
+                    "render_preview", "export", "apply_ops", "list_styles", "add_text", "add_subtitles", "add_graphic", "add_lower_third", "add_image"}
             check("tools listed", want <= tools, f"missing {want - tools}")
 
             _, err = await call("add_clip", source="A")
@@ -338,6 +338,70 @@ async def main():
             check("add_subtitles rejects non-numeric times with a clear message", err is not None and "numbers" in err, err)
             _, err = await call("crossfade", first_index=0, dur_s=0.01)
             check("crossfade shorter than a frame is rejected through the server", err is not None, err)
+
+            # =================== apply_ops (batch) and on-screen collision warnings ===================
+            LUX = [{"tool": "add_clip", "source": "A", "end_s": 4.0}, {"tool": "add_clip", "source": "B", "end_s": 4.0},
+                   {"tool": "crossfade", "first_index": 0, "dur_s": 0.8}, {"tool": "set_fades", "fade_in_s": 0.5, "fade_out_s": 1.0},
+                   {"tool": "add_graphic", "kind": "vignette", "start_s": 0, "dur_s": 7.2}, {"tool": "add_graphic", "kind": "frame", "start_s": 0, "dur_s": 7.2},
+                   {"tool": "add_text", "text": "Gran Inauguración", "start_s": 0.7, "dur_s": 2.4, "position": "top", "size": 0.075},
+                   {"tool": "add_lower_third", "title": "Señor Muñoz", "subtitle": "Director", "start_s": 3.5, "dur_s": 2.2},
+                   {"tool": "add_subtitles", "cues": [{"start": 1.0, "end": 3.0, "text": "Bienvenidos."}, {"start": 5.9, "end": 7.0, "text": "¿Listos?"}]}]
+            async def clean_project():
+                await call("new_project", width=1280, height=720, fps=25)
+                for n in "ab":
+                    await call("import_clip", path=M(n), id=n.upper())
+            strip = lambda tl: {k: v for k, v in tl.items() if k != "applied"}
+            await clean_project()
+            res, err = await call("apply_ops", ops=LUX)
+            check("apply_ops builds a 9-edit luxury project in ONE call", err is None and res and res["applied"] == 9 and abs(res["duration_s"] - 7.2) < 1e-6, err)
+            batch_tl = strip(res) if res else None
+            await clean_project()
+            for spec in LUX:
+                await call(spec["tool"], **{k: v for k, v in spec.items() if k != "tool"})
+            seq_tl, _ = await call("get_timeline")
+            check("...and the result is IDENTICAL to making the same 9 calls one by one", batch_tl == seq_tl, None if batch_tl == seq_tl else "timelines differ")
+
+            before_tl, _ = await call("get_timeline")
+            bad = LUX[:2] + [{"tool": "cut_clip", "index": 0, "at_s": 99}]
+            _, err = await call("apply_ops", ops=bad)
+            check("apply_ops rejects the whole batch when one item is invalid, naming the item", err is not None and "item 2 (cut_clip)" in err and "nothing was applied" in err, err)
+            after_tl, _ = await call("get_timeline")
+            check("...and applied NOTHING (atomic)", after_tl == before_tl)
+            for label, ops_, needle in [
+                ("unknown tool", [{"tool": "explode"}], "unknown tool 'explode'"),
+                ("a non-edit tool", [{"tool": "export", "output_path": "x.mp4"}], "unknown tool"),
+                ("missing 'tool' key", [{"source": "A"}], "needs a 'tool' key"),
+                ("unknown argument", [{"tool": "add_clip", "source": "A", "volume": 3}], "bad arguments"),
+                ("missing required argument", [{"tool": "add_text", "text": "Hola"}], "bad arguments"),
+                ("empty batch", [], "1-50"),
+                ("more than 50 items", [{"tool": "set_fades"}] * 51, "1-50"),
+                ("a later item that depends on a bad earlier one", [{"tool": "cut_clip", "index": 5, "at_s": 1}, {"tool": "set_fades"}], "item 0 (cut_clip)")]:
+                _, err = await call("apply_ops", ops=ops_)
+                check(f"apply_ops rejects: {label}", err is not None and needle in err, err)
+            res, err = await call("apply_ops", ops=[{"tool": "add_text", "text": "Después", "start_s": 0.5, "dur_s": 1.0}, {"tool": "add_image", "path": "/no/such.png", "start_s": 0, "dur_s": 1}])
+            check("a later invalid item in a batch is reported with its own index", err is not None and "item 1 (add_image)" in err and "not found" in err, err)
+            await clean_project()
+            res, err = await call("apply_ops", ops=[{"tool": "add_clip", "source": "A"}, {"tool": "cut_clip", "index": 0, "at_s": 3.0}, {"tool": "add_clip", "source": "B"}])
+            check("items see the state left by earlier items (add -> cut -> add)", err is None and res and abs(res["duration_s"] - 8.0) < 1e-6, err)
+            res, err = await call("apply_ops", ops=[{"tool": "add_subtitles", "srt_path": srt, "position": "top"}])
+            check("apply_ops accepts an .srt inside a batch", err is None, err)
+
+            # collision warnings: the editor hears about overlaps right after the edit that causes them
+            await call("new_project", width=1080, height=1920, fps=24)
+            await call("import_clip", path=M("a"), id="A")
+            await call("add_clip", source="A")
+            res, err = await call("add_lower_third", title="Señor Muñoz", subtitle="Director de Proyecto", start_s=2.0, dur_s=3.0)
+            check("no warning with a lower third alone", err is None and res and res["warnings"] == [], res and res["warnings"])
+            res, err = await call("add_subtitles", cues=[{"start": 2.4, "end": 4.2, "text": "¿Quién trae el balón?"}])
+            check("subtitles at the bottom during a lower third produce a collision warning in the edit response",
+                  err is None and res and any("overlap" in w and "lower_third" in w for w in res["warnings"]), res and res["warnings"])
+            tl, _ = await call("get_timeline")
+            check("...and get_timeline still reports it", tl and any("overlap" in w for w in tl["warnings"]), tl and tl["warnings"])
+            await call("undo")
+            res, err = await call("add_subtitles", cues=[{"start": 2.4, "end": 4.2, "text": "¿Quién trae el balón?"}], position="center")
+            check("moving the subtitles to the centre clears the warning", err is None and res and res["warnings"] == [], res and res["warnings"])
+            res, err = await call("add_text", text="Otro texto", start_s=2.5, dur_s=1.0, position="center")
+            check("two texts in the same place at the same time warn", err is None and res and any("overlap" in w for w in res["warnings"]), res and res["warnings"])
 
             # ---- stability: many renders in one process (repeated Factory.init / profile creation)
             t0 = time.perf_counter()

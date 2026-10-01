@@ -243,9 +243,61 @@ def layout(ops):
                                  f"stagger them or remove some")
             ends.append(L["start"] + L["dur"]); L["track"] = len(ends)
     kept.sort(key=lambda L: (L["start"], L["op"], L.get("sub", 0)))
+    warnings.extend(_collisions(kept))
     first_pip = next((L for L in kept if L["kind"] == "pip"), None)
     return {"entries": entries, "xfades": xfades, "xfades_f": xfades_f, "fade": fade, "layers": kept, "pip": first_pip,
             "warnings": warnings, "total": total, "total_f": total_f}
+
+
+def _zone(L):
+    """Rough on-screen rectangle (x0, y0, x1, y1 as fractions of the frame) a layer occupies, or None for full-frame
+    decoration (frame, vignette, letterbox), which is meant to sit under everything. A heuristic from character counts
+    and sizes, not a measurement: it errs toward 'may overlap'."""
+    fw, fh = max(W, 1), max(H, 1)
+    k = L["kind"]
+    if k == "text":
+        lines_w = len(L["text"].split("\n")) and max(len(x) for x in L["text"].split("\n"))
+        px = L["size"] * fh
+        width = min(0.9, max(0.1, lines_w * 0.52 * px / fw * (1.0 + (0.16 if L["style"] in ("noir", "modern") else 0.03))))
+        n_lines = max(1, -(-int(len(L["text"]) * 0.52 * px) // int(0.9 * fw))) if "\n" not in L["text"] else len(L["text"].split("\n"))
+        h = (n_lines * 1.12 + 0.6) * L["size"] + (0.8 * L["size"] if L["box"] else 0)
+        y0 = {"top": 0.08, "center": 0.5 - h / 2, "bottom": 0.92 - h}[L["pos"]]
+        return (0.5 - width / 2, y0, 0.5 + width / 2, y0 + h)
+    if k == "graphic" and L["gk"] == "lower_third":
+        p = L["params"]
+        width = min(0.92, max(len(p["title"]) * 0.5 * 0.046 * fh / fw * 1.1, len(p.get("subtitle", "")) * 0.7 * 0.0185 * fh / fw * 1.3) + 0.08)
+        return (0.06, 0.78, 0.06 + width, 0.91) if p.get("align", "left") == "left" else (0.94 - width, 0.78, 0.94, 0.91)
+    if k in ("pip", "image"):
+        sc = L["scale"]
+        hf = sc if k == "pip" else sc * fw / (L["aspect"] * fh)
+        x0 = 0.04 if "left" in L["pos"] else (0.5 - sc / 2 if L["pos"] == "center" else 0.96 - sc)
+        y0 = 0.04 if "top" in L["pos"] else (0.5 - hf / 2 if L["pos"] == "center" else 0.96 - hf)
+        return (x0, y0, x0 + sc, y0 + hf)
+    return None
+
+
+def _collisions(layers, max_warnings=4):
+    """Warnings for overlays from DIFFERENT edits that are on screen at the same time in overlapping places
+    (e.g. subtitles at the bottom while a lower third is shown), so the editor hears about it right after the edit
+    instead of only by looking at a frame."""
+    zoned = [(L, _zone(L)) for L in layers]
+    zoned = [(L, z) for L, z in zoned if z]
+    seen, out = set(), []
+    for i, (a, za) in enumerate(zoned):
+        for b, zb in zoned[i + 1:]:
+            if a["op"] == b["op"] or (a["op"], b["op"]) in seen:
+                continue
+            t0, t1 = max(a["start"], b["start"]), min(a["start"] + a["dur"], b["start"] + b["dur"])
+            if t1 - t0 < 0.1:
+                continue
+            ox, oy = min(za[2], zb[2]) - max(za[0], zb[0]), min(za[3], zb[3]) - max(za[1], zb[1])
+            if ox > -0.015 and oy > 0.01:          # touching or within 1.5% of the frame counts as crowding
+                seen.add((a["op"], b["op"]))
+                out.append(f"{_label(a)} and {_label(b)} may overlap or touch on screen from {t0:g}s to {t1:g}s; "
+                           f"move one (position) or change its timing")
+    if len(out) > max_warnings:
+        out = out[:max_warnings] + [f"... and {len(out) - max_warnings} more overlapping pairs"]
+    return out
 
 
 def _gfx_layer(n, o, gk, params, where):
@@ -259,7 +311,7 @@ def _gfx_layer(n, o, gk, params, where):
 
 def _label(L):
     if L["kind"] == "text":
-        return f"text {L['text'][:24]!r}"
+        return f"{'subtitle' if 'sub' in L else 'text'} {L['text'][:24]!r}"
     if L["kind"] == "graphic":
         return f"graphic {L['gk']}"
     return f"{L['kind']} {L.get('src') or os.path.basename(L.get('path', ''))}"

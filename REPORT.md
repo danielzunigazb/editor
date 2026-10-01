@@ -705,6 +705,42 @@ a la vez): hoy solo se ven mirando la imagen.
 **Limitaciones:** un modelo y una corrida por caso; el tiempo incluye el arranque del cliente; los números de tokens son los del cliente y dependen del
 sistema base de Claude Code (~17K tokens por turno que no controla este servidor).
 
+## 17. `apply_ops` y aviso de choques en pantalla (añadido a petición del usuario)
+
+**`apply_ops(ops)`** (herramienta 22): aplica hasta 50 ediciones en **una sola llamada, todo o nada**. Cada elemento es `{"tool": "<herramienta>", ...sus
+argumentos}` con los mismos nombres y argumentos que las herramientas individuales (todas comparten ahora los mismos constructores de operación, así
+que un lote se comporta exactamente como las mismas llamadas una a una). Cada elemento se valida en orden contra el timeline que dejan los anteriores;
+si alguno falla no se aplica nada y el error nombra el elemento (`item 2 (cut_clip): ...; nothing was applied`). Permite: `add_clip`, `cut_clip`,
+`crossfade`, `set_fades`, `add_pip`, `add_text`, `add_subtitles` (incluido `srt_path`), `add_graphic`, `add_lower_third`, `add_image`.
+
+**Aviso de choques:** `layout()` calcula `warnings` cuando dos elementos de **ediciones distintas** están a la vez en pantalla en zonas que pueden
+solaparse (texto, subtítulos, tercio inferior, imagen, PiP). Es una heurística a partir de caracteres, tamaño y posición, no una medición; se avisa
+también si están a menos de 1.5% del cuadro; se ignoran solapes de <0.1 s, la decoración de cuadro completo (marco, viñeta, barras) y las capas de una
+misma edición; máximo 4 avisos + un resumen. Llega en la respuesta de la edición que lo causa y en `get_timeline`. Ejemplo real (el choque de la
+corrida A, vertical 1080x1920): `graphic lower_third and subtitle '¿Quién trae el balón?' may overlap or touch on screen from 3.4s to 5.2s; move one
+(position) or change its timing`.
+
+**Medición con un modelo real** (mismo pedido que la corrida A de la sección 16, una corrida cada una):
+| | A (sin `apply_ops`) | A2 (con `apply_ops` y avisos) | cambio |
+|---|---|---|---|
+| Turnos | 19 | **11** | -42% |
+| Tiempo total | 28.8 s | **22.0 s** | -24% |
+| Tokens de entrada procesados | 419.403 | 277.161 | -34% |
+| Tokens de salida | 2.553 | 1.895 | -26% |
+| Costo | 0.212 USD | **0.152 USD** | -28% |
+
+El modelo usó `apply_ops`, detectó el choque (subtítulos abajo + tercio inferior), movió los subtítulos al centro y afirmó que el editor "ya no marca
+solapamientos". Resultado verificado: 1080x1920, 6.5 s, sin destellos. El ahorro es menor que la mitad de turnos que se estimó porque cada
+herramienta nueva añade descripción (que se reenvía cada turno) y el modelo sigue gastando turnos en importar, revisar y exportar.
+
+**Pruebas:** `test_mcp.py` 121 (el lote reproduce el mismo proyecto que 9 llamadas sueltas, atomicidad, 8 rechazos, `.srt` en lote, dependencia entre
+elementos, avisos en la respuesta de la edición y en `get_timeline`), `test_text.py` 85 (11 casos puros de choques: caso real, centro, otro
+momento, decoración, textos en el mismo lugar, solape <0.1 s, PiP, mismas ediciones, tope), `test_engine.py` 38.
+
+**Limitaciones:** una corrida por celda y un solo modelo; el aviso es heurístico (puede avisar de más o de menos, sobre todo con textos muy largos o con
+tipografías anchas); no mide el solape real renderizado; `apply_ops` no incluye `import_clip`, `new_project`, `undo` ni `remove_op` (siguen siendo
+llamadas aparte).
+
 ## 10. Archivos
 
 - `poc.py`: el POC (gen/build/bench/preview/export/measure).
