@@ -498,11 +498,65 @@ MP4 final, 156 frames: sin destellos (luma mínima 16 en el inicio del fade-in).
 en dos líneas en vertical, conviene 0.04-0.05; el halo ayuda pero el texto claro sobre fondos muy brillantes puede seguir cansando.
 No se ha evaluado el resultado con una persona más allá de la inspección de fotogramas.
 
+## 13. Pruebas en 4K (añadido a petición del usuario)
+
+**Material:** no se consiguió 4K real. El clip 4K del Drive del usuario es privado (la descarga devuelve una página de inicio de
+sesión), Wikimedia bloquea con 429 y las demás fuentes abiertas alcanzables eran 1080p. Se generaron con ffmpeg tres clips 4K con ruido
+temporal de sensor (para que decodificar sea exigente como con cámara): H.264 4K30 63 Mbps, H.264 4K60 94 Mbps y HEVC Main10 4K30 40 Mbps
+(`media_4k/`, ignorado por git). **Esto no sustituye a metraje de cámara real.**
+
+**Piso de la CPU (solo ffmpeg, sin MLT, 4 núcleos):** 65.5 / 51.6 / 81.5 fps decodificando esos tres clips, usando 3.1-3.5 núcleos.
+
+**Prueba:** timeline 3840x2160@30 de 10.4 s (312 frames), 3 clips (uno a 60 fps) con 2 fundidos cruzados, fades y la pila de lujo
+completa (viñeta, marco, título, tercio inferior, subtítulos), a través del servidor MCP real (`bench_4k.py`).
+
+| Herramienta (servidor, antes de la optimización) | Tiempo | RAM pico | CPU (de 400%) |
+|---|---|---|---|
+| Edición (validar y guardar) | 0-60 ms (0.29 s el tercio inferior, valida el ajuste a 4K) | n/d | n/d |
+| `get_still` 1080p, frío / caliente | 5.9 / 5.1 s | 0.7-0.8 GB | 132-139% |
+| `get_still` 4K completo, frío / caliente | 12.4 / 8.7 s | 1.3-1.4 GB | 87-99% |
+| `get_contact_sheet` 6 frames, frío / caliente | 12.1 / 10.3 s | 1.8 GB | 214-222% |
+| `render_preview` (medio tamaño) | 43.4 s | 3.2 GB | 186% |
+| `export` borrador | 73.4 s (7.1x la duración) | 3.1 GB | 165% |
+| `export` alta calidad | 92.6 s (8.9x) | 4.8 GB | 332% |
+
+Los exports verificados: 3840x2160, 10.4 s, 312 frames, sin destellos; texto a 100% nítido. El tiempo de "caliente" casi no baja
+respecto al de "frío", así que el costo no está en generar los PNG de texto sino en reconstruir y decodificar/componer 4K.
+
+**Investigación (con hipótesis descartadas):**
+1. *"La tubería de video crudo hacia ffmpeg es el cuello de botella."* **Descartada:** codificar directo dentro de MLT tardó 65.0 s contra
+   73.4 s por la tubería (-11%), con la misma CPU (161%) y menos RAM (2.1 vs 3.1 GB).
+2. *"Las capas cuestan."* **Confirmada.** El mismo timeline **sin capas** exporta en 21.0 s (307% de CPU); con las 5 capas, 65 s
+   (161%). Coste por capa full-frame a 4K (base 21.0 s): viñeta +27.3 s y marco +24.9 s (ambas durante todo el video), título +5.8 s
+   (2.6 s en pantalla), tercio inferior +6.3 s (2.5 s), subtítulos +11.4 s (rango de 8.5 s). Son ~2.4 s de render por cada segundo
+   que una capa full-frame está activa. Cada capa es una imagen RGBA 4K que `qtblend` compone y la composición es secuencial (por eso
+   la CPU cae del 307% al 161%).
+3. *"El render en serie desperdicia núcleos."* **Confirmada y corregida:** el consumer de MLT con `real_time=-N` renderiza N frames en
+   paralelo. Con N=2 el export con las 5 capas baja de 65.0 a **35.6 s** (1.8x); con N=4 a 33.7 s pero con 4.1 GB en vez de 2.9 GB.
+   Resultado **idéntico** al serial: 0 de 312 frames con luma distinta (>3) y sin destellos.
+
+**Cambio aplicado:** `live.render()` usa 2 hilos por defecto (`MLT_RENDER_THREADS`, 1 = serie). Por el camino real del servidor (MLT
+compone, tubería, ffmpeg codifica) el export 4K borrador pasó de **67.5 s a 36.2 s** (1.87x; CPU 176% -> 323%; RAM 2.0 -> 2.9 GB +
+0.5 GB de ffmpeg). Las tres suites siguen verdes tras el cambio (70 / 13 / 93); el export de 7 s a 720p pasó de 2.5 s a 2.0 s.
+También se corrigió que el servidor dejaba procesos `Xvfb` huérfanos (ahora mueren con él: `PR_SET_PDEATHSIG`, demostrado con un
+`SIGKILL`) y un error de mi primer muestreador de memoria (observaba otro proceso); esas cifras se descartaron y se repitió la medición.
+
+**Qué sigue siendo un problema en 4K:**
+- Ver un solo frame tarda 5-15 s: no es interactivo. Con 4K haría falta trabajar sobre proxies de baja resolución.
+- El export 4K con capas sigue siendo ~3.5x más lento que el video (36 s para 10.4 s) y usa hasta ~3.4 GB; el de alta calidad
+  usó 4.8 GB antes del cambio (no se repitió con 2 hilos).
+- Las capas de decoración que duran todo el video (viñeta y marco) son las más caras. Ideas **sin probar**: fusionarlas en una sola
+  imagen, recortar los PNG de texto a su caja en vez de componer el cuadro completo, o aplanar capas estáticas antes de componer.
+- El servidor sigue bloqueado mientras exporta (36-93 s a 4K). **No se verificó** si un cliente MCP real aguanta llamadas de ese
+  tamaño sin agotar su tiempo de espera; tampoco se probó un modelo real a 4K.
+- Una sola corrida por medición, material sintético, una máquina de 4 núcleos sin GPU.
+
 ## 10. Archivos
 
 - `poc.py`: el POC (gen/build/bench/preview/export/measure).
 - `POC_MODE=multi` en `poc.py`: multipista con composición (sección 9; requiere `xvfb-run`).
 - `POC_MODE=real` en `poc.py`: timeline con clips reales de `media_real/` (sección 8).
+- `bench_4k.py`: benchmark 4K a través del servidor MCP (sección 13).
 - `graphics.py`, `fonts/`: recursos de lujo y fuentes OFL (sección 11.3).
 - `textrender.py`, `test_text.py`, `test_engine.py`: texto/subtítulos y pruebas cuadro a cuadro (sección 11.2).
 - `server.py`, `test_mcp.py`, `setup.sh`, `requirements.txt`, `mcp.example.json`: servidor MCP y su prueba (sección 11).
