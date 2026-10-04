@@ -1,0 +1,209 @@
+[
+ {
+  "id": "m-vampire-s-piano",
+  "kind": "music",
+  "title": "Vampire's Piano",
+  "author": "isaiah658",
+  "source": "opengameart.org",
+  "source_url": "https://opengameart.org/sites/default/files/vampires_piano_6.mp3",
+  "page_url": "https://opengameart.org/content/vampires-piano",
+  "license": "CC0-1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "license_evidence": "https://opengameart.org/content/vampires-piano: 'License(s): CC0'",
+  "attribution": null,
+  "moods": [
+   "orchestral"
+  ],
+  "themes": [
+   "luxury"
+  ],
+  "duration_s": 89.5,
+  "bytes": 1790246,
+  "sha256": "06aae274ef3d61e2fec828162cc96cc5a77414aa5217fb2f30d4c41b1a9a0a74",
+  "file": "m-vampire-s-piano.mp3"
+ },
+ {
+  "id": "m-snowfall",
+  "kind": "music",
+  "title": "Snowfall",
+  "author": "Casimir",
+  "source": "opengameart.org",
+  "source_url": "https://opengameart.org/sites/default/files/Snowfall%20%28Looped%20ver.%29_0.ogg",
+  "page_url": "https://opengameart.org/content/snowfall",
+  "license": "CC0-1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "license_evidence": "https://opengameart.org/content/snowfall: 'License(s): CC0'",
+  "attribution": null,
+  "moods": [
+   "piano"
+  ],
+  "themes": [
+   "academic"
+  ],
+  "duration_s": 49.5,
+  "bytes": 991245,
+  "sha256": "b9a15ba6289430492c47913ec2c29cfff46de61eb40fecfcd63235d1267cfd1b",
+  "file": "m-snowfall.mp3"
+ },
+ {
+  "id": "m-cyberpunk-moonlight-sonata",
+  "kind": "music",
+  "title": "Cyberpunk Moonlight Sonata",
+  "author": "withthelove",
+  "source": "opengameart.org",
+  "source_url": "https://opengameart.org/sites/default/files/Cyberpunk%20Moonlight%20Sonata_0.mp3",
+  "page_url": "https://opengameart.org/content/cyberpunk-moonlight-sonata",
+  "license": "CC0-1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "license_evidence": "https://opengameart.org/content/cyberpunk-moonlight-sonata: 'License(s): CC0'",
+  "attribution": null,
+  "moods": [
+   "electronic"
+  ],
+  "themes": [
+   "tech"
+  ],
+  "duration_s": 116.8,
+  "bytes": 2336487,
+  "sha256": "c5472af8185792319f71836852f97f056e49051e7a118257fb00ffe41cff4db9",
+  "file": "m-cyberpunk-moonlight-sonata.mp3"
+ },
+ {
+  "id": "m-town-theme-rpg",
+  "kind": "music",
+  "title": "Town Theme RPG",
+  "author": "Bonsaiheldin",
+  "source": "opengameart.org",
+  "source_url": "https://opengameart.org/sites/default/files/TownTheme.mp3",
+  "page_url": "https://opengameart.org/content/town-theme-rpg",
+  "license": "CC0-1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "license_evidence": "https://opengameart.org/content/town-theme-rpg: 'License(s): CC0'",
+  "attribution": null,
+  "moods": [
+   "happy"
+  ],
+  "themes": [
+   "playful"
+  ],
+  "duration_s": 97.5,
+  "bytes": 1950285,
+  "sha256": "c3cf106391a2d7594cf77dc01bbb0cf441431905fdbb043c9a00cf201e2af38b",
+  "file": "m-town-theme-rpg.mp3"
+ },
+ {
+  "id": "m-bleu",
+  "kind": "music",
+  "title": "Bleu",
+  "author": "unknown",
+  "source": "opengameart.org",
+  "source_url": "https://opengameart.org/sites/default/files/Komiku_-_13_-_Bleu_0.mp3",
+  "page_url": "https://opengameart.org/content/bleu",
+  "license": "CC0-1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "license_evidence": "https://opengameart.org/content/bleu: 'License(s): CC0'",
+  "attribution": null,
+  "moods": [
+   "ukulele"
+  ],
+  "themes": [
+   "sketch"
+  ],
+  "duration_s": 211.0,
+  "bytes": 4220586,
+  "sha256": "22a0090a97776eec6ce71b6ccc395d26b1e2c23d71e37ad2e8d904ceaa9c6a54",
+  "file": "m-bleu.mp3"
+ },
+ {
+  "id": "m-awake-megawall-10",
+  "kind": "music",
+  "title": "Awake! (Megawall-10)",
+  "author": "Footinthebox",
+  "source": "opengameart.org",
+  "source_url": "https://opengameart.org/sites/default/files/awake10_megaWall.mp3",
+  "page_url": "https://opengameart.org/content/awake-megawall-10",
+  "license": "CC0-1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "license_evidence": "https://opengameart.org/content/awake-megawall-10: 'License(s): CC0'",
+  "attribution": null,
+  "moods": [
+   "upbeat"
+  ],
+  "themes": [
+   "corporate"
+  ],
+  "duration_s": 57.4,
+  "bytes": 1147725,
+  "sha256": "4620b078fc302be9e6c42d32ea509d28137fbdca9f18e23e5b77fe02eaa5862a",
+  "file": "m-awake-megawall-10.mp3"
+ },
+ {
+  "id": "m-crystal-cave-song18",
+  "kind": "music",
+  "title": "Crystal Cave (song18)",
+  "author": "messersm",
+  "source": "opengameart.org",
+  "source_url": "https://opengameart.org/sites/default/files/song18_0.mp3",
+  "page_url": "https://opengameart.org/content/crystal-cave-song18",
+  "license": "CC0-1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "license_evidence": "https://opengameart.org/content/crystal-cave-song18: 'License(s): CC0'",
+  "attribution": null,
+  "moods": [
+   "ambient"
+  ],
+  "themes": [
+   "minimal"
+  ],
+  "duration_s": 49.6,
+  "bytes": 992685,
+  "sha256": "8d61bbe9505f54b083967af1f35b2d48a05ee934fbb79e23ce6339ebe8c11ea4",
+  "file": "m-crystal-cave-song18.mp3"
+ },
+ {
+  "id": "m-battle-theme-a",
+  "kind": "music",
+  "title": "Battle Theme A",
+  "author": "JaidynReiman",
+  "source": "opengameart.org",
+  "source_url": "https://opengameart.org/sites/default/files/battleThemeA.mp3",
+  "page_url": "https://opengameart.org/content/battle-theme-a",
+  "license": "CC0-1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "license_evidence": "https://opengameart.org/content/battle-theme-a: 'License(s): CC0'",
+  "attribution": null,
+  "moods": [
+   "cinematic"
+  ],
+  "themes": [
+   "luxury"
+  ],
+  "duration_s": 95.9,
+  "bytes": 1918307,
+  "sha256": "0a9651e709cf95ca07c6200e5abe0595f458028c613bb6a68af139cf1445325d",
+  "file": "m-battle-theme-a.mp3"
+ },
+ {
+  "id": "m-bouncy-tune",
+  "kind": "music",
+  "title": "Bouncy Tune",
+  "author": "puti (not verified)",
+  "source": "opengameart.org",
+  "source_url": "https://opengameart.org/sites/default/files/Bouncy_0.mp3",
+  "page_url": "https://opengameart.org/content/bouncy-tune",
+  "license": "CC0-1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "license_evidence": "https://opengameart.org/content/bouncy-tune: 'License(s): CC0'",
+  "attribution": null,
+  "moods": [
+   "bouncy"
+  ],
+  "themes": [
+   "playful"
+  ],
+  "duration_s": 56.7,
+  "bytes": 1133867,
+  "sha256": "62e9315d1865a65966cb2da0e6fd9f081799e80a6aa8a0cbde8e6aa0f4f4abe1",
+  "file": "m-bouncy-tune.mp3"
+ }
+]

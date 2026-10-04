@@ -49,6 +49,7 @@ import live  # noqa: E402  (engine: layout/build/render)
 import themes  # noqa: E402
 import cards  # noqa: E402
 import icons  # noqa: E402
+import assets_lib  # noqa: E402
 import graphics  # noqa: E402
 import textrender  # noqa: E402
 from mcp.server.fastmcp import FastMCP, Image  # noqa: E402
@@ -251,12 +252,20 @@ def _probe_audio(path):
 
 
 def _b_add_audio(start_s=0.0, dur_s=None, path="", source_in_s=0.0, volume_db=-14.0, fade_in_s=None, fade_out_s=None, loop=False,
-                 duck_under=None, duck_db=-12.0):
-    if not path:
-        raise ValueError("give path (an audio file, or a video with an audio track)")
-    p = _safe_path(path, "add_audio")
-    return {"op": "audio", "path": p, "src_dur": _probe_audio(p), "start": start_s, "in": source_in_s, "dur": dur_s, "volume_db": volume_db,
-            "fade_in": fade_in_s, "fade_out": fade_out_s, "loop": loop, "duck": duck_under or [], "duck_db": duck_db, "name": os.path.basename(p)}
+                 duck_under=None, duck_db=-12.0, asset=""):
+    if bool(path) == bool(asset):
+        raise ValueError("give exactly one of asset (an id from list_assets(kind='music' or 'sfx')) or path (an audio file, or a video with an audio track)")
+    if asset:
+        item = assets_lib.find(asset)
+        p, name = assets_lib.path(asset), item["title"]                  # downloads from R2 on first use, SHA-256 checked
+    else:
+        p = _safe_path(path, "add_audio")
+        name = os.path.basename(p)
+    op = {"op": "audio", "path": p, "src_dur": _probe_audio(p), "start": start_s, "in": source_in_s, "dur": dur_s, "volume_db": volume_db,
+          "fade_in": fade_in_s, "fade_out": fade_out_s, "loop": loop, "duck": duck_under or [], "duck_db": duck_db, "name": name}
+    if asset:
+        op["asset"] = asset
+    return op
 
 
 def _speech_intervals(st):
@@ -339,6 +348,9 @@ def summary(st, full=False):
         "warnings": m["warnings"],
         "op_count": len(st["ops"]),
     }
+    credits = assets_lib.credit_lines([o.get("asset") for o in st["ops"] if o.get("op") == "audio" and o.get("asset")])
+    if credits:
+        out["credits_required"] = credits
     if full:
         out["ops"] = [{"index": i, **({k: v for k, v in o.items() if k != "cues"}), **({"cues": len(o["cues"])} if "cues" in o else {})}
                       for i, o in enumerate(st["ops"])]
@@ -607,14 +619,14 @@ def add_lower_third(title: str, subtitle: str = "", start_s: float = 0.0, dur_s:
 @mcp.tool()
 def add_audio(start_s: float = 0.0, dur_s: float | None = None, path: str = "", source_in_s: float = 0.0, volume_db: float = -14.0,
               fade_in_s: float | None = None, fade_out_s: float | None = None, loop: bool = False, duck_under: list[list[float]] | None = None,
-              duck_auto: bool = False, duck_db: float = -12.0) -> dict:
+              duck_auto: bool = False, duck_db: float = -12.0, asset: str = "") -> dict:
     """Add music or a sound effect (TIMELINE time) mixed under the video's own audio. path: an audio file (mp3/wav/ogg/m4a...) or a
     video with an audio track. start_s: when it begins. dur_s: how long (default: the whole file, or until the timeline ends).
     source_in_s: start inside the file. volume_db: -60..+6 (default -14, a music bed under speech; use -6..0 for effects).
     fade_in_s/fade_out_s: ramps at its ends (default 1 s in / 2 s out, shorter for short sounds; asking for more than fits is an error). loop=true repeats a short file to fill dur_s. Ducking (music dips while someone talks):
     duck_under=[[start_s, end_s], ...] in timeline seconds, or duck_auto=true to find the speech in the clips' own audio now
     (re-add the audio after changing the cut); duck_db is how much quieter (default -12). Up to 8 audio items."""
-    spec = _b_add_audio(start_s, dur_s, path, source_in_s, volume_db, fade_in_s, fade_out_s, loop, duck_under, duck_db)
+    spec = _b_add_audio(start_s, dur_s, path, source_in_s, volume_db, fade_in_s, fade_out_s, loop, duck_under, duck_db, asset)
     if duck_auto:
         with locked():
             spec["duck"] = [list(iv) for iv in _speech_intervals(load())] + [list(iv) for iv in (duck_under or [])]
@@ -635,12 +647,18 @@ def add_image(start_s: float, dur_s: float, path: str = "", position: str = "cen
 
 
 @mcp.tool()
-def list_assets(kind: str = "icon", query: str = "") -> dict:
-    """List bundled assets. kind: icon (names usable as add_image(icon=...)). query: only names containing this text."""
-    if kind != "icon":
-        raise ValueError("kind must be 'icon'")
-    names = [n for n in icons.list_icons() if query.lower() in n]
-    return {"kind": kind, "count": len(names), "items": names}
+def list_assets(kind: str = "icon", theme: str = "", mood: str = "", license: str = "", query: str = "") -> dict:
+    """List bundled assets. kind: icon (names for add_image(icon=...)) | music (beds for add_audio(asset=...), 2-4 min) | sfx (short effects for
+    add_audio(asset=..., volume_db -6..0)). Filters (music/sfx): theme (a template name: luxury, corporate, academic, sketch, tech, minimal,
+    playful), mood (e.g. calming, bouncy, ding, whoosh, page-turn), license (CC0 | CC-BY), query (text in id/title). CC-BY pieces need a credit:
+    the editor lists the required lines in get_timeline/export for you. Shows up to 40; narrow with filters."""
+    if kind == "icon":
+        names = [n for n in icons.list_icons() if query.lower() in n]
+        return {"kind": kind, "count": len(names), "items": names}
+    if kind not in ("music", "sfx"):
+        raise ValueError("kind must be icon, music or sfx")
+    items, total = assets_lib.listing(kind, theme, mood, license, query)
+    return {"kind": kind, "count": total, "shown": len(items), "items": items}
 
 
 @mcp.tool()
@@ -868,8 +886,17 @@ def export(output_path: str, quality: str = "high", overwrite: bool = False) -> 
     t0 = time.perf_counter()
     live.render(p, tr, out, *(("medium", 20, "160k") if quality == "high" else ("ultrafast", 28, "96k")))
     info = _probe(out)
-    return {"path": out, "duration_s": info["duration_s"], "resolution": f"{info['width']}x{info['height']}",
-            "size_kb": os.path.getsize(out) // 1024, "render_s": round(time.perf_counter() - t0, 2)}
+    res = {"path": out, "duration_s": info["duration_s"], "resolution": f"{info['width']}x{info['height']}",
+           "size_kb": os.path.getsize(out) // 1024, "render_s": round(time.perf_counter() - t0, 2)}
+    credits = assets_lib.credit_lines([o.get("asset") for o in st["ops"] if o.get("op") == "audio" and o.get("asset")])
+    credit_path = os.path.splitext(out)[0] + ".credits.txt"
+    if credits:                                              # CC-BY pieces must be credited: write the text next to the video
+        with open(credit_path, "w", encoding="utf-8") as f:
+            f.write("Music and sound credits\n\n" + "\n\n".join(credits) + "\n")
+        res["credits_file"], res["credits_required"] = credit_path, credits
+    elif os.path.exists(credit_path):                        # a stale file from an earlier export of this name would lie
+        os.remove(credit_path)
+    return res
 
 
 def prune_cache(max_mb=500, max_age_days=14):

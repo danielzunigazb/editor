@@ -1,0 +1,1611 @@
+{
+ "version": 1,
+ "assets": [
+  {
+   "id": "m-trio-for-piano-cello-and-clarinet",
+   "kind": "music",
+   "title": "Trio for Piano, Cello, and Clarinet",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Trio%20for%20Piano%2C%20Cello%2C%20and%20Clarinet.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Trio for Piano, Cello, and Clarinet\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "calming",
+    "relaxed",
+    "somber"
+   ],
+   "themes": [
+    "luxury"
+   ],
+   "instruments": "Piano, Cello, Clarinet",
+   "description": "More contemplative than outright depressing. Tempo is highly variable, so don't count on it if you have to synch to something. I didn't know there was a tradition of writing for this instrumentation. It works very well.",
+   "duration_s": 159.1,
+   "bytes": 3182973,
+   "sha256": "65ae65af32332a153e2c78a6df247df4cbae486f37f59ed2239549bdf767244c",
+   "file": "m-trio-for-piano-cello-and-clarinet.mp3",
+   "r2_key": "assets/music/m-trio-for-piano-cello-and-clarinet.mp3"
+  },
+  {
+   "id": "m-stages-of-grief",
+   "kind": "music",
+   "title": "Stages of Grief",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Stages%20of%20Grief.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Stages of Grief\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "calming",
+    "relaxed",
+    "somber"
+   ],
+   "themes": [
+    "luxury"
+   ],
+   "instruments": "Piano, Basses, Violin",
+   "description": "That sort of \"I'm kind of 'ok', but I'm still standing out in the rain feel\". Pretty depressing for being in a major key.",
+   "duration_s": 108.1,
+   "bytes": 2162872,
+   "sha256": "cc5d110efb9bbe9d660dba4ef50541766fca291327701df4dd67fabdd3e067bc",
+   "file": "m-stages-of-grief.mp3",
+   "r2_key": "assets/music/m-stages-of-grief.mp3"
+  },
+  {
+   "id": "m-water-lily",
+   "kind": "music",
+   "title": "Water Lily",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Water%20Lily.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Water Lily\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "calming",
+    "relaxed"
+   ],
+   "themes": [
+    "luxury"
+   ],
+   "instruments": "Piano, Basses, Cellos",
+   "description": "Simple and elegant.",
+   "duration_s": 144.1,
+   "bytes": 2882896,
+   "sha256": "1f910693a4f4f4d244a952e69c9fd39a4e41e11b81778aec55581b365337d468",
+   "file": "m-water-lily.mp3",
+   "r2_key": "assets/music/m-water-lily.mp3"
+  },
+  {
+   "id": "m-wallpaper",
+   "kind": "music",
+   "title": "Wallpaper",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Wallpaper.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Wallpaper\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bouncy",
+    "bright",
+    "calming",
+    "uplifting"
+   ],
+   "themes": [
+    "corporate"
+   ],
+   "instruments": "Synths, Drum Kit, Guitar",
+   "description": "Very very clean mix that is non-offensive on almost all fronts. Good spectral distribution - nice lows and highs. 2 catchy synth lines sort of fight for attention, leaving you to ignore them both after a while.",
+   "duration_s": 220.1,
+   "bytes": 4402546,
+   "sha256": "c61db7073ccc45cd33e84698563f5fdbb708d055f643ce5856f73bc76620f32b",
+   "file": "m-wallpaper.mp3",
+   "r2_key": "assets/music/m-wallpaper.mp3"
+  },
+  {
+   "id": "m-groundwork",
+   "kind": "music",
+   "title": "Groundwork",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Groundwork.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Groundwork\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bouncy",
+    "bright"
+   ],
+   "themes": [
+    "corporate"
+   ],
+   "instruments": "Bass, Drums, Guitar, Piano",
+   "description": "Stop it! Stop complaining, it is supposed to end like that! This is a loopable piece. Why? You never know how long your voice-overed tour of the cardboard factory is going to take... Or your real estate tour... Or your appendectomy video... Or your video of that one train by your house. Uncompressed download comes with a faster version, and a slower version.",
+   "duration_s": 169.5,
+   "bytes": 3391277,
+   "sha256": "055dcef747d1b84ebf63bd1326afcd050cea92cef1db132010ee6629eb62fad7",
+   "file": "m-groundwork.mp3",
+   "r2_key": "assets/music/m-groundwork.mp3"
+  },
+  {
+   "id": "m-neon-laser-horizon",
+   "kind": "music",
+   "title": "Neon Laser Horizon",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Neon%20Laser%20Horizon.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Neon Laser Horizon\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bright",
+    "grooving",
+    "uplifting"
+   ],
+   "themes": [
+    "corporate"
+   ],
+   "instruments": "Synths",
+   "description": "Build your pyramid in Five easy steps! 1) Level the intended build site 2) Get your GED in architecture 3) Quarry 100 million tons of limestone from a local quarry (cubits?) 4) Learn to be a charismatic leader 5) Synergize your assets from steps 3 and 4. Congratulations, you are on your way to pyramid success! Ask about our supplementary obelisk pamphlet!",
+   "duration_s": 178.6,
+   "bytes": 3573182,
+   "sha256": "3541637304d6dceaa0b77b9b999e9552b566821b525b438a9ec81283570cb75b",
+   "file": "m-neon-laser-horizon.mp3",
+   "r2_key": "assets/music/m-neon-laser-horizon.mp3"
+  },
+  {
+   "id": "m-reawakening",
+   "kind": "music",
+   "title": "Reawakening",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Reawakening.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Reawakening\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "calming",
+    "relaxed",
+    "uplifting"
+   ],
+   "themes": [
+    "academic"
+   ],
+   "instruments": "Piano, Cello",
+   "description": "Easy love theme; Useful for quiet talks.",
+   "duration_s": 214.1,
+   "bytes": 4283057,
+   "sha256": "f0e4ce541c7ecb9683078c34c5f5e087f2713f65f96284cd0412671d69771e2b",
+   "file": "m-reawakening.mp3",
+   "r2_key": "assets/music/m-reawakening.mp3"
+  },
+  {
+   "id": "m-frozen-star",
+   "kind": "music",
+   "title": "Frozen Star",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Frozen%20Star.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Frozen Star\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "calming",
+    "mystical",
+    "relaxed",
+    "uplifting"
+   ],
+   "themes": [
+    "academic"
+   ],
+   "instruments": "Harp, Choir, Helicons, Flutes",
+   "description": "Lilting gentle feel with odd chord progressions.",
+   "duration_s": 221.3,
+   "bytes": 4427540,
+   "sha256": "e8e424c47e9d653a933f0d97a8db4583cbe65ea39c7c17310913f549c8d6a9e0",
+   "file": "m-frozen-star.mp3",
+   "r2_key": "assets/music/m-frozen-star.mp3"
+  },
+  {
+   "id": "m-sergio-s-magic-dustbin",
+   "kind": "music",
+   "title": "Sergio's Magic Dustbin",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Sergio%27s%20Magic%20Dustbin.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Sergio's Magic Dustbin\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bouncy",
+    "driving",
+    "humorous"
+   ],
+   "themes": [
+    "sketch"
+   ],
+   "instruments": "Drums, Tuba, Marimba, Percussion, Clarinets, Flutes, Trumpet, French Horns, Trombones, Glockenspiel, Bassoons, Chimes, Whistles, Cymbals",
+   "description": "This piece starts very slow and builds... like Bolero. Unlike Bolero, this piece builds beyond the safety limit and gets crazy. I recommend you check out the piece from 1 minute 48 seconds in. There are several break points you can start from to get to the crazy payoff faster, or use the whole thing!",
+   "duration_s": 151.5,
+   "bytes": 3030567,
+   "sha256": "af2407ad7254ff2f095928b771b7afc0129db5a66ca8e4409f64545bfda58293",
+   "file": "m-sergio-s-magic-dustbin.mp3",
+   "r2_key": "assets/music/m-sergio-s-magic-dustbin.mp3"
+  },
+  {
+   "id": "m-gaslamp-funworks",
+   "kind": "music",
+   "title": "Gaslamp Funworks",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Gaslamp%20Funworks.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Gaslamp Funworks\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bouncy",
+    "bright",
+    "epic",
+    "humorous",
+    "uplifting"
+   ],
+   "themes": [
+    "sketch"
+   ],
+   "instruments": "Machines, Brass, Organ, Cellos, Percussion, Glockenspiel, Xylophone",
+   "description": "It is 1895, you just got your new brass-rimmed monocle, and you want to head out to see the new gigantic music machine that was just constructed... Roaring 1920s fun, 1930s art music style bridge... it is the retro future of music.",
+   "duration_s": 148.7,
+   "bytes": 2975048,
+   "sha256": "17248709950db0d2502c004fd5e24a32a2dcf85b350e0db25be7c99e13c8cad0",
+   "file": "m-gaslamp-funworks.mp3",
+   "r2_key": "assets/music/m-gaslamp-funworks.mp3"
+  },
+  {
+   "id": "m-delightful-d",
+   "kind": "music",
+   "title": "Delightful D",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Delightful%20D.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Delightful D\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bright",
+    "driving",
+    "grooving"
+   ],
+   "themes": [
+    "tech"
+   ],
+   "instruments": "Synth, Percussion",
+   "description": "Welcome to the Holiday Inn, Airport. The presentation will begin shortly.   SUCCESS starts with your ATTITUDE!   If you are not EARNING, make sure you are LEARNING!   AMBITION is the path to success. PERSISTENCE is the vehicle you arrive in.  Success is doing the OPPOSITE of what everyone else is DOING!   Actually... don't take this last one too literally. If everyone else is using the door, don't try walking through a wall (or whatever the opposite of a \"door\" is). I mean... there is a reason most people do the same things. Usually because they make sense. Oh, sure... it is okay to QUESTION what people are doing, but just doing the opposite... probably not great.   The future of NETWORK MARKETING is UNLIMITED!   Oh... Also a bit of hyperbole here. I mean, it literally cannot exceed the gross output of all the world's economies - and will likely top out far before that due to INEFFICIENCIES and REGULATION.",
+   "duration_s": 184.1,
+   "bytes": 3683064,
+   "sha256": "f49f2054d8dab83b88a892ba9b2d5ef40ced4a3950456552108bf539d0ce0ccc",
+   "file": "m-delightful-d.mp3",
+   "r2_key": "assets/music/m-delightful-d.mp3"
+  },
+  {
+   "id": "m-furious-freak",
+   "kind": "music",
+   "title": "Furious Freak",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Furious%20Freak.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Furious Freak\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bright",
+    "driving",
+    "intense"
+   ],
+   "themes": [
+    "tech"
+   ],
+   "instruments": "Electric Piano, Synths, Percussion",
+   "description": "Starts thin and explodes suddenly and massively around the 44-second mark. The uncompressed download also comes with a cut where it starts out big. I'm assuming it will be used for the outro parts of videos.",
+   "duration_s": 187.2,
+   "bytes": 3744533,
+   "sha256": "dd31561b1b7daec021c2cb541d70892583131910c0443b80660bc14af1dc0edd",
+   "file": "m-furious-freak.mp3",
+   "r2_key": "assets/music/m-furious-freak.mp3"
+  },
+  {
+   "id": "m-finding-the-balance",
+   "kind": "music",
+   "title": "Finding the Balance",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Finding%20the%20Balance.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Finding the Balance\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bright",
+    "grooving",
+    "intense"
+   ],
+   "themes": [
+    "tech"
+   ],
+   "instruments": "Bass, Percussion, Synths, Voice",
+   "description": "The beginning is calm with the Middle Eastern dudek playing the melody. As the electronic elements melt into the dudek and the plucked strings, the groove is established.  Just into the third minute the melody changes to beautiful and touching, but returns to the feel of the intro, while a woman?s voice sings a haunting melody in a distant language. This is music of wonder, and is best as exposition music for a film about nature or a group of people struggling to survive.",
+   "duration_s": 208.1,
+   "bytes": 4162533,
+   "sha256": "09451877223f2e0c309e48629f024f73d008aed08477f9ccb1fe65dcd178c925",
+   "file": "m-finding-the-balance.mp3",
+   "r2_key": "assets/music/m-finding-the-balance.mp3"
+  },
+  {
+   "id": "m-reminiscing",
+   "kind": "music",
+   "title": "Reminiscing",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Reminiscing.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Reminiscing\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "calming",
+    "relaxed"
+   ],
+   "themes": [
+    "minimal"
+   ],
+   "instruments": "Piano",
+   "description": "Simple; mostly pentatonic.",
+   "duration_s": 152.1,
+   "bytes": 3042805,
+   "sha256": "c934c970763774f399dc692eb354f7861dc07bb47cb97764b3a7b615ea8a18ec",
+   "file": "m-reminiscing.mp3",
+   "r2_key": "assets/music/m-reminiscing.mp3"
+  },
+  {
+   "id": "m-avec-soin",
+   "kind": "music",
+   "title": "Avec Soin",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Avec%20Soin.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Avec Soin\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "calming",
+    "relaxed"
+   ],
+   "themes": [
+    "minimal"
+   ],
+   "instruments": "Piano",
+   "description": "Super easy-going slow piano piece. Ends quiet and rich.",
+   "duration_s": 145.1,
+   "bytes": 2903517,
+   "sha256": "670b22c9fa71cac2c5e580a2be327572b52b87fc38636d463bac39c85696d0c8",
+   "file": "m-avec-soin.mp3",
+   "r2_key": "assets/music/m-avec-soin.mp3"
+  },
+  {
+   "id": "m-carefree",
+   "kind": "music",
+   "title": "Carefree",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Carefree.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Carefree\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bouncy",
+    "bright",
+    "calming",
+    "uplifting"
+   ],
+   "themes": [
+    "playful"
+   ],
+   "instruments": "Ukulele, Guitar, Marimba, Glockenspiel, Percussion",
+   "description": "Nothing says \"It'll be okay\" quite like a ukulele.",
+   "duration_s": 205.2,
+   "bytes": 4104528,
+   "sha256": "01ce11d632e199511e025b99cb67087a40d7f60e89e1869447edbef60dc2e44c",
+   "file": "m-carefree.mp3",
+   "r2_key": "assets/music/m-carefree.mp3"
+  },
+  {
+   "id": "m-jaunty-gumption",
+   "kind": "music",
+   "title": "Jaunty Gumption",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Jaunty%20Gumption.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Jaunty Gumption\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bouncy",
+    "bright",
+    "humorous",
+    "uplifting"
+   ],
+   "themes": [
+    "playful"
+   ],
+   "instruments": "Marimba, Organ, Flutes, Synths, Percussion",
+   "description": "Mid-90s styled happy happy video game music.",
+   "duration_s": 118.4,
+   "bytes": 2369830,
+   "sha256": "80bdbfe52f8b118e0be9eb56829f29d7c85e16cb3001db3e5ef24f7645a9105c",
+   "file": "m-jaunty-gumption.mp3",
+   "r2_key": "assets/music/m-jaunty-gumption.mp3"
+  },
+  {
+   "id": "m-glitter-blast",
+   "kind": "music",
+   "title": "Glitter Blast",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Glitter%20Blast.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Glitter Blast\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bouncy",
+    "bright",
+    "grooving"
+   ],
+   "themes": [
+    "playful"
+   ],
+   "instruments": "Glockenspiel, Percussion, Bass, Flutes, Ukulele",
+   "description": "Ukulele and flutes and glockenspiel... I think you already know what this sounds like. The percussion is also adorable.",
+   "duration_s": 177.8,
+   "bytes": 3557607,
+   "sha256": "bd71a925e3e2d46ba030726cbaff04a3ba321463a6220f4141efc61cc16e0a45",
+   "file": "m-glitter-blast.mp3",
+   "r2_key": "assets/music/m-glitter-blast.mp3"
+  },
+  {
+   "id": "m-vampire-s-piano",
+   "kind": "music",
+   "title": "Vampire's Piano",
+   "author": "isaiah658",
+   "source": "opengameart.org",
+   "source_url": "https://opengameart.org/sites/default/files/vampires_piano_6.mp3",
+   "page_url": "https://opengameart.org/content/vampires-piano",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://opengameart.org/content/vampires-piano: 'License(s): CC0'",
+   "attribution": null,
+   "moods": [
+    "orchestral"
+   ],
+   "themes": [
+    "luxury"
+   ],
+   "duration_s": 89.5,
+   "bytes": 1790246,
+   "sha256": "06aae274ef3d61e2fec828162cc96cc5a77414aa5217fb2f30d4c41b1a9a0a74",
+   "file": "m-vampire-s-piano.mp3",
+   "r2_key": "assets/music/m-vampire-s-piano.mp3"
+  },
+  {
+   "id": "m-snowfall",
+   "kind": "music",
+   "title": "Snowfall",
+   "author": "Casimir",
+   "source": "opengameart.org",
+   "source_url": "https://opengameart.org/sites/default/files/Snowfall%20%28Looped%20ver.%29_0.ogg",
+   "page_url": "https://opengameart.org/content/snowfall",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://opengameart.org/content/snowfall: 'License(s): CC0'",
+   "attribution": null,
+   "moods": [
+    "piano"
+   ],
+   "themes": [
+    "academic"
+   ],
+   "duration_s": 49.5,
+   "bytes": 991245,
+   "sha256": "b9a15ba6289430492c47913ec2c29cfff46de61eb40fecfcd63235d1267cfd1b",
+   "file": "m-snowfall.mp3",
+   "r2_key": "assets/music/m-snowfall.mp3"
+  },
+  {
+   "id": "m-cyberpunk-moonlight-sonata",
+   "kind": "music",
+   "title": "Cyberpunk Moonlight Sonata",
+   "author": "withthelove",
+   "source": "opengameart.org",
+   "source_url": "https://opengameart.org/sites/default/files/Cyberpunk%20Moonlight%20Sonata_0.mp3",
+   "page_url": "https://opengameart.org/content/cyberpunk-moonlight-sonata",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://opengameart.org/content/cyberpunk-moonlight-sonata: 'License(s): CC0'",
+   "attribution": null,
+   "moods": [
+    "electronic"
+   ],
+   "themes": [
+    "tech"
+   ],
+   "duration_s": 116.8,
+   "bytes": 2336487,
+   "sha256": "c5472af8185792319f71836852f97f056e49051e7a118257fb00ffe41cff4db9",
+   "file": "m-cyberpunk-moonlight-sonata.mp3",
+   "r2_key": "assets/music/m-cyberpunk-moonlight-sonata.mp3"
+  },
+  {
+   "id": "m-town-theme-rpg",
+   "kind": "music",
+   "title": "Town Theme RPG",
+   "author": "Bonsaiheldin",
+   "source": "opengameart.org",
+   "source_url": "https://opengameart.org/sites/default/files/TownTheme.mp3",
+   "page_url": "https://opengameart.org/content/town-theme-rpg",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://opengameart.org/content/town-theme-rpg: 'License(s): CC0'",
+   "attribution": null,
+   "moods": [
+    "happy"
+   ],
+   "themes": [
+    "playful"
+   ],
+   "duration_s": 97.5,
+   "bytes": 1950285,
+   "sha256": "c3cf106391a2d7594cf77dc01bbb0cf441431905fdbb043c9a00cf201e2af38b",
+   "file": "m-town-theme-rpg.mp3",
+   "r2_key": "assets/music/m-town-theme-rpg.mp3"
+  },
+  {
+   "id": "m-bleu",
+   "kind": "music",
+   "title": "Bleu",
+   "author": "unknown",
+   "source": "opengameart.org",
+   "source_url": "https://opengameart.org/sites/default/files/Komiku_-_13_-_Bleu_0.mp3",
+   "page_url": "https://opengameart.org/content/bleu",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://opengameart.org/content/bleu: 'License(s): CC0'",
+   "attribution": null,
+   "moods": [
+    "ukulele"
+   ],
+   "themes": [
+    "sketch"
+   ],
+   "duration_s": 211.0,
+   "bytes": 4220586,
+   "sha256": "22a0090a97776eec6ce71b6ccc395d26b1e2c23d71e37ad2e8d904ceaa9c6a54",
+   "file": "m-bleu.mp3",
+   "r2_key": "assets/music/m-bleu.mp3"
+  },
+  {
+   "id": "m-awake-megawall-10",
+   "kind": "music",
+   "title": "Awake! (Megawall-10)",
+   "author": "Footinthebox",
+   "source": "opengameart.org",
+   "source_url": "https://opengameart.org/sites/default/files/awake10_megaWall.mp3",
+   "page_url": "https://opengameart.org/content/awake-megawall-10",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://opengameart.org/content/awake-megawall-10: 'License(s): CC0'",
+   "attribution": null,
+   "moods": [
+    "upbeat"
+   ],
+   "themes": [
+    "corporate"
+   ],
+   "duration_s": 57.4,
+   "bytes": 1147725,
+   "sha256": "4620b078fc302be9e6c42d32ea509d28137fbdca9f18e23e5b77fe02eaa5862a",
+   "file": "m-awake-megawall-10.mp3",
+   "r2_key": "assets/music/m-awake-megawall-10.mp3"
+  },
+  {
+   "id": "m-crystal-cave-song18",
+   "kind": "music",
+   "title": "Crystal Cave (song18)",
+   "author": "messersm",
+   "source": "opengameart.org",
+   "source_url": "https://opengameart.org/sites/default/files/song18_0.mp3",
+   "page_url": "https://opengameart.org/content/crystal-cave-song18",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://opengameart.org/content/crystal-cave-song18: 'License(s): CC0'",
+   "attribution": null,
+   "moods": [
+    "ambient"
+   ],
+   "themes": [
+    "minimal"
+   ],
+   "duration_s": 49.6,
+   "bytes": 992685,
+   "sha256": "8d61bbe9505f54b083967af1f35b2d48a05ee934fbb79e23ce6339ebe8c11ea4",
+   "file": "m-crystal-cave-song18.mp3",
+   "r2_key": "assets/music/m-crystal-cave-song18.mp3"
+  },
+  {
+   "id": "m-battle-theme-a",
+   "kind": "music",
+   "title": "Battle Theme A",
+   "author": "JaidynReiman",
+   "source": "opengameart.org",
+   "source_url": "https://opengameart.org/sites/default/files/battleThemeA.mp3",
+   "page_url": "https://opengameart.org/content/battle-theme-a",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://opengameart.org/content/battle-theme-a: 'License(s): CC0'",
+   "attribution": null,
+   "moods": [
+    "cinematic"
+   ],
+   "themes": [
+    "luxury"
+   ],
+   "duration_s": 95.9,
+   "bytes": 1918307,
+   "sha256": "0a9651e709cf95ca07c6200e5abe0595f458028c613bb6a68af139cf1445325d",
+   "file": "m-battle-theme-a.mp3",
+   "r2_key": "assets/music/m-battle-theme-a.mp3"
+  },
+  {
+   "id": "m-bouncy-tune",
+   "kind": "music",
+   "title": "Bouncy Tune",
+   "author": "puti (not verified)",
+   "source": "opengameart.org",
+   "source_url": "https://opengameart.org/sites/default/files/Bouncy_0.mp3",
+   "page_url": "https://opengameart.org/content/bouncy-tune",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://opengameart.org/content/bouncy-tune: 'License(s): CC0'",
+   "attribution": null,
+   "moods": [
+    "bouncy"
+   ],
+   "themes": [
+    "playful"
+   ],
+   "duration_s": 56.7,
+   "bytes": 1133867,
+   "sha256": "62e9315d1865a65966cb2da0e6fd9f081799e80a6aa8a0cbde8e6aa0f4f4abe1",
+   "file": "m-bouncy-tune.mp3",
+   "r2_key": "assets/music/m-bouncy-tune.mp3"
+  },
+  {
+   "id": "s-interface-sounds-confirmation-001",
+   "kind": "sfx",
+   "title": "confirmation_001 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "ding",
+    "chime"
+   ],
+   "themes": [
+    "corporate",
+    "luxury",
+    "academic"
+   ],
+   "duration_s": 0.29,
+   "bytes": 8968,
+   "sha256": "063564703b6094d70718a3e787a55cc9141611e4ecd6b6637f8828f79b4a8c3a",
+   "file": "s-interface-sounds-confirmation-001.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-confirmation-001.ogg"
+  },
+  {
+   "id": "s-interface-sounds-confirmation-003",
+   "kind": "sfx",
+   "title": "confirmation_003 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "ding",
+    "chime"
+   ],
+   "themes": [
+    "luxury",
+    "academic"
+   ],
+   "duration_s": 0.32,
+   "bytes": 9535,
+   "sha256": "3091bf0be0497f825769ee0733ca7bdc3bcd59bd6c6e8f2ba8f93d580ff38022",
+   "file": "s-interface-sounds-confirmation-003.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-confirmation-003.ogg"
+  },
+  {
+   "id": "s-interface-sounds-select-005",
+   "kind": "sfx",
+   "title": "select_005 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "click",
+    "pop"
+   ],
+   "themes": [
+    "playful",
+    "sketch"
+   ],
+   "duration_s": 0.38,
+   "bytes": 6767,
+   "sha256": "ad09146e4ea33b931b2f5dfb4051a4f1fe4a36f1a48c42c5e9269c292ae21214",
+   "file": "s-interface-sounds-select-005.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-select-005.ogg"
+  },
+  {
+   "id": "s-interface-sounds-toggle-001",
+   "kind": "sfx",
+   "title": "toggle_001 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "click"
+   ],
+   "themes": [
+    "corporate",
+    "tech"
+   ],
+   "duration_s": 0.14,
+   "bytes": 7369,
+   "sha256": "ca1d2dde5f0b286abac4f070e23edab8f30927c8a533665cdf2ac6492a415e49",
+   "file": "s-interface-sounds-toggle-001.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-toggle-001.ogg"
+  },
+  {
+   "id": "s-interface-sounds-open-001",
+   "kind": "sfx",
+   "title": "open_001 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "whoosh",
+    "swoosh"
+   ],
+   "themes": [
+    "corporate",
+    "minimal"
+   ],
+   "duration_s": 0.15,
+   "bytes": 9834,
+   "sha256": "a27c6bb0df7da1e6af5dd5937593c98bc58b6e513f42fe6a3254cd6a6949c648",
+   "file": "s-interface-sounds-open-001.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-open-001.ogg"
+  },
+  {
+   "id": "s-interface-sounds-close-001",
+   "kind": "sfx",
+   "title": "close_001 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "whoosh",
+    "swoosh"
+   ],
+   "themes": [
+    "corporate",
+    "minimal"
+   ],
+   "duration_s": 0.15,
+   "bytes": 9915,
+   "sha256": "44af8249b933e0fd35ec957a638bb1a0b01f85b53fbe9674bf77bd3ca3168ef4",
+   "file": "s-interface-sounds-close-001.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-close-001.ogg"
+  },
+  {
+   "id": "s-interface-sounds-maximize-003",
+   "kind": "sfx",
+   "title": "maximize_003 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "whoosh",
+    "swoosh"
+   ],
+   "themes": [
+    "minimal",
+    "luxury"
+   ],
+   "duration_s": 0.21,
+   "bytes": 11748,
+   "sha256": "df16f25d45189f5d44d6a482ab20d5067350ca8525a9affa1f8ce599e31a20a5",
+   "file": "s-interface-sounds-maximize-003.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-maximize-003.ogg"
+  },
+  {
+   "id": "s-interface-sounds-minimize-003",
+   "kind": "sfx",
+   "title": "minimize_003 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "whoosh",
+    "swoosh"
+   ],
+   "themes": [
+    "minimal",
+    "luxury"
+   ],
+   "duration_s": 0.21,
+   "bytes": 11739,
+   "sha256": "400e1041499de85ec8b5529a35ff36787288175c4696cf2018ecff24a3a3fd29",
+   "file": "s-interface-sounds-minimize-003.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-minimize-003.ogg"
+  },
+  {
+   "id": "s-interface-sounds-glass-001",
+   "kind": "sfx",
+   "title": "glass_001 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "chime",
+    "bell"
+   ],
+   "themes": [
+    "luxury",
+    "academic"
+   ],
+   "duration_s": 0.28,
+   "bytes": 6103,
+   "sha256": "183eebee20eb0a532b0b85104d139cbf2673eb66d95c3cc733ac9ea98362e7e8",
+   "file": "s-interface-sounds-glass-001.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-glass-001.ogg"
+  },
+  {
+   "id": "s-interface-sounds-glass-004",
+   "kind": "sfx",
+   "title": "glass_004 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "chime",
+    "bell"
+   ],
+   "themes": [
+    "luxury",
+    "academic"
+   ],
+   "duration_s": 0.69,
+   "bytes": 8323,
+   "sha256": "2379b58f953e3d86982aa8cddcae763022c6258e9820171bf905ce58b4e97766",
+   "file": "s-interface-sounds-glass-004.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-glass-004.ogg"
+  },
+  {
+   "id": "s-interface-sounds-bong-001",
+   "kind": "sfx",
+   "title": "bong_001 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "bell",
+    "chime"
+   ],
+   "themes": [
+    "academic",
+    "luxury"
+   ],
+   "duration_s": 0.12,
+   "bytes": 4848,
+   "sha256": "d21d0f0b782445db579d11e2506b24cd1ac9d664ee33aeaf807761aa7b6fd710",
+   "file": "s-interface-sounds-bong-001.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-bong-001.ogg"
+  },
+  {
+   "id": "s-interface-sounds-pluck-001",
+   "kind": "sfx",
+   "title": "pluck_001 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "pop",
+    "pluck"
+   ],
+   "themes": [
+    "sketch",
+    "playful"
+   ],
+   "duration_s": 0.1,
+   "bytes": 6317,
+   "sha256": "be97ec4893a02d6eccfb678daa76c83e34cb2583b834ec2593d2641def739fa4",
+   "file": "s-interface-sounds-pluck-001.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-pluck-001.ogg"
+  },
+  {
+   "id": "s-interface-sounds-drop-001",
+   "kind": "sfx",
+   "title": "drop_001 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "pop"
+   ],
+   "themes": [
+    "playful",
+    "sketch"
+   ],
+   "duration_s": 0.11,
+   "bytes": 5859,
+   "sha256": "692ee3a6f1821402ca649ff735bee9591dc4846c8098fc7d6a90fd15fa57c1af",
+   "file": "s-interface-sounds-drop-001.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-drop-001.ogg"
+  },
+  {
+   "id": "s-interface-sounds-scratch-001",
+   "kind": "sfx",
+   "title": "scratch_001 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "pencil",
+    "scratch"
+   ],
+   "themes": [
+    "sketch"
+   ],
+   "duration_s": 0.14,
+   "bytes": 8989,
+   "sha256": "5c294d2e1a6b6d07ee2d75b17105a55ad3527e5482dd60652dc49c2ea4c70096",
+   "file": "s-interface-sounds-scratch-001.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-scratch-001.ogg"
+  },
+  {
+   "id": "s-interface-sounds-scratch-003",
+   "kind": "sfx",
+   "title": "scratch_003 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "pencil",
+    "scratch"
+   ],
+   "themes": [
+    "sketch"
+   ],
+   "duration_s": 0.12,
+   "bytes": 8849,
+   "sha256": "2d80371b55ebe2e8b916b84093a8ae7717d09a80c6b617079ade5bd0dacba7b7",
+   "file": "s-interface-sounds-scratch-003.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-scratch-003.ogg"
+  },
+  {
+   "id": "s-interface-sounds-scroll-001",
+   "kind": "sfx",
+   "title": "scroll_001 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "paper",
+    "swoosh"
+   ],
+   "themes": [
+    "sketch",
+    "academic"
+   ],
+   "duration_s": 1.0,
+   "bytes": 21633,
+   "sha256": "320c6aafb2c7a503eae508dc443b72d7f7c0a317bfd16813157ed400cd04cf16",
+   "file": "s-interface-sounds-scroll-001.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-scroll-001.ogg"
+  },
+  {
+   "id": "s-interface-sounds-question-002",
+   "kind": "sfx",
+   "title": "question_002 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "bleep"
+   ],
+   "themes": [
+    "tech",
+    "playful"
+   ],
+   "duration_s": 0.33,
+   "bytes": 9455,
+   "sha256": "46056f10c70dda860e93bd27b66f4d33c0b7154eff28def06471b50028efa5b3",
+   "file": "s-interface-sounds-question-002.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-question-002.ogg"
+  },
+  {
+   "id": "s-interface-sounds-error-001",
+   "kind": "sfx",
+   "title": "error_001 (interface-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/interface-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/interface-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "buzz"
+   ],
+   "themes": [
+    "tech"
+   ],
+   "duration_s": 0.16,
+   "bytes": 7373,
+   "sha256": "46e67425d16339772e8d328fb36a49426c9467418686e11beeb71ff84b0f6433",
+   "file": "s-interface-sounds-error-001.ogg",
+   "r2_key": "assets/sfx/s-interface-sounds-error-001.ogg"
+  },
+  {
+   "id": "s-digital-audio-powerup1",
+   "kind": "sfx",
+   "title": "powerUp1 (digital-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/digital-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/digital-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "power-up"
+   ],
+   "themes": [
+    "tech",
+    "playful"
+   ],
+   "duration_s": 1.2,
+   "bytes": 9011,
+   "sha256": "8c361b624b560c0bc30ea3063b71212bc30caebf425c9df2481c13b25561485c",
+   "file": "s-digital-audio-powerup1.ogg",
+   "r2_key": "assets/sfx/s-digital-audio-powerup1.ogg"
+  },
+  {
+   "id": "s-digital-audio-powerup5",
+   "kind": "sfx",
+   "title": "powerUp5 (digital-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/digital-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/digital-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "power-up"
+   ],
+   "themes": [
+    "tech",
+    "playful"
+   ],
+   "duration_s": 0.44,
+   "bytes": 5652,
+   "sha256": "528e7245a1b61c6fd94bcb8df1d747e6e9b76dce58a36e44be992cf9e09884f8",
+   "file": "s-digital-audio-powerup5.ogg",
+   "r2_key": "assets/sfx/s-digital-audio-powerup5.ogg"
+  },
+  {
+   "id": "s-digital-audio-powerup9",
+   "kind": "sfx",
+   "title": "powerUp9 (digital-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/digital-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/digital-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "power-up"
+   ],
+   "themes": [
+    "tech",
+    "playful"
+   ],
+   "duration_s": 0.55,
+   "bytes": 6101,
+   "sha256": "7dfa3198ab951f09bee096bcd08db6faafcdb57a6bf416c91e1fa9a8321076e5",
+   "file": "s-digital-audio-powerup9.ogg",
+   "r2_key": "assets/sfx/s-digital-audio-powerup9.ogg"
+  },
+  {
+   "id": "s-digital-audio-phaserup1",
+   "kind": "sfx",
+   "title": "phaserUp1 (digital-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/digital-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/digital-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "whoosh",
+    "power-up"
+   ],
+   "themes": [
+    "tech"
+   ],
+   "duration_s": 0.5,
+   "bytes": 7390,
+   "sha256": "4423d459fc15fdd8593a4584d71e272ec2e5f8bdc11b759db623fc613ffd957c",
+   "file": "s-digital-audio-phaserup1.ogg",
+   "r2_key": "assets/sfx/s-digital-audio-phaserup1.ogg"
+  },
+  {
+   "id": "s-digital-audio-phaserdown1",
+   "kind": "sfx",
+   "title": "phaserDown1 (digital-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/digital-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/digital-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "whoosh"
+   ],
+   "themes": [
+    "tech"
+   ],
+   "duration_s": 0.47,
+   "bytes": 7113,
+   "sha256": "d2d046cd0247045f8819905fc9719a7237ccbd590b3128ce58a61a81f50d208b",
+   "file": "s-digital-audio-phaserdown1.ogg",
+   "r2_key": "assets/sfx/s-digital-audio-phaserdown1.ogg"
+  },
+  {
+   "id": "s-digital-audio-laser1",
+   "kind": "sfx",
+   "title": "laser1 (digital-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/digital-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/digital-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "bleep",
+    "laser"
+   ],
+   "themes": [
+    "tech"
+   ],
+   "duration_s": 1.1,
+   "bytes": 9315,
+   "sha256": "0bf468769b48a834dc1c6e38e457f2c71159b010225a9aedf84316795e8cc3e5",
+   "file": "s-digital-audio-laser1.ogg",
+   "r2_key": "assets/sfx/s-digital-audio-laser1.ogg"
+  },
+  {
+   "id": "s-digital-audio-highup",
+   "kind": "sfx",
+   "title": "highUp (digital-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/digital-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/digital-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "bleep"
+   ],
+   "themes": [
+    "tech",
+    "playful"
+   ],
+   "duration_s": 0.55,
+   "bytes": 6135,
+   "sha256": "cbc1c3c7ccf5d7903818144a4c3f5b2ed2385095792f29d8d7c76360ba4fa559",
+   "file": "s-digital-audio-highup.ogg",
+   "r2_key": "assets/sfx/s-digital-audio-highup.ogg"
+  },
+  {
+   "id": "s-digital-audio-lowdown",
+   "kind": "sfx",
+   "title": "lowDown (digital-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/digital-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/digital-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "bleep"
+   ],
+   "themes": [
+    "tech"
+   ],
+   "duration_s": 0.78,
+   "bytes": 5956,
+   "sha256": "e0215fcfd8b9d7877f74d5c46b239a13d7db0d25998da97b80404931ef9eef5d",
+   "file": "s-digital-audio-lowdown.ogg",
+   "r2_key": "assets/sfx/s-digital-audio-lowdown.ogg"
+  },
+  {
+   "id": "s-digital-audio-pepsound1",
+   "kind": "sfx",
+   "title": "pepSound1 (digital-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/digital-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/digital-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "boing",
+    "pop"
+   ],
+   "themes": [
+    "playful"
+   ],
+   "duration_s": 0.52,
+   "bytes": 6019,
+   "sha256": "f2f44effce087e47683f0fea05a71002bd8dca78fb10bf93d9f0b38d49f9590e",
+   "file": "s-digital-audio-pepsound1.ogg",
+   "r2_key": "assets/sfx/s-digital-audio-pepsound1.ogg"
+  },
+  {
+   "id": "s-digital-audio-pepsound3",
+   "kind": "sfx",
+   "title": "pepSound3 (digital-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/digital-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/digital-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "boing",
+    "pop"
+   ],
+   "themes": [
+    "playful"
+   ],
+   "duration_s": 0.44,
+   "bytes": 5590,
+   "sha256": "5e9f2b4a0b14e65a157d0bbcb28cf816926583afa96e753489c722ec3d810a78",
+   "file": "s-digital-audio-pepsound3.ogg",
+   "r2_key": "assets/sfx/s-digital-audio-pepsound3.ogg"
+  },
+  {
+   "id": "s-digital-audio-threetone1",
+   "kind": "sfx",
+   "title": "threeTone1 (digital-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/digital-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/digital-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "ding",
+    "chime"
+   ],
+   "themes": [
+    "playful",
+    "tech"
+   ],
+   "duration_s": 0.83,
+   "bytes": 7361,
+   "sha256": "bdf21eb12e65507f091d074886fdac820e1ccae51d060caa168e5567acadb84b",
+   "file": "s-digital-audio-threetone1.ogg",
+   "r2_key": "assets/sfx/s-digital-audio-threetone1.ogg"
+  },
+  {
+   "id": "s-digital-audio-zap1",
+   "kind": "sfx",
+   "title": "zap1 (digital-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/digital-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/digital-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "bleep",
+    "zap"
+   ],
+   "themes": [
+    "tech"
+   ],
+   "duration_s": 1.02,
+   "bytes": 8126,
+   "sha256": "4e4bf11c671a4be0723022a7177f8e122329fa32a0c59555581f4193ed111585",
+   "file": "s-digital-audio-zap1.ogg",
+   "r2_key": "assets/sfx/s-digital-audio-zap1.ogg"
+  },
+  {
+   "id": "s-rpg-audio-bookflip1",
+   "kind": "sfx",
+   "title": "bookFlip1 (rpg-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/rpg-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/rpg-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "page-turn",
+    "paper"
+   ],
+   "themes": [
+    "academic",
+    "sketch"
+   ],
+   "duration_s": 0.77,
+   "bytes": 18248,
+   "sha256": "fa81ac2fedc8c641661b87e349630a36c9800e795e0c800e029214efdbe26a7d",
+   "file": "s-rpg-audio-bookflip1.ogg",
+   "r2_key": "assets/sfx/s-rpg-audio-bookflip1.ogg"
+  },
+  {
+   "id": "s-rpg-audio-bookflip2",
+   "kind": "sfx",
+   "title": "bookFlip2 (rpg-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/rpg-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/rpg-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "page-turn",
+    "paper"
+   ],
+   "themes": [
+    "academic",
+    "sketch"
+   ],
+   "duration_s": 0.43,
+   "bytes": 12393,
+   "sha256": "3409042acbfaebc24c1a6327dc073e36f9250841712e96c5040da566a97df73c",
+   "file": "s-rpg-audio-bookflip2.ogg",
+   "r2_key": "assets/sfx/s-rpg-audio-bookflip2.ogg"
+  },
+  {
+   "id": "s-rpg-audio-bookopen",
+   "kind": "sfx",
+   "title": "bookOpen (rpg-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/rpg-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/rpg-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "page-turn",
+    "paper"
+   ],
+   "themes": [
+    "academic"
+   ],
+   "duration_s": 0.15,
+   "bytes": 8273,
+   "sha256": "953390534377222bee89ac8cd9e60a58fdc037c71a4d7c18c43cd647c7f34ba8",
+   "file": "s-rpg-audio-bookopen.ogg",
+   "r2_key": "assets/sfx/s-rpg-audio-bookopen.ogg"
+  },
+  {
+   "id": "s-rpg-audio-bookclose",
+   "kind": "sfx",
+   "title": "bookClose (rpg-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/rpg-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/rpg-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "page-turn",
+    "paper"
+   ],
+   "themes": [
+    "academic"
+   ],
+   "duration_s": 0.23,
+   "bytes": 9292,
+   "sha256": "81e976532565f4372abd14e83d2684195fa548d0a28d345de221e56052454f32",
+   "file": "s-rpg-audio-bookclose.ogg",
+   "r2_key": "assets/sfx/s-rpg-audio-bookclose.ogg"
+  },
+  {
+   "id": "s-rpg-audio-cloth1",
+   "kind": "sfx",
+   "title": "cloth1 (rpg-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/rpg-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/rpg-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "swoosh"
+   ],
+   "themes": [
+    "luxury",
+    "minimal"
+   ],
+   "duration_s": 0.66,
+   "bytes": 16508,
+   "sha256": "ddb93a3671233f95da0e0b10367f082f7eb42fa6caaddcf776410aa8833c747d",
+   "file": "s-rpg-audio-cloth1.ogg",
+   "r2_key": "assets/sfx/s-rpg-audio-cloth1.ogg"
+  },
+  {
+   "id": "s-rpg-audio-metalclick",
+   "kind": "sfx",
+   "title": "metalClick (rpg-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/rpg-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/rpg-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "click"
+   ],
+   "themes": [
+    "luxury",
+    "corporate"
+   ],
+   "duration_s": 0.45,
+   "bytes": 13615,
+   "sha256": "9851a69d0c613e13bceef08060ecc4148f098ef487927cbebe270d642398a3b3",
+   "file": "s-rpg-audio-metalclick.ogg",
+   "r2_key": "assets/sfx/s-rpg-audio-metalclick.ogg"
+  },
+  {
+   "id": "s-rpg-audio-handlecoins",
+   "kind": "sfx",
+   "title": "handleCoins (rpg-audio)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/rpg-audio",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/rpg-audio: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "coins",
+    "chime"
+   ],
+   "themes": [
+    "luxury",
+    "corporate"
+   ],
+   "duration_s": 0.85,
+   "bytes": 25394,
+   "sha256": "8a91f969e932df709df80ee124d86a51389eed9b67f22e5e716bc2bbf60d8dab",
+   "file": "s-rpg-audio-handlecoins.ogg",
+   "r2_key": "assets/sfx/s-rpg-audio-handlecoins.ogg"
+  }
+ ]
+}
