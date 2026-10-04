@@ -600,7 +600,7 @@ async def main():
             tl2, _ = await call("get_timeline")
             check("...and the project stays in the previous template", tl2["template"] == "playful", tl2["template"])
             ls_, err = await call("list_styles")
-            check("list_styles lists the 7 templates and the template styles", err is None and ls_ and len(ls_["templates"]) == 7 and "corp-title" in ls_["text_styles"] and ls_["current_template"] == "playful", err)
+            check("list_styles lists the 15 templates and the template styles", err is None and ls_ and len(ls_["templates"]) == 15 and "corp-title" in ls_["text_styles"] and ls_["current_template"] == "playful", err)
 
             # ---- template overlays through the tools
             await clean_project()

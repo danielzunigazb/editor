@@ -57,7 +57,7 @@ check("the 6 original styles are still registered", {"classic", "luxury", "luxur
 check("12 template styles registered (corp/acad/sketch/tech/min/kids x title+body)", len([s_ for s_ in T.STYLE_NAMES if s_.split("-")[0] in ("corp", "acad", "sketch", "tech", "min", "kids")]) == 12)
 import themes
 check("every template points at registered styles", all(s_ in T.STYLES for th_ in themes.THEMES.values() for s_ in (th_.title_style, th_.subtitle_style, th_.caption_style)))
-check("7 templates: luxury + the 6 new ones", set(themes.NAMES) == {"luxury", "corporate", "academic", "sketch", "tech", "minimal", "playful"}, themes.NAMES)
+check("15 templates: the 7 of the first batch + neobrutalism, terracotta, cinema, terminal, arcade, riso, saas, glass", set(themes.NAMES) == {"luxury", "corporate", "academic", "sketch", "tech", "minimal", "playful", "neobrutalism", "terracotta", "cinema", "terminal", "arcade", "riso", "saas", "glass"}, themes.NAMES)
 for st_ in T.STYLE_NAMES:
     try:
         T.clean("áéíóúüñÁÉÍÓÚÜÑ ¿Qué? ¡Sí! 5€ «hola» “eco” — …", st_); ok_ = True
@@ -117,8 +117,8 @@ for n_ in NEW:
     check(f"{n_}: an over-long lower third never overflows the frame (rejected in strict mode, or shrunk to fit)",
           (e_ is None or "fit" in e_) and ov_ and ov_[0] >= 0 and ov_[2] <= TW, (e_, ov_))
     right_ = graphics.lower_third(TW, TH, "Ana García", "", "right", theme=th_).getchannel("A").getbbox()
-    check(f"{n_}: right-aligned lower third sits on the right half" + (" (minimal: its soft scrim spans the width, so only the lower band is checked)" if n_ == "minimal" else ""),
-          right_ and right_[2] <= TW and right_[1] > TH * 0.5 and (n_ == "minimal" or right_[0] > TW * 0.3), right_)
+    check(f"{n_}: right-aligned lower third sits on the right half" + (" (minimal, cinema: a soft scrim spans the width, so only the lower band is checked)" if n_ in ("minimal", "cinema") else ""),
+          right_ and right_[2] <= TW and right_[1] > TH * 0.5 and (n_ in ("minimal", "cinema") or right_[0] > TW * 0.3), right_)
     for side_ in ("ne", "nw", "se", "sw"):
         c_, ax_, ay_ = graphics.callout(TW, TH, "Arco monumental", "Entrada", side_, theme=th_)
         a_ = c_.getchannel("A")
@@ -152,10 +152,10 @@ for n_ in themes.NAMES:
                 errs_.append((n_, lay_, "size/alpha"))
         except Exception as e_:
             errs_.append((n_, lay_, str(e_)))
-check("all 7 templates x 6 card layouts render full-frame and opaque", not errs_, errs_[:3])
+check("all 15 templates x 6 card layouts render full-frame and opaque", not errs_, errs_[:3])
 check("a card is deterministic (same pixels twice), incl. the random-looking backgrounds",
       all(cards.render_card("title", CW, CH, themes.get(n_), **KW["title"]).tobytes() == cards.render_card("title", CW, CH, themes.get(n_), **KW["title"]).tobytes() for n_ in themes.NAMES))
-check("the same title looks different in each template", len({cards.render_card("title", CW, CH, themes.get(n_), **KW["title"]).tobytes() for n_ in themes.NAMES}) == 7)
+check("the same title looks different in each template", len({cards.render_card("title", CW, CH, themes.get(n_), **KW["title"]).tobytes() for n_ in themes.NAMES}) == len(themes.NAMES))
 for label_, lay_, kw_, needle_ in [("an over-long title", "title", dict(title="MMMMMMMMM " * 19), "fit"), ("a title-less card", "title", dict(title=""), "needs a title"),
                                    ("6 list items", "list", dict(title="L", items=["a"] * 6), "items"), ("a list item over 60 characters", "list", dict(title="L", items=["x" * 61]), "items"),
                                    ("an over-long stat figure", "stat", dict(title="x", number="1234567890123"), "figure"), ("an unknown layout", "poster", dict(title="x"), "layout")]:

@@ -99,8 +99,68 @@ STYLES.update({
                       outline=("#2b2d42", 0.09), sticker=(0.03, 0.05, "#2b2d42"), ornament="none", glass=False,
                       box_fill=(255, 255, 255, 235), box_outline=(43, 45, 66, 255), box_radius=0.7),
 })
+# ---- second batch of templates (neobrutalism, terracotta, cinema, terminal, arcade, riso, saas, glass). `pixel`: glyphs drawn without anti-aliasing.
+INK2, CLAY, COFFEE = "#1C293C", "#C56A3C", "#3E2B1E"
+STYLES.update({
+    "brut-title": dict(label="Space Grotesk bold, ink on a yellow block with a thick border (neobrutalism titles)", font="SpaceGrotesk.ttf", axes={"wght": 700},
+                       tracking=0.0, upper=False, fill=INK2, stroke=False, halo=None, shadow=None, ornament="none", glass=False,
+                       box_fill=(253, 200, 0, 255), box_outline=(28, 41, 60, 255), box_radius=0.0, box_default=True),
+    "brut-body": dict(label="Inter semibold, ink on a cream block with a thick border (neobrutalism captions)", font="Inter.ttf", axes={"wght": 600, "opsz": 14},
+                      tracking=0.0, upper=False, fill=INK2, stroke=False, halo=None, shadow=None, ornament="none", glass=False,
+                      box_fill=(251, 251, 249, 255), box_outline=(28, 41, 60, 255), box_radius=0.0, box_default=True),
+    "terra-title": dict(label="DM Serif Display, coffee on warm paper with a clay rule (terracotta titles)", font="DMSerifDisplay.ttf", tracking=0.004,
+                        upper=False, fill=COFFEE, stroke=False, halo=None, shadow=None, ornament="line", orn_color=CLAY, glass=False,
+                        box_fill=(243, 233, 216, 244), box_outline=(197, 106, 60, 255), box_radius=0.12, box_default=True),
+    "terra-body": dict(label="DM Sans medium, coffee on warm paper (terracotta captions)", font="DMSans.ttf", axes={"wght": 500, "opsz": 14}, tracking=0.006,
+                       upper=False, fill=COFFEE, stroke=False, halo=None, shadow=None, ornament="none", glass=False,
+                       box_fill=(243, 233, 216, 240), box_outline=(197, 106, 60, 200), box_radius=0.12, box_default=True),
+    "cine-title": dict(label="Oswald semibold, UPPERCASE condensed, very wide tracking, white with a deep shadow, no panel (cinema titles)", font="Oswald.ttf",
+                       axes={"wght": 600}, tracking=0.14, upper=True, fill="#ffffff", stroke=False, halo=(0.012, 0.4), shadow=(0.0, 0.05, 0.09, 0.85),
+                       ornament="none", glass=False, box_fill=(0, 0, 0, 120), box_outline=None, box_radius=0.2),
+    "cine-body": dict(label="Outfit regular, UPPERCASE, wide tracking, soft white with a shadow (cinema captions)", font="Outfit.ttf", axes={"wght": 400},
+                      tracking=0.22, upper=True, fill="#f4f4f5", stroke=False, halo=(0.012, 0.4), shadow=(0.0, 0.04, 0.08, 0.8),
+                      ornament="none", glass=False, box_fill=(0, 0, 0, 120), box_outline=None, box_radius=0.2),
+    "term-title": dict(label="Space Mono bold, phosphor green on a black square panel (terminal titles)", font="SpaceMono-Bold.ttf", tracking=0.01,
+                       upper=False, fill="#5df2b0", stroke=False, halo=None, shadow=None, ornament="none", glass=False,
+                       box_fill=(11, 12, 20, 238), box_outline=(45, 181, 138, 255), box_radius=0.0, box_default=True),
+    "term-mono": dict(label="IBM Plex Mono medium, pale green on a black square panel (terminal captions)", font="IBMPlexMono-Medium.ttf", tracking=0.01,
+                      upper=False, fill="#b6f5d8", stroke=False, halo=None, shadow=None, ornament="none", glass=False,
+                      box_fill=(11, 12, 20, 226), box_outline=(45, 181, 138, 190), box_radius=0.0, box_default=True),
+    "arc-title": dict(label="Press Start 2P, UPPERCASE yellow pixel type with a blue block shadow (arcade titles)", font="PressStart2P.ttf", tracking=0.03,
+                      upper=True, fill="#ffda14", stroke=False, halo=None, shadow=None, sticker=(0.08, 0.08, "#2a3fe5"), pixel=True, ornament="none",
+                      glass=False, box_fill=(5, 6, 15, 255), box_outline=(255, 218, 20, 255), box_radius=0.0, box_default=True),
+    "arc-body": dict(label="VT323 white pixel type on a black block (arcade captions)", font="VT323.ttf", tracking=0.04, upper=False, fill="#ffffff",
+                     stroke=False, halo=None, shadow=None, pixel=True, ornament="none", glass=False,
+                     box_fill=(5, 6, 15, 250), box_outline=(255, 218, 20, 255), box_radius=0.0, box_default=True),
+    "riso-title": dict(label="Space Grotesk bold, pink ink with a misregistered blue copy on warm paper (riso titles)", font="SpaceGrotesk.ttf", axes={"wght": 700},
+                       tracking=-0.004, upper=False, fill="#f237a1", stroke=False, halo=None, shadow=None, sticker=(0.045, 0.035, "#2c40a7"), ornament="none",
+                       glass=False, box_fill=(246, 239, 226, 246), box_outline=(44, 64, 167, 255), box_radius=0.06, box_default=True),
+    "riso-body": dict(label="Space Mono, blue ink on warm paper (riso captions)", font="SpaceMono.ttf", tracking=0.0, upper=False, fill="#2c40a7",
+                      stroke=False, halo=None, shadow=None, ornament="none", glass=False,
+                      box_fill=(246, 239, 226, 240), box_outline=(44, 64, 167, 220), box_radius=0.06, box_default=True),
+    "saas-title": dict(label="IBM Plex Sans semibold, white on a near-black panel with a thin line (saas titles)", font="IBMPlexSans.ttf", axes={"wght": 600, "wdth": 100},
+                       tracking=0.0, upper=False, fill="#fafafa", stroke=False, halo=None, shadow=None, ornament="none", glass=False,
+                       box_fill=(17, 17, 20, 240), box_outline=(63, 63, 70, 255), box_radius=0.12, box_default=True),
+    "saas-body": dict(label="IBM Plex Sans regular, light grey on a near-black panel (saas captions)", font="IBMPlexSans.ttf", axes={"wght": 400, "wdth": 100},
+                      tracking=0.004, upper=False, fill="#d4d4d8", stroke=False, halo=None, shadow=None, ornament="none", glass=False,
+                      box_fill=(17, 17, 20, 228), box_outline=(63, 63, 70, 220), box_radius=0.12, box_default=True),
+    "glass-title": dict(label="Plus Jakarta Sans bold, white on tinted frosted glass with a luminous border (glass titles)", font="PlusJakartaSans.ttf", axes={"wght": 700},
+                        tracking=0.0, upper=False, fill="#ffffff", stroke=False, halo=None, shadow=(0.0, 0.04, 0.08, 0.5), ornament="none", glass=False,
+                        box_fill=(24, 36, 86, 142), box_outline=(255, 255, 255, 150), box_radius=0.5, box_default=True),
+    "glass-body": dict(label="Plus Jakarta Sans medium, white on tinted frosted glass (glass captions)", font="PlusJakartaSans.ttf", axes={"wght": 500},
+                       tracking=0.004, upper=False, fill="#f3f6ff", stroke=False, halo=None, shadow=(0.0, 0.035, 0.07, 0.5), ornament="none", glass=False,
+                       box_fill=(24, 36, 86, 132), box_outline=(255, 255, 255, 130), box_radius=0.5, box_default=True),
+})
 STYLE_NAMES = tuple(STYLES)
 _MISSING = {}              # font cache key -> notdef mask bytes (to detect missing glyphs)
+
+
+def _pd(img, st):
+    """ImageDraw for a mask; `pixel` styles draw glyphs without anti-aliasing (hard pixel edges)."""
+    d = ImageDraw.Draw(img)
+    if st.get("pixel"):
+        d.fontmode = "1"
+    return d
 
 
 def font_path(style="classic"):
@@ -302,14 +362,14 @@ def render_text_image(text, W, H, pos="bottom", size=0.06, color=None, box=False
                             width=max(1, int(font.size * (0.025 if st["glass"] else 0.03))) if bline else 0)
 
     mask = Image.new("L", (W, H), 0)                         # the glyphs, as an alpha mask
-    md = ImageDraw.Draw(mask)
+    md = _pd(mask, st)
     for i, (line, w) in enumerate(zip(lines, widths)):
         draw_tracked(md, (W - w) / 2, ty + i * lh, line.upper() if up and not st["upper"] else line, font, track, 255)
 
     if st.get("halo"):                                           # hairline dark halo (legibility on bright footage)
         hw, ha = st["halo"]
         hm = Image.new("L", (W, H), 0)
-        hd = ImageDraw.Draw(hm)
+        hd = _pd(hm, st)
         for i, (line, w) in enumerate(zip(lines, widths)):
             draw_tracked(hd, (W - w) / 2, ty + i * lh, line.upper() if up and not st["upper"] else line, font, track, 255,
                          stroke_width=max(1, int(round(hw * font.size))), stroke_fill=255)
@@ -330,7 +390,7 @@ def render_text_image(text, W, H, pos="bottom", size=0.06, color=None, box=False
     if st.get("sticker"):                                    # hard offset shadow (sticker look), same silhouette incl. the outline
         sx, sy, sc = st["sticker"]
         ow = st.get("outline", (None, 0))[1]
-        sm = Image.new("L", (W, H), 0); sd_ = ImageDraw.Draw(sm)
+        sm = Image.new("L", (W, H), 0); sd_ = _pd(sm, st)
         for i, (line, w) in enumerate(zip(lines, widths)):
             draw_tracked(sd_, (W - w) / 2 + sx * font.size, ty + i * lh + sy * font.size, line.upper() if up and not st["upper"] else line, font, track, 255,
                          stroke_width=max(1, int(round(ow * font.size))) if ow else 0, stroke_fill=255)
@@ -338,7 +398,7 @@ def render_text_image(text, W, H, pos="bottom", size=0.06, color=None, box=False
         img = Image.alpha_composite(img, sticker)
     if st.get("outline"):                                    # opaque coloured outline under the fill
         oc, ow = st["outline"]
-        om = Image.new("L", (W, H), 0); od_ = ImageDraw.Draw(om)
+        om = Image.new("L", (W, H), 0); od_ = _pd(om, st)
         for i, (line, w) in enumerate(zip(lines, widths)):
             draw_tracked(od_, (W - w) / 2, ty + i * lh, line.upper() if up and not st["upper"] else line, font, track, 255,
                          stroke_width=max(1, int(round(ow * font.size))), stroke_fill=255)

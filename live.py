@@ -190,6 +190,8 @@ def layout(ops):
         where = f"op {n} ({k})"
         if o.get("anim") and k not in ANIMATABLE:
             raise ValueError(f"{where}: anim is not supported on '{k}' (use it on {', '.join(ANIMATABLE)}); a silently ignored animation would be worse")
+        if k == "pip" and "wipe" in (o.get("anim") or {}).values():
+            raise ValueError(f"{where}: anim 'wipe' is not available on pip (it crops a still layer); use slide, pop, zoom or fade")
         if k == "add":
             src = o.get("src")
             if src not in CLIP_LEN:
@@ -729,6 +731,11 @@ def build(ops):
             if not prod.is_valid():
                 raise RuntimeError(f"cannot open overlay source {src}")
             first = fr(L.get("in", 0.0)) if L["kind"] == "pip" else 0
+            wk = animmod.wipe_keys(L["anim"], n, FPS, min(L.get("fade", 0.24), n / FPS / 2)) if L.get("anim") and L["kind"] != "callout" else []
+            if wk:                                            # wipe: qtcrop pads everything outside the animated rect with transparency (image size unchanged)
+                wf = mlt7.Filter(p, "qtcrop")
+                wf.set("rect", ";".join(f"{f_}={lo * 100:.3f}%/0%:{(hi - lo) * 100:.3f}%x100%" for f_, lo, hi in wk))
+                prod.attach(wf)
             if s0 > cursor:
                 lay.blank(s0 - cursor - 1)   # Playlist.blank(out) takes the OUT POINT: it creates out+1 frames
             lay.append(prod, first, first + n - 1)

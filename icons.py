@@ -71,6 +71,14 @@ def plate_style(th):
         "tech": ((10, 15, 28, 232), c(th.accent) + (255,), 0.03, th.accent),
         "minimal": ((0, 0, 0, 125), None, 0, "#ffffff"),
         "playful": (c(th.accent2) + (255,), c(th.ink) + (255,), 0.06, "#ffffff"),
+        "neobrutalism": (c(th.accent) + (255,), c(th.ink) + (255,), 0.07, th.ink),
+        "terracotta": (c(th.paper) + (245,), c(th.accent) + (255,), 0.03, th.accent),
+        "cinema": ((0, 0, 0, 150), (255, 255, 255, 200), 0.03, "#ffffff"),
+        "terminal": (c(th.paper) + (238,), c(th.accent) + (255,), 0.04, th.accent),
+        "arcade": (c(th.paper) + (255,), c(th.accent) + (255,), 0.08, th.accent),
+        "riso": (c(th.paper) + (248,), c(th.accent2) + (255,), 0.04, th.accent),
+        "saas": (c(th.paper) + (240,), c(th.accent2) + (255,), 0.03, th.accent),
+        "glass": (c(th.paper) + (150,), (255, 255, 255, 150), 0.03, "#ffffff"),
     }
     return table[th.name]
 
@@ -88,6 +96,17 @@ def _plate(size, th):
     box = [pad, pad, size * ss - pad, size * ss - pad]
     if th.name == "playful":                                       # hard sticker shadow
         d.ellipse([box[0] + size * ss * 0.03, box[1] + size * ss * 0.04, box[2] + size * ss * 0.03, box[3] + size * ss * 0.04], fill=themes.rgb(th.ink) + (255,))
+    if th.shape in ("brutal", "pixel", "term"):                    # square plates; brutal/pixel add a hard offset block
+        if th.shape != "term":
+            sh = max(2, int(size * ss * 0.05))
+            d.rectangle([box[0] + sh, box[1] + sh, box[2], box[3]], fill=themes.rgb(th.ink if th.shape == "brutal" else th.accent2) + (255,))
+            box = [box[0], box[1], box[2] - sh, box[3] - sh]
+        d.rectangle(box, fill=fill, outline=outline, width=max(1, int(size * ss * ow)) if outline else 0)
+        return img.resize((size, size), Image.LANCZOS)
+    if th.name == "riso":                                          # pink ink block misregistered under the paper disc
+        sh = max(2, int(size * ss * 0.035))
+        d.ellipse([box[0] + sh, box[1] + sh, box[2], box[3]], fill=themes.rgb(th.accent) + (235,))
+        box = [box[0], box[1], box[2] - sh, box[3] - sh]
     if th.name == "sketch":
         r = sketch.rng("plate", size)
         d.ellipse(box, fill=fill)

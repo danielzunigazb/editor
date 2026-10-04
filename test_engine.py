@@ -263,7 +263,7 @@ import themes
 for n_ in [n for n in themes.NAMES if n != "luxury"]:
     live.THEME = themes.get(n_)
     png_t, cw_t, ch_t, cax_t, cay_t = graphics.render_callout(live.W, live.H, "Arco monumental", "Entrada", "ne", live.CACHE, {"name": n_, "accent": live.THEME.accent})
-    vis_ = Image.open(png_t).convert("RGBA").getchannel("A").point(lambda v: 255 if v > 70 else 0).getbbox()      # the VISIBLE part (the PNG has transparent margins)
+    vis_ = Image.open(png_t).convert("RGBA").getchannel("A").point(lambda v: 255 if v > 40 else 0).getbbox()      # the VISIBLE part (the PNG has transparent margins; glass is translucent, hence 40)
     co_t = {**CO, "path": [[1.0, 0.3, 0.6], [3.0, 0.6, 0.45]], "side": "ne"}
     for t_ in (1.0, 2.0, 3.0):
         u_ = min(max((t_ - 1) / 2, 0), 1); px_, py_ = (0.3 + 0.3 * u_) * live.W, (0.6 - 0.15 * u_) * live.H
@@ -437,6 +437,20 @@ tx_ = {"op": "text", "text": "Hola mundo", "start": 0.5, "dur": 3.0, "pos": "cen
 tx_s = _bbox(BASE[:1] + [tx_], 2.0)
 tx_p = _bbox(BASE[:1] + [{**tx_, "anim": {"in": "zoom", "in_s": 0.6, "ease_in": "linear", "out": "none"}}], 0.8)
 chk("a text can zoom in (halfway it is bigger than at rest)", tx_p is not None and (tx_p[2] - tx_p[0]) > (tx_s[2] - tx_s[0]) * 1.2, (tx_p, tx_s))
+wp_ = {**tx_, "anim": {"in": "wipe", "in_s": 1.0, "out": "wipe", "out_s": 1.0}}
+full_ = _bbox(BASE[:1] + [wp_], 2.0)
+half_in = _bbox(BASE[:1] + [wp_], 1.0)                               # item starts at 0.5 s: halfway through a 1 s linear reveal
+half_out = _bbox(BASE[:1] + [wp_], 3.0)                              # item ends at 3.5 s: halfway through the exit
+start_ = _bbox(BASE[:1] + [wp_], 0.6)
+fw_ = (full_[2] - full_[0]) if full_ else 0
+chk("wipe in: at rest the whole text shows", full_ is not None and fw_ > 100, full_)
+chk("wipe in: halfway through only the left half is visible and the left edge has not moved", half_in is not None and abs(half_in[0] - full_[0]) <= 3 and 0.35 * fw_ <= (half_in[2] - half_in[0]) <= 0.65 * fw_, (half_in, full_))
+chk("wipe in: the start shows at most a sliver", start_ is None or (start_[2] - start_[0]) < 0.3 * fw_, start_)
+chk("wipe out: halfway through the left half is erased and the right edge has not moved", half_out is not None and abs(half_out[2] - full_[2]) <= 3 and 0.35 * fw_ <= (half_out[2] - half_out[0]) <= 0.65 * fw_, (half_out, full_))
+chk("wipe leaves no residue after the item", _bbox(BASE[:1] + [wp_], 4.0) is None)
+try: live.layout(BASE + [{"op": "pip", "src": "B", "start": 0.5, "dur": 2.0, "scale": 0.3, "pos": "top-right", "anim": {"in": "wipe"}}]); e_ = None
+except ValueError as ex: e_ = str(ex)
+chk("wipe is rejected on pip with a clear message", e_ is not None and "wipe" in e_ and "pip" in e_, e_)
 static_ = live.layout(BASE + [tx_])["layers"][0]
 chk("a layer without anim keeps exactly the old fade path (anim is None)", static_["anim"] is None)
 for label_, op_, needle_ in [("an animation on a callout", {"op": "callout", "title": "x", "path": [[1.0, 0.5, 0.5]], "start": 0.5, "dur": 2.0, "anim": {"in": "pop"}}, "not supported"),

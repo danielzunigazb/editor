@@ -1,7 +1,8 @@
 """Animation of overlays: entrance/exit presets, free keyframes, constant tilt/scale. Pure functions (no MLT), so they are unit-testable.
 
 An `anim` spec (all keys optional):
-  in / out        preset for the entrance / exit: none | fade | slide-left | slide-right | slide-top | slide-bottom | pop | zoom | spin | drop
+  in / out        preset for the entrance / exit: none | fade | slide-left | slide-right | slide-top | slide-bottom | pop | zoom | spin | drop | wipe
+                  (wipe = revealed left to right like typing; as an exit it is erased left to right. Not for pip: it crops the item with MLT's qtcrop)
                   (slide-* name the SIDE OF THE SCREEN: as an entrance the item comes from that side, as an exit it leaves toward it)
   in_s / out_s    how long they take (default: fade = the item's own fade, others 0.5 s in / 0.4 s out)
   ease_in/ease_out  linear | in | out | inout | back | bounce  (defaults suit each preset)
@@ -12,10 +13,10 @@ The result is sampled per frame and written as MLT keyframes, so every easing is
 import math
 
 EASES = ("linear", "in", "out", "inout", "back", "bounce")
-PRESETS = ("none", "fade", "slide-left", "slide-right", "slide-top", "slide-bottom", "pop", "zoom", "spin", "drop")
+PRESETS = ("none", "fade", "slide-left", "slide-right", "slide-top", "slide-bottom", "pop", "zoom", "spin", "drop", "wipe")
 KEY_FIELDS = {"t", "x", "y", "scale", "rotate", "opacity"}
 SPEC_KEYS = {"in", "out", "in_s", "out_s", "ease_in", "ease_out", "keys", "keys_ease", "rotate", "scale"}
-DEFAULT_EASE_IN = {"pop": "back", "drop": "bounce", "spin": "back"}
+DEFAULT_EASE_IN = {"pop": "back", "drop": "bounce", "spin": "back", "wipe": "linear"}
 MAX_KEYS = 60
 
 
@@ -113,6 +114,8 @@ def _preset(name, p, x, y, w, h, W, H):
         return 0.0, q * (H - y), 1.0, 0.0, min(1.0, p * 4)
     if name in ("slide-top", "drop"):
         return 0.0, -q * (y + h), 1.0, 0.0, min(1.0, p * 4)
+    if name == "wipe":                                            # position/size/opacity stay put: the reveal is a crop (wipe_keys)
+        return 0.0, 0.0, 1.0, 0.0, 1.0
     if name == "pop":
         return 0.0, 0.0, 0.55 + 0.45 * p, 0.0, min(1.0, max(p, 0.0) * 3)
     if name == "zoom":
@@ -207,3 +210,35 @@ def pivot_fix(rect, rot):
     cx, cy, th = x + w / 2, y + h / 2, math.radians(rot)
     c, s = math.cos(th), math.sin(th)
     return (cx - (w / 2 * c - h / 2 * s), cy - (w / 2 * s + h / 2 * c), w, h)
+
+
+def wipe_keys(a, n, fps, fade_s):
+    """Crop keyframes for an item whose entrance and/or exit is 'wipe': [(frame, lo, hi)], the visible span as fractions (0-1) of the item's
+    width. Entrance: hi grows 0 -> 1 (revealed left to right). Exit: lo grows 0 -> 1 (erased left to right). [] when nothing wipes.
+    Sampled on every frame of the two windows, plus the ends, so MLT's linear interpolation between keys reproduces the easing."""
+    if "wipe" not in (a["in"], a["out"]):
+        return []
+    total = (n - 1) / fps
+    in_s = a["in_s"] if a["in_s"] is not None else (fade_s if a["in"] == "fade" else 0.5)
+    out_s = a["out_s"] if a["out_s"] is not None else (fade_s if a["out"] == "fade" else 0.4)
+    if in_s + out_s > total > 0:
+        k = total / (in_s + out_s); in_s, out_s = in_s * k, out_s * k
+    e_in = a["ease_in"] or "linear"
+    e_out = a["ease_out"] if a["ease_out"] not in (None, "back", "bounce") else "linear"
+
+    def span(f):
+        t, lo, hi = f / fps, 0.0, 1.0
+        if a["in"] == "wipe" and in_s > 0 and t < in_s:
+            hi = min(max(ease(e_in, t / in_s), 0.0), 1.0)
+        tail = total - t
+        if a["out"] == "wipe" and out_s > 0 and tail < out_s:
+            lo = min(max(ease(e_out, 1 - max(tail, 0.0) / out_s), 0.0), 1.0)
+        lo = min(lo, 0.998)
+        return lo, min(max(hi, lo + 0.002), 1.0)                    # a zero-width crop is not valid for MLT
+
+    frames = {0, max(0, n - 1)}
+    if a["in"] == "wipe":
+        frames |= set(range(0, min(n, int(math.ceil(in_s * fps)) + 2)))
+    if a["out"] == "wipe":
+        frames |= set(range(max(0, n - 2 - int(math.ceil(out_s * fps))), n))
+    return [(f, *span(f)) for f in sorted(frames)]

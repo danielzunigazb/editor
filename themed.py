@@ -28,7 +28,7 @@ def _text_layer(size, xy, text, style, font, track, color=None, effects=True):
     `color` overrides the fill and, with effects=False, gives plain ink text for dark-on-paper panels."""
     st = T.STYLES[style]
     mask = Image.new("L", size, 0)
-    T.draw_tracked(ImageDraw.Draw(mask), xy[0], xy[1], text, font, track, 255)
+    T.draw_tracked(T._pd(mask, st), xy[0], xy[1], text, font, track, 255)
     out = Image.new("RGBA", size, (0, 0, 0, 0))
     px = font.size
 
@@ -42,13 +42,13 @@ def _text_layer(size, xy, text, style, font, track, color=None, effects=True):
             sx, sy, sc = st["sticker"]
             ow = st.get("outline", (None, 0))[1]
             sm = Image.new("L", size, 0)
-            T.draw_tracked(ImageDraw.Draw(sm), xy[0] + sx * px, xy[1] + sy * px, text, font, track, 255,
+            T.draw_tracked(T._pd(sm, st), xy[0] + sx * px, xy[1] + sy * px, text, font, track, 255,
                            stroke_width=max(1, int(round(ow * px))) if ow else 0, stroke_fill=255)
             out = Image.alpha_composite(out, tint(sm, sc))
         if st.get("outline"):
             oc, ow = st["outline"]
             om = Image.new("L", size, 0)
-            T.draw_tracked(ImageDraw.Draw(om), xy[0], xy[1], text, font, track, 255, stroke_width=max(1, int(round(ow * px))), stroke_fill=255)
+            T.draw_tracked(T._pd(om, st), xy[0], xy[1], text, font, track, 255, stroke_width=max(1, int(round(ow * px))), stroke_fill=255)
             out = Image.alpha_composite(out, tint(om, oc))
         if st.get("shadow"):
             dx, dy, blur, alpha = st["shadow"]
@@ -70,7 +70,9 @@ def _panel(img, rect, th, u, key):
         ImageDraw.Draw(sh).rounded_rectangle([x0, y0 + 0.006 * u, x1, y1 + 0.006 * u], radius=r, fill=(0, 0, 0, 115))
         img.alpha_composite(_blur(sh, 0.009 * u))
         d.rounded_rectangle(rect, radius=r, fill=acc)
-        d.rounded_rectangle([x0 + 0.0075 * u, y0, x1, y1], radius=r, fill=(255, 255, 255, 246), corners=(False, True, True, False))
+        d.rounded_rectangle([x0 + 0.0075 * u, y0, x1, y1], radius=r, fill=_c(th.paper, 246), corners=(False, True, True, False))
+        if th.stroke:
+            d.rounded_rectangle([x0 + 0.0075 * u, y0, x1, y1], radius=r, outline=_c(th.accent2), width=max(1, int(th.stroke * u)), corners=(False, True, True, False))
         return _c(th.ink), _c(th.muted), False
     if shape == "flat":                                          # minimal: no card; a short accent hairline above the text (caller draws it)
         return None, None, True
@@ -99,6 +101,37 @@ def _panel(img, rect, th, u, key):
         ink, ow = _c(th.ink), max(3, int(0.004 * u))
         d.rounded_rectangle([x0 + 0.008 * u, y0 + 0.01 * u, x1 + 0.008 * u, y1 + 0.01 * u], radius=r, fill=ink)
         d.rounded_rectangle(rect, radius=r, fill=_c(th.accent2), outline=ink, width=ow)
+        return None, None, True
+    if shape == "brutal":                                        # neobrutalism: yellow block, thick ink border, hard square offset shadow
+        ink, ow, off = _c(th.ink), max(3, int(th.stroke * u)), 0.010 * u
+        d.rectangle([x0 + off, y0 + off, x1 + off, y1 + off], fill=ink)
+        d.rectangle(rect, fill=acc, outline=ink, width=ow)
+        return _c(th.ink), _c(th.ink), False
+    if shape == "cinema":                                        # no panel: a slim accent bar; the type carries it
+        d.rectangle([x0, y0, x0 + max(3, int(0.0055 * u)), y1], fill=acc)
+        return None, None, True
+    if shape == "term":                                          # terminal: black square panel with a green line
+        d.rectangle(rect, fill=_c(th.paper, 238), outline=acc, width=max(2, int(th.stroke * u)))
+        return None, None, True
+    if shape == "pixel":                                         # arcade: black block, double-thickness yellow border, blue block shadow
+        b = max(3, int(0.0055 * u))
+        d.rectangle([x0 + 1.5 * b, y0 + 1.5 * b, x1 + 1.5 * b, y1 + 1.5 * b], fill=_c(th.accent2))
+        d.rectangle(rect, fill=_c(th.paper), outline=acc, width=2 * b)
+        return None, None, True
+    if shape == "riso":                                          # two inks: a pink block misregistered under a paper card with a blue outline
+        off = 0.007 * u
+        d.rectangle([x0 + off, y0 + off, x1 + off, y1 + off], fill=_c(th.accent, 235))
+        d.rectangle(rect, fill=_c(th.paper, 248), outline=_c(th.accent2), width=max(2, int(th.stroke * u)))
+        return None, None, True
+    if shape == "frost":                                         # tinted frosted glass: soft shadow, translucent fill, luminous border and top highlight
+        sh = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        ImageDraw.Draw(sh).rounded_rectangle([x0, y0 + 0.008 * u, x1, y1 + 0.008 * u], radius=r, fill=(0, 0, 40, 95))
+        img.alpha_composite(_blur(sh, 0.012 * u))
+        lay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        ld = ImageDraw.Draw(lay)
+        ld.rounded_rectangle(rect, radius=r, fill=_c(th.paper, 150), outline=(255, 255, 255, 150), width=max(2, int(th.stroke * u)))
+        ld.line([(x0 + r, y0 + 2), (x1 - r, y0 + 2)], fill=(255, 255, 255, 170), width=max(1, int(0.0012 * u)))
+        img.alpha_composite(lay)
         return None, None, True
     raise ValueError(f"no panel painter for shape '{shape}'")
 
@@ -153,7 +186,7 @@ def lower_third(W, H, title, subtitle, align, strict, th):
                                                            scol or (_c("#e8e8e8") if th.name == "minimal" else None), eff))
     canvas = canvas.resize((cw // S, ch // S), Image.LANCZOS)
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    if th.name == "minimal":                                      # a soft scrim so white text reads on bright footage
+    if th.name in ("minimal", "cinema"):                          # a soft scrim so white text reads on bright footage
         sc = Image.linear_gradient("L").resize((W, int(0.3 * H))).point(lambda v: int(v * 0.52))
         scrim = Image.new("RGBA", (W, int(0.3 * H)), (0, 0, 0, 255)); scrim.putalpha(sc)
         img.paste(scrim, (0, H - int(0.3 * H)))
@@ -187,6 +220,8 @@ def callout(W, H, title, subtitle, side, strict, th):
     stxt = subtitle.upper() if (up_s and subtitle) else subtitle
     if th.shape == "neon":
         ttxt = f"[ {ttxt} ]"
+    elif th.shape == "term":
+        ttxt = f"> {ttxt}"
     tw = T.text_width(ttxt, tf, ttr)
     sw = T.text_width(stxt, sub[0], sub[1]) if sub else 0
     thh, shh = sum(tf.getmetrics()), (sum(sub[0].getmetrics()) if sub else 0)
@@ -214,6 +249,18 @@ def callout(W, H, title, subtitle, side, strict, th):
         d.line([(ax, fy0 + (0 if up else ph)), (ax, ay)], fill=acc, width=lw)
     elif shape == "bubble":
         d.line([(ax, fy0 + (0 if up else ph)), (ax, ay)], fill=ink, width=max(4, int(0.0045 * u)))
+    elif shape in ("brutal", "pixel", "cinema", "frost"):
+        col = {"brutal": ink, "pixel": acc, "cinema": acc, "frost": (255, 255, 255, 210)}[shape]
+        d.line([(ax, fy0 + (0 if up else ph)), (ax, ay)], fill=col, width=max(3, int(0.0045 * u)) if shape in ("brutal", "pixel") else lw + 1)
+    elif shape == "term":                                         # dashed staff
+        y_a, y_b = sorted((fy0 + (0 if up else ph), ay))
+        seg = max(4, int(0.008 * u))
+        for yy in range(int(y_a), int(y_b), seg * 2):
+            d.line([(ax, yy), (ax, min(yy + seg, y_b))], fill=acc, width=lw)
+    elif shape == "riso":
+        off = 0.004 * u
+        d.line([(ax + off, fy0 + (0 if up else ph)), (ax + off, ay)], fill=_c(th.accent, 235), width=max(3, int(0.004 * u)))
+        d.line([(ax, fy0 + (0 if up else ph)), (ax, ay)], fill=_c(th.accent2), width=lw)
     elif th.name == "minimal":
         d.line([(ax, fy0 + (0 if up else ph)), (ax, ay)], fill=(0, 0, 0, 120), width=int(0.0045 * u))       # dark halo so the white hairline reads on bright ground
         d.line([(ax, fy0 + (0 if up else ph)), (ax, ay)], fill=_c("#ffffff"), width=int(0.0026 * u))
@@ -235,6 +282,29 @@ def callout(W, H, title, subtitle, side, strict, th):
     elif shape == "rule":
         d.ellipse([ax - R, ay - R, ax + R, ay + R], outline=acc, width=lw)
         d.ellipse([ax - R * 0.3, ay - R * 0.3, ax + R * 0.3, ay + R * 0.3], fill=acc)
+    elif shape == "brutal":
+        d.rectangle([ax - R, ay - R, ax + R, ay + R], fill=acc, outline=ink, width=max(3, int(0.004 * u)))
+    elif shape == "pixel":
+        b = max(3, int(0.0055 * u))
+        d.rectangle([ax - R, ay - R, ax + R, ay + R], fill=_c(th.paper), outline=acc, width=b)
+        d.rectangle([ax - b, ay - b, ax + b, ay + b], fill=_c(th.accent2))
+    elif shape == "term":                                         # square brackets around the point
+        L2 = R * 1.5
+        for sx_, sy_ in ((1, 1), (-1, 1), (1, -1), (-1, -1)):
+            d.line([(ax + sx_ * L2, ay + sy_ * (L2 - R * 0.9)), (ax + sx_ * L2, ay + sy_ * L2), (ax + sx_ * (L2 - R * 0.9), ay + sy_ * L2)], fill=acc, width=lw + 1)
+        d.rectangle([ax - R * 0.28, ay - R * 0.28, ax + R * 0.28, ay + R * 0.28], fill=_c(th.accent2))
+    elif shape == "riso":
+        off = 0.004 * u
+        d.ellipse([ax - R + off, ay - R + off, ax + R + off, ay + R + off], fill=_c(th.accent, 235))
+        d.ellipse([ax - R, ay - R, ax + R, ay + R], outline=_c(th.accent2), width=max(2, int(0.003 * u)))
+    elif shape == "frost":
+        g = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+        ImageDraw.Draw(g).ellipse([ax - R, ay - R, ax + R, ay + R], outline=acc, width=max(3, int(0.004 * u)))
+        canvas.alpha_composite(_blur(g, 0.006 * u))
+        d.ellipse([ax - R, ay - R, ax + R, ay + R], fill=(255, 255, 255, 70), outline=(255, 255, 255, 235), width=lw + 1)
+    elif shape == "cinema":
+        d.ellipse([ax - R, ay - R, ax + R, ay + R], outline=acc, width=lw + 1)
+        d.ellipse([ax - R * 0.3, ay - R * 0.3, ax + R * 0.3, ay + R * 0.3], fill=_c("#ffffff"))
     elif th.name == "minimal":
         d.ellipse([ax - R * 0.95, ay - R * 0.95, ax + R * 0.95, ay + R * 0.95], fill=(0, 0, 0, 110))
         d.ellipse([ax - R * 0.75, ay - R * 0.75, ax + R * 0.75, ay + R * 0.75], fill=acc, outline=_c("#ffffff"), width=max(2, int(0.003 * u)))
@@ -245,7 +315,7 @@ def callout(W, H, title, subtitle, side, strict, th):
         d.ellipse([ax - R, ay - R, ax + R, ay + R], fill=_c("#ffffff"))
         d.ellipse([ax - R * 0.62, ay - R * 0.62, ax + R * 0.62, ay + R * 0.62], fill=acc)
     # flag
-    if th.name == "minimal":                                       # no card in the template, but a faint dark plate keeps white text legible
+    if th.name in ("minimal", "cinema"):                           # no card in the template, but a faint dark plate keeps white text legible
         d.rounded_rectangle([fx0, fy0, fx0 + pw, fy0 + ph], radius=0.004 * u, fill=(0, 0, 0, 128))
         tcol, scol, eff = None, None, True
     else:
@@ -304,6 +374,41 @@ def frame(W, H, amount, th):
         sq = 0.006 * mn
         for cx, cy in ((x0, y0), (x1, y0), (x0, y1), (x1, y1)):
             d.rectangle([cx - sq, cy - sq, cx + sq, cy + sq], fill=cream)
+    elif th.shape == "brutal":                                     # thick ink border with a hard offset copy in the second colour
+        ink, wd, off = _c(th.ink), max(4, int(0.011 * h)), 0.012 * h
+        d.rectangle([x0 + off, y0 + off, x1 + off, y1 + off], outline=acc, width=wd)
+        d.rectangle([x0, y0, x1, y1], outline=ink, width=wd)
+    elif th.shape == "cinema":                                     # corner ticks and a hairline
+        L, t = 0.05 * h, max(2, int(0.0028 * h))
+        d.rectangle([x0, y0, x1, y1], outline=(255, 255, 255, 70), width=max(1, int(0.001 * h)))
+        for cx, cy, sx, sy in ((x0, y0, 1, 1), (x1, y0, -1, 1), (x0, y1, 1, -1), (x1, y1, -1, -1)):
+            d.line([(cx, cy + sy * L), (cx, cy), (cx + sx * L, cy)], fill=(255, 255, 255, 235), width=t)
+    elif th.shape == "term":                                       # green corner brackets plus tick marks, no glow
+        L, t = 0.06 * h, max(2, int(0.0028 * h))
+        for cx, cy, sx, sy in ((x0, y0, 1, 1), (x1, y0, -1, 1), (x0, y1, 1, -1), (x1, y1, -1, -1)):
+            d.line([(cx, cy + sy * L), (cx, cy), (cx + sx * L, cy)], fill=acc, width=t)
+        for k in range(1, 8):
+            tick = 0.012 * h * (2 if k == 4 else 1)
+            d.line([(x0 + (x1 - x0) * k / 8, y0), (x0 + (x1 - x0) * k / 8, y0 + tick)], fill=acc, width=max(1, t // 2))
+    elif th.shape == "pixel":                                      # a dotted border of square blocks
+        b = max(4, int(0.011 * h))
+        for xx in range(int(x0), int(x1) - b, b * 2):
+            d.rectangle([xx, y0, xx + b, y0 + b], fill=acc); d.rectangle([xx, y1 - b, xx + b, y1], fill=acc)
+        for yy in range(int(y0), int(y1) - b, b * 2):
+            d.rectangle([x0, yy, x0 + b, yy + b], fill=acc); d.rectangle([x1 - b, yy, x1, yy + b], fill=acc)
+        for cx, cy in ((x0, y0), (x1 - b, y0), (x0, y1 - b), (x1 - b, y1 - b)):
+            d.rectangle([cx, cy, cx + b, cy + b], fill=_c(th.accent2))
+    elif th.shape == "riso":                                       # two misregistered ink outlines
+        wd, off = max(3, int(0.004 * h)), 0.006 * h
+        d.rectangle([x0 + off, y0 + off, x1 + off, y1 + off], outline=_c(th.accent, 225), width=wd)
+        d.rectangle([x0, y0, x1, y1], outline=_c(th.accent2, 235), width=max(2, wd // 2))
+    elif th.shape == "frost":                                      # luminous rounded border
+        r = 0.04 * mn
+        g = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        ImageDraw.Draw(g).rounded_rectangle([x0, y0, x1, y1], radius=r, outline=acc, width=max(4, int(0.005 * h)))
+        img = Image.alpha_composite(_blur(g, 0.006 * h), img)
+        d = ImageDraw.Draw(img)
+        d.rounded_rectangle([x0, y0, x1, y1], radius=r, outline=(255, 255, 255, 190), width=max(2, int(0.0022 * h)))
     elif th.name == "minimal":
         d.rectangle([x0, y0, x1, y1], outline=(255, 255, 255, 215), width=max(1, int(0.0012 * mn)))
     else:                                                          # corporate: four accent corner brackets
