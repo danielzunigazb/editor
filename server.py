@@ -48,6 +48,7 @@ _ensure_display()
 import live  # noqa: E402  (engine: layout/build/render)
 import themes  # noqa: E402
 import cards  # noqa: E402
+import icons  # noqa: E402
 import graphics  # noqa: E402
 import textrender  # noqa: E402
 from mcp.server.fastmcp import FastMCP, Image  # noqa: E402
@@ -209,9 +210,12 @@ def _b_add_lower_third(title, subtitle="", start_s=0.0, dur_s=4.0, align="left",
             "fade": fade_s, "theme": _theme_arg(theme)}
 
 
-def _b_add_image(path, start_s, dur_s, position="center", scale=0.3, opacity=1.0):
-    return {"op": "image", "path": _safe_path(path, "add_image"), "start": start_s, "dur": dur_s,
-            "pos": position, "scale": scale, "opacity": opacity}
+def _b_add_image(start_s, dur_s, path="", position="center", scale=0.3, opacity=1.0, icon="", color="", at=None, plate=None, theme="auto"):
+    op = {"op": "image", "path": _safe_path(path, "add_image") if path else "", "start": start_s, "dur": dur_s,
+          "pos": position, "scale": scale, "opacity": opacity, "icon": icon or "", "color": color or None, "at": at, "theme": _theme_arg(theme)}
+    if plate is not None:
+        op["plate"] = plate
+    return op
 
 
 def _b_add_callout(title, track, subtitle="", start_s=None, dur_s=None, side="auto", fade_s=0.3, theme="auto"):
@@ -248,7 +252,7 @@ def summary(st, full=False):
         if L["kind"] == "text":
             d["text"] = L["text"]
         elif L["kind"] == "image":
-            d["image"] = os.path.basename(L["path"])
+            d["image"] = L.get("icon") or os.path.basename(L["path"])
         elif L["kind"] == "graphic":
             d["graphic"] = L["gk"]
         elif L["kind"] == "callout":
@@ -503,12 +507,25 @@ def add_lower_third(title: str, subtitle: str = "", start_s: float = 0.0, dur_s:
 
 
 @mcp.tool()
-def add_image(path: str, start_s: float, dur_s: float, position: str = "center", scale: float = 0.3,
-              opacity: float = 1.0) -> dict:
-    """Show a PNG/JPG/WebP (logo, arrow, reference graphic; transparency is kept) from start_s for dur_s
-    (TIMELINE time). position: center | top-right | top-left | bottom-right | bottom-left. scale: fraction
-    of frame width (0-1], aspect ratio preserved. Max 25 MB / 8000 px per side."""
-    return commit(_b_add_image(path, start_s, dur_s, position, scale, opacity))
+def add_image(start_s: float, dur_s: float, path: str = "", position: str = "center", scale: float = 0.3,
+              opacity: float = 1.0, icon: str = "", color: str = "", at: list[float] | None = None,
+              plate: bool | None = None, theme: str = "auto") -> dict:
+    """Show a picture from start_s for dur_s (TIMELINE time). Give EITHER `icon` (a name from list_assets(kind='icon'): about 100
+    line icons plus hand-drawn doodle-arrow/star/circle/underline/burst/check/cross/heart) OR `path` (PNG/JPG/WebP with
+    transparency kept, or a plain .svg; max 25 MB / 8000 px). position: center | top-right | top-left | bottom-right | bottom-left,
+    or at=[x, y] to centre it on an exact point of the frame (fractions 0-1, 0,0 = top-left). scale: fraction of frame width (0-1].
+    Icons are tinted with the template's colour (color=#RRGGBB to override) and sit on a round plate that keeps them legible
+    (plate=false for the bare glyph). Pair an icon with add_callout/add_text to label things."""
+    return commit(_b_add_image(start_s, dur_s, path, position, scale, opacity, icon, color, at, plate, theme))
+
+
+@mcp.tool()
+def list_assets(kind: str = "icon", query: str = "") -> dict:
+    """List bundled assets. kind: icon (names usable as add_image(icon=...)). query: only names containing this text."""
+    if kind != "icon":
+        raise ValueError("kind must be 'icon'")
+    names = [n for n in icons.list_icons() if query.lower() in n]
+    return {"kind": kind, "count": len(names), "items": names}
 
 
 @mcp.tool()
@@ -610,7 +627,7 @@ _TRACTOR_SLOTS = 2      # stills (0.5x) and contact sheets (0.25x) alternate; mo
 def _state_key(st, scale):
     """Everything a built timeline depends on: the edit list, the format, and the files behind it (path+mtime+size)."""
     files = []
-    for p in sorted({v["path"] for v in st["sources"].values()} | {o["path"] for o in st["ops"] if o.get("op") == "image"}):
+    for p in sorted({v["path"] for v in st["sources"].values()} | {o["path"] for o in st["ops"] if o.get("op") == "image" and o.get("path")}):
         try:
             stt = os.stat(p); files.append((p, stt.st_mtime_ns, stt.st_size))
         except OSError:

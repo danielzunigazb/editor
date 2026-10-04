@@ -100,7 +100,7 @@ import golden, json as _json
 _ref, _cur = _json.load(open(golden.GOLD)), golden.compute()
 check("luxury renders are pixel-identical to the reference recorded before the template refactor (golden.py)", all(_cur.get(k) == v for k, v in _ref.items()), [k for k, v in _ref.items() if _cur.get(k) != v])
 # ---- themed overlays (lower third / callout / frame per template): pure PIL, no MLT needed
-import graphics, subprocess
+import graphics, subprocess, tempfile
 NEW = [n for n in themes.NAMES if n != "luxury"]
 TW, TH = 960, 540
 for n_ in NEW:
@@ -169,6 +169,62 @@ check("card PNGs are cached by content", png_a == png_b and os.path.exists(png_a
 mp4_ = cards.card_video(png_a, os.path.join(tmp, "card.mp4"), CW, CH, 25, 1.0)
 probe_ = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,width,height,nb_frames", "-of", "csv=p=0", mp4_], capture_output=True, text=True).stdout
 check("a card video is H.264 at the frame size with an audio track and 25 frames per second", "video,640,360,25" in probe_ and "audio" in probe_, probe_)
+# ---- icons: bundled Lucide set + doodles, user SVG safety, exact-size rasterizing
+import icons
+all_icons = icons.list_icons()
+check("about 100 icons are bundled (Lucide + 8 doodles)", len(all_icons) >= 95 and all(d_ in all_icons for d_ in icons.DOODLES), len(all_icons))
+errs_ = []
+for nm_ in all_icons:
+    L_ = {"icon": nm_, "svg": icons.icon_path(nm_), "scale": 0.1, "color": "#1F6FEB", "plate": True, "theme": {"name": "corporate", "accent": "#1f6feb"}}
+    try:
+        im_ = Image.open(icons.render_layer(L_, 1280, tmp))
+        if im_.size != (128, 128) or not im_.convert("RGBA").getchannel("A").getbbox():
+            errs_.append((nm_, im_.size))
+    except Exception as e_:
+        errs_.append((nm_, str(e_)[:50]))
+check("every bundled icon rasterizes at the exact requested size (scale x frame width) and is not empty", not errs_, errs_[:3])
+Lb = {"icon": "star", "svg": icons.icon_path("star"), "scale": 0.2, "color": "#ff0000", "plate": False, "theme": {"name": "luxury", "accent": "#d9b25a"}}
+im_b = Image.open(icons.render_layer(Lb, 1000, tmp)).convert("RGBA")
+check("a bare icon is tinted with the requested colour (no plate)", im_b.size == (200, 200) and any(p[3] > 200 and p[0] > 200 and p[1] < 60 for p in im_b.getdata()))
+La = dict(Lb, plate=True, color="#ffffff", theme={"name": "playful", "accent": "#ff6b6b"})
+check("a plated icon is square, with the plate filling the frame and the glyph smaller inside it", Image.open(icons.render_layer(La, 1000, tmp)).size == (200, 200))
+check("icon rendering is deterministic and cached", icons.render_layer(La, 1000, tmp) == icons.render_layer(La, 1000, tmp))
+try:
+    icons.icon_path("starr"); e_ = None
+except ValueError as ex_:
+    e_ = str(ex_)
+check("an unknown icon name is rejected with a 'did you mean' suggestion", e_ and "star" in e_, e_)
+try:
+    icons.icon_path("../../etc/passwd"); e_ = None
+except ValueError as ex_:
+    e_ = str(ex_)
+check("an icon name can never be a path", e_ is not None and "unknown icon" in e_, e_)
+svgdir = tempfile.mkdtemp(prefix="svg_test_")
+def svgfile(name_, body_):
+    p_ = os.path.join(svgdir, name_); open(p_, "w").write(body_); return p_
+good_ = svgfile("ok.svg", '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20"><rect width="40" height="20" fill="currentColor"/></svg>')
+icons.check_svg(good_)
+check("a plain SVG is accepted and its aspect comes from the viewBox", abs(icons.svg_aspect(good_) - 2.0) < 1e-6)
+for label_, body_ in [("a <script>", '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><script>alert(1)</script></svg>'),
+                      ("an onload handler", '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" onload="x()"><rect width="5" height="5"/></svg>'),
+                      ("an embedded <image>", '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><image href="http://evil.test/a.png"/></svg>'),
+                      ("an external xlink:href", '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 10 10"><use xlink:href="http://evil.test/a.svg#x"/></svg>'),
+                      ("a <style> with @import", '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><style>@import url(http://evil.test/x.css);</style></svg>'),
+                      ("an entity declaration (XXE)", '<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text>&x;</text></svg>'),
+                      ("a url() fill pointing outside", '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="5" height="5" fill="url(http://evil.test/p)"/></svg>')]:
+    try:
+        icons.check_svg(svgfile("bad.svg", body_)); e_ = None
+    except ValueError as ex_:
+        e_ = str(ex_)
+    check(f"an SVG with {label_} is rejected", e_ is not None and "not allowed" in e_, e_)
+try:
+    icons.check_svg(svgfile("fake.svg", "just text")); e_ = None
+except ValueError as ex_:
+    e_ = str(ex_)
+check("a text file named .svg is rejected", e_ is not None and "not an SVG" in e_, e_)
+Lu = {"icon": None, "svg": good_, "path": good_, "scale": 0.25, "color": "#00aa00", "plate": False, "theme": {"name": "luxury", "accent": "#d9b25a"}}
+imu = Image.open(icons.render_layer(Lu, 800, tmp))
+check("a user SVG is rasterized at width = scale x frame width with its own aspect (2:1)", imu.size == (200, 100), imu.size)
 check("style fonts all ship in the repo", all(os.path.isfile(T.font_path(s_)) for s_ in T.STYLE_NAMES))
 
 # ---------------- graphics

@@ -18,6 +18,7 @@ Needs X11 for the qtblend transition: run under xvfb-run.
 import base64, html, json, os, subprocess, sys, time
 
 import graphics
+import icons
 import textrender
 import themes
 
@@ -242,9 +243,39 @@ def layout(ops):
                 raise ValueError(f"{where}: scale must be in (0,1] and opacity in [0,1]")
             if not (o.get("start", -1) >= 0 and 0 < o.get("dur", 0) <= 3600):
                 raise ValueError(f"{where}: needs start>=0 and 0 < dur <= 3600")
-            layers.append({"kind": "image", "op": n, "start": float(o["start"]), "dur": float(o["dur"]),
-                           "path": o["path"], "aspect": _image_aspect(o["path"], where), "pos": o.get("pos", "center"),
-                           "scale": float(o.get("scale", 0.3)), "opacity": float(o.get("opacity", 1.0))})
+            xy = o.get("at")
+            if xy is not None:
+                if not (isinstance(xy, (list, tuple)) and len(xy) == 2 and all(isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v <= 1 for v in xy)):
+                    raise ValueError(f"{where}: at must be [x, y], two fractions of the frame between 0 and 1 (0,0 = top-left)")
+                xy = (float(xy[0]), float(xy[1]))
+            icon, path = o.get("icon") or "", o.get("path") or ""
+            if bool(icon) == bool(path):
+                raise ValueError(f"{where}: give exactly one of icon (a name from list_assets) or path (an image or .svg file)")
+            color = o.get("color") or None
+            if color is not None and not textrender.COLOR_RE.match(str(color)):
+                raise ValueError(f"{where}: color must look like #RRGGBB")
+            base = {"kind": "image", "op": n, "start": float(o["start"]), "dur": float(o["dur"]), "pos": o.get("pos", "center"), "xy": xy,
+                    "scale": float(o.get("scale", 0.3)), "opacity": float(o.get("opacity", 1.0))}
+            if icon or path.lower().endswith(".svg"):
+                try:
+                    if icon:
+                        svg = icons.icon_path(icon)
+                    else:
+                        svg = os.path.abspath(os.path.expanduser(path))
+                        if not os.path.isfile(svg):
+                            raise ValueError(f"image not found: {svg}")
+                        icons.check_svg(svg)
+                    aspect = 1.0 if (icon or svg is None) else icons.svg_aspect(svg)
+                except ValueError as e:
+                    raise ValueError(f"{where}: {e}")
+                tk = _theme_key(o, where)
+                plate = o.get("plate", True if icon else False)
+                if not isinstance(plate, bool):
+                    raise ValueError(f"{where}: plate must be true or false")
+                default_color = icons.plate_style(themes.get(tk))[3] if plate else tk["accent"]
+                layers.append({**base, "icon": icon or None, "svg": svg, "path": path or "", "aspect": aspect, "color": color or default_color, "plate": plate, "theme": tk})
+            else:
+                layers.append({**base, "path": path, "aspect": _image_aspect(path, where)})
         elif k == "callout":
             if o.get("side", "auto") not in graphics.CALLOUT_SIDES:
                 raise ValueError(f"{where}: side must be one of {graphics.CALLOUT_SIDES}")
@@ -337,6 +368,8 @@ def _zone(L):
         hf = sc if k == "pip" else sc * fw / (L["aspect"] * fh)
         x0 = 0.04 if "left" in L["pos"] else (0.5 - sc / 2 if L["pos"] == "center" else 0.96 - sc)
         y0 = 0.04 if "top" in L["pos"] else (0.5 - hf / 2 if L["pos"] == "center" else 0.96 - hf)
+        if L.get("xy"):
+            x0, y0 = min(max(L["xy"][0] - sc / 2, 0), 1 - sc), min(max(L["xy"][1] - hf / 2, 0), 1 - hf)
         return (x0, y0, x0 + sc, y0 + hf)
     return None
 
@@ -381,7 +414,7 @@ def _label(L):
         return f"graphic {L['gk']}"
     if L["kind"] == "callout":
         return f"callout {L['title'][:24]!r}"
-    return f"{L['kind']} {L.get('src') or os.path.basename(L.get('path', ''))}"
+    return f"{L['kind']} {L.get('src') or L.get('icon') or os.path.basename(L.get('path', ''))}"
 
 
 def _clean(text, where, style="classic"):
@@ -583,7 +616,7 @@ def build(ops):
                 src = (graphics.render_merged(L["params"]["parts"], W, H, CACHE) if L["gk"] == "merged"
                        else graphics.render(L["gk"], W, H, CACHE, **L["params"]))
             elif L["kind"] == "image":
-                src = os.path.abspath(os.path.expanduser(L["path"]))
+                src = icons.render_layer(L, W, CACHE) if (L.get("icon") or L.get("svg")) else os.path.abspath(os.path.expanduser(L["path"]))
             elif L["kind"] == "callout":
                 src, cw, ch, cax, cay = _callout_source(L)
             else:
@@ -616,6 +649,8 @@ def build(ops):
                 h = H * L["scale"] if L["kind"] == "pip" else w / L["aspect"]
                 x = W * mg if "left" in L["pos"] else (W - w) / 2 if L["pos"] == "center" else W * (1 - mg) - w
                 y = H * mg if "top" in L["pos"] else (H - h) / 2 if L["pos"] == "center" else H * (1 - mg) - h
+                if L.get("xy"):                                   # centred on an exact point of the frame (kept inside it)
+                    x, y = min(max(W * L["xy"][0] - w / 2, 0), W - w), min(max(H * L["xy"][1] - h / 2, 0), H - h)
                 op, ramp = L["opacity"], min(6, (n - 1) // 2)
             if L["kind"] != "callout":
                 rect = lambda a: f"{x:.0f} {y:.0f} {w:.0f} {h:.0f} {a}"

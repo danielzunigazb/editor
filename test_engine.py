@@ -4,7 +4,7 @@ Compares EVERY frame of a timeline-with-overlays against the same timeline witho
 Run: xvfb-run -a .venv/bin/python test_engine.py"""
 import os, sys, tempfile, time
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
-import live, mlt7
+import live, mlt7, icons
 
 live.CLIPS = {k: os.path.join(HERE, "media", f"clip_{k.lower()}.mp4") for k in "ABC"}
 live.CLIP_LEN = {"A": 6.0, "B": 5.0, "C": 4.0}
@@ -287,6 +287,31 @@ chk("the template's panel default applies (kids-title has no default panel, subt
 live.THEME = themes.get("corporate")
 chk("corporate titles come with their navy panel by default", live.layout(BASE + [T("Hola", 1.0, 2.0)])["layers"][0]["box"] is True)
 live.THEME = themes.get(None)
+# ---- icons in the engine: an icon centred on an exact point
+live.W, live.H = 1280, 720
+live.CACHE = tempfile.mkdtemp(prefix="eng_icons_")
+for th_name in ("luxury", "sketch", "tech"):
+    live.THEME = themes.get(th_name)
+    for at_ in ([0.25, 0.4], [0.7, 0.65]):
+        ic_ = {"op": "image", "icon": "rocket", "start": 0.5, "dur": 2.0, "scale": 0.12, "at": at_}
+        lay_i = live.layout(BASE + [ic_])["layers"][-1]
+        png_i = icons.render_layer(lay_i, live.W, live.CACHE)
+        vis_i = Image.open(png_i).convert("RGBA").getchannel("A").point(lambda v: 255 if v > 70 else 0).getbbox()
+        w_i = live.W * 0.12
+        x0_i, y0_i = live.W * at_[0] - w_i / 2, live.H * at_[1] - w_i / 2
+        exp_i = (x0_i + vis_i[0], y0_i + vis_i[1], x0_i + vis_i[2], y0_i + vis_i[3])
+        bb_i = _bbox(BASE[:1] + [ic_], 1.5)
+        chk(f"{th_name}: an icon at {at_} is centred on that point (+-4 px)", bb_i is not None and all(abs(a_ - b_) <= 4 for a_, b_ in zip(bb_i, exp_i)), (bb_i, exp_i))
+live.THEME = themes.get(None)
+chk("an icon leaves no residue after it ends", _bbox(BASE[:1] + [{"op": "image", "icon": "star", "start": 0.5, "dur": 1.0, "scale": 0.1}], 3.0) is None)
+edge_ = live.layout(BASE + [{"op": "image", "icon": "star", "start": 0.5, "dur": 1.0, "scale": 0.2, "at": [0.99, 0.01]}])["layers"][-1]
+chk("an icon at a corner is kept inside the frame", _bbox(BASE[:1] + [{"op": "image", "icon": "star", "start": 0.5, "dur": 1.0, "scale": 0.2, "at": [0.99, 0.01]}], 1.0)[2] <= live.W)
+for label_, patch_, needle_ in [("both icon and path", {"icon": "star", "path": "/x.png"}, "exactly one"), ("neither icon nor path", {}, "exactly one"), ("an unknown icon", {"icon": "starr"}, "unknown icon"),
+                                ("at outside the frame", {"icon": "star", "at": [1.5, 0.5]}, "between 0 and 1"), ("at with one number", {"icon": "star", "at": [0.5]}, "[x, y]"),
+                                ("a bad colour", {"icon": "star", "color": "red"}, "color"), ("a non-boolean plate", {"icon": "star", "plate": "yes"}, "plate")]:
+    try: live.layout(BASE + [{"op": "image", "start": 0.5, "dur": 1.0, **patch_}]); e_ = None
+    except ValueError as ex: e_ = str(ex)
+    chk(f"an image op rejects {label_}", e_ is not None and needle_ in e_, e_)
 live.W, live.H = _W, _H
 
 print(f"\n{len(SCENARIOS)+1+extra-bad} passed, {bad} failed"); sys.exit(1 if bad else 0)

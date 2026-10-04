@@ -46,7 +46,7 @@ async def main():
             tools = {t.name for t in (await s.list_tools()).tools}
             want = {"new_project", "import_clip", "list_sources", "add_clip", "cut_clip", "crossfade", "set_fades",
                     "add_pip", "get_timeline", "undo", "remove_op", "get_still", "get_contact_sheet",
-                    "render_preview", "export", "apply_ops", "list_styles", "add_text", "add_subtitles", "add_graphic", "add_lower_third", "add_image", "add_callout", "set_template", "add_card"}
+                    "render_preview", "export", "apply_ops", "list_styles", "add_text", "add_subtitles", "add_graphic", "add_lower_third", "add_image", "add_callout", "set_template", "add_card", "list_assets"}
             check("tools listed", want <= tools, f"missing {want - tools}")
 
             _, err = await call("add_clip", source="A")
@@ -656,6 +656,40 @@ async def main():
                                       ("an unknown template", dict(layout="title", title="x", theme="neon-pink"), "unknown template")]:
                 _, err = await call("add_card", **kw)
                 check(f"add_card rejects {label}", err is not None and needle in err, err)
+
+            # ---- icons and SVG
+            await clean_project()
+            await call("set_template", name="luxury")
+            await call("add_clip", source="A", end_s=4.0)
+            li, err = await call("list_assets", kind="icon")
+            check("list_assets lists the bundled icons", err is None and li and li["count"] >= 95 and "rocket" in li["items"] and "doodle-arrow" in li["items"], err)
+            la, _ = await call("list_assets", kind="icon", query="arrow")
+            check("list_assets filters by text", la and 3 <= la["count"] <= 12 and all("arrow" in n for n in la["items"]), la and la["count"])
+            _, err = await call("list_assets", kind="audio")
+            check("list_assets rejects an unknown kind", err is not None, err)
+            plain_i = await still_gray(1.0, 480, 270, True)
+            res, err = await call("add_image", start_s=0.5, dur_s=2.0, icon="rocket", at=[0.3, 0.4], scale=0.12)
+            check("add_image(icon=..., at=[x, y]) is accepted and shows as an overlay named after the icon", err is None and res and res["overlays"][-1].get("image") == "rocket", err or res)
+            with_i = await still_gray(1.0, 480, 270, True)
+            xs_i = [x for y in range(270) for x in range(480) if abs(plain_i[y * 480 + x] - with_i[y * 480 + x]) > 25]
+            ys_i = [y for y in range(270) for x in range(480) if abs(plain_i[y * 480 + x] - with_i[y * 480 + x]) > 25]
+            check("the icon is centred on the requested point (x=0.3, y=0.4 of the frame, +-8 px at 480x270)", xs_i and ys_i and abs((min(xs_i) + max(xs_i)) / 2 - 0.3 * 480) <= 8 and abs((min(ys_i) + max(ys_i)) / 2 - 0.4 * 270) <= 8, (xs_i and (min(xs_i), max(xs_i)), ys_i and (min(ys_i), max(ys_i))))
+            _, err = await call("add_image", start_s=0.5, dur_s=2.0, icon="rockett")
+            check("an unknown icon is rejected with a suggestion", err is not None and "did you mean rocket" in err, err)
+            _, err = await call("add_image", start_s=0.5, dur_s=2.0, icon="rocket", path=img_path)
+            check("icon and path together are rejected", err is not None and "exactly one" in err, err)
+            _, err = await call("add_image", start_s=0.5, dur_s=2.0, icon="rocket", at=[2, 0.5])
+            check("at outside the frame is rejected", err is not None and "between 0 and 1" in err, err)
+            svg_ok = os.path.join(TMP, "logo.svg"); open(svg_ok, "w").write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20"><rect width="40" height="20" rx="4" fill="#12ab34"/></svg>')
+            res, err = await call("add_image", start_s=0.5, dur_s=2.0, path=svg_ok, position="top-right", scale=0.2)
+            check("a user .svg is accepted as an overlay", err is None, err)
+            svg_bad = os.path.join(TMP, "evil.svg"); open(svg_bad, "w").write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><script>alert(1)</script><rect width="5" height="5"/></svg>')
+            _, err = await call("add_image", start_s=0.5, dur_s=2.0, path=svg_bad)
+            check("an SVG with a script is rejected", err is not None and "not allowed" in err, err)
+            res, err = await call("apply_ops", ops=[{"tool": "add_image", "icon": "star", "start_s": 1.0, "dur_s": 1.0, "at": [0.8, 0.2], "scale": 0.08}, {"tool": "add_image", "icon": "doodle-circle", "start_s": 1.0, "dur_s": 1.0, "at": [0.5, 0.5], "plate": False, "scale": 0.15}])
+            check("apply_ops takes icon images (plated and bare doodle) in one batch", err is None and res and res["applied"] == 2, err)
+            ex_i, err = await call("export", output_path=os.path.join(TMP, "icons.mp4"), quality="draft")
+            check("a project with icons and an SVG exports", err is None and ex_i and abs(ex_i["duration_s"] - 4.0) < 0.05, err or ex_i)
             await call("set_template", name="luxury")
             await call("add_clip", source="A")
 
