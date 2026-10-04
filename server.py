@@ -194,14 +194,18 @@ def _b_add_subtitles(srt_path="", cues=None, offset_s=0.0, position="bottom", si
             "color": color or None, "box": box, "fade": 0.0, "ornament": "none"}
 
 
-def _b_add_graphic(kind, start_s, dur_s, amount=None, opacity=1.0, fade_s=0.5):
+def _theme_arg(theme):
+    return None if theme in (None, "", "auto") else theme
+
+
+def _b_add_graphic(kind, start_s, dur_s, amount=None, opacity=1.0, fade_s=0.5, theme="auto"):
     return {"op": "graphic", "kind": kind, "start": start_s, "dur": dur_s, "amount": amount, "opacity": opacity,
-            "fade": fade_s}
+            "fade": fade_s, "theme": _theme_arg(theme)}
 
 
-def _b_add_lower_third(title, subtitle="", start_s=0.0, dur_s=4.0, align="left", fade_s=0.4):
+def _b_add_lower_third(title, subtitle="", start_s=0.0, dur_s=4.0, align="left", fade_s=0.4, theme="auto"):
     return {"op": "lower_third", "title": title, "subtitle": subtitle, "start": start_s, "dur": dur_s, "align": align,
-            "fade": fade_s}
+            "fade": fade_s, "theme": _theme_arg(theme)}
 
 
 def _b_add_image(path, start_s, dur_s, position="center", scale=0.3, opacity=1.0):
@@ -209,7 +213,7 @@ def _b_add_image(path, start_s, dur_s, position="center", scale=0.3, opacity=1.0
             "pos": position, "scale": scale, "opacity": opacity}
 
 
-def _b_add_callout(title, track, subtitle="", start_s=None, dur_s=None, side="auto", fade_s=0.3):
+def _b_add_callout(title, track, subtitle="", start_s=None, dur_s=None, side="auto", fade_s=0.3, theme="auto"):
     if not isinstance(track, list) or not track or not all(isinstance(p, (list, tuple)) and len(p) == 3 for p in track):
         raise ValueError("track must be a list of [t_s, x, y] points (timeline seconds; x, y = fractions 0-1 of the frame)")
     t0 = track[0][0]
@@ -218,7 +222,7 @@ def _b_add_callout(title, track, subtitle="", start_s=None, dur_s=None, side="au
     if dur_s is None and dur <= 0:
         dur = 2.0                                          # a single point: show it for a couple of seconds
     return {"op": "callout", "title": title, "subtitle": subtitle, "path": [list(p) for p in track], "start": start,
-            "dur": dur, "side": side, "fade": fade_s}
+            "dur": dur, "side": side, "fade": fade_s, "theme": _theme_arg(theme)}
 
 
 BUILDERS = {n[3:]: f for n, f in list(globals().items()) if n.startswith("_b_")}
@@ -392,6 +396,9 @@ def set_template(name: str, accent: str = "") -> dict:
     Rejected, changing nothing, if an existing text would not fit in the new template's type."""
     spec = {"name": name, "accent": accent or None}
     themes.get(spec)                                       # validates name and colour
+    note = None
+    if name == "luxury" and accent:                        # the luxury look is a metallic gold gradient, not one colour
+        spec["accent"], note = None, "luxury keeps its metallic gold; accent was ignored (it applies to the other templates)"
     with locked():
         st = load()
         st["theme"] = spec
@@ -403,7 +410,7 @@ def set_template(name: str, accent: str = "") -> dict:
                 raise ValueError(f"op {i} would not fit in the '{name}' template: {e}; nothing was changed")
         live.layout(st["ops"])
         save(st)
-        return {"template": name, "accent": live.THEME.accent, **summary(st)}
+        return {"template": name, "accent": live.THEME.accent, **({"note": note} if note else {}), **summary(st)}
 
 
 @mcp.tool()
@@ -436,21 +443,21 @@ def add_subtitles(srt_path: str = "", cues: list[dict] | None = None, offset_s: 
 
 @mcp.tool()
 def add_graphic(kind: str, start_s: float, dur_s: float, amount: float | None = None, opacity: float = 1.0,
-                fade_s: float = 0.5) -> dict:
+                fade_s: float = 0.5, theme: str = "auto") -> dict:
     """Add a luxury graphic overlay (drawn to match the video size) from start_s for dur_s (TIMELINE time).
     kind: frame (thin double gold keyline with diamonds) | letterbox (cinema bars with a gold hairline) |
     vignette (soft dark edges). amount (optional): frame inset 0.015-0.08 | letterbox bar height 0.04-0.25 |
-    vignette strength 0.1-1. opacity 0-1; fade_s = fade in/out at the edges. Stack with text for a polished look."""
-    return commit(_b_add_graphic(kind, start_s, dur_s, amount, opacity, fade_s))
+    vignette strength 0.1-1. opacity 0-1; fade_s = fade in/out at the edges. `frame` follows the project's template (gold keyline, corner brackets, page rules, hand-drawn border, neon brackets, hairline, thick bubble border). theme: "auto" = the project's template, or name another one for this item only."""
+    return commit(_b_add_graphic(kind, start_s, dur_s, amount, opacity, fade_s, theme))
 
 
 @mcp.tool()
 def add_lower_third(title: str, subtitle: str = "", start_s: float = 0.0, dur_s: float = 4.0,
-                    align: str = "left", fade_s: float = 0.4) -> dict:
+                    align: str = "left", fade_s: float = 0.4, theme: str = "auto") -> dict:
     """Name/role caption panel at the bottom: gold side bar, title in metallic gold, subtitle in tracked ivory
     capitals (e.g. title "Señor Muñoz", subtitle "Director de Proyecto"). Single lines only (title max 60 chars,
     subtitle max 80). align: left | right. Shown from start_s for dur_s (TIMELINE time)."""
-    return commit(_b_add_lower_third(title, subtitle, start_s, dur_s, align, fade_s))
+    return commit(_b_add_lower_third(title, subtitle, start_s, dur_s, align, fade_s, theme))
 
 
 @mcp.tool()
@@ -464,7 +471,7 @@ def add_image(path: str, start_s: float, dur_s: float, position: str = "center",
 
 @mcp.tool()
 def add_callout(title: str, track: list[list[float]], subtitle: str = "", start_s: float | None = None,
-                dur_s: float | None = None, side: str = "auto", fade_s: float = 0.3) -> dict:
+                dur_s: float | None = None, side: str = "auto", fade_s: float = 0.3, theme: str = "auto") -> dict:
     """Pin a name label to a point of the picture: a gold ring on the exact spot, a thin staff and a glass flag with
     `title` (and optional `subtitle`). `track` = [[t_s, x, y], ...]: where the point is at each moment (t_s in TIMELINE
     seconds, increasing; x, y = fractions of the frame, 0,0 = top-left, 1,1 = bottom-right). With several points the ring
@@ -472,7 +479,7 @@ def add_callout(title: str, track: list[list[float]], subtitle: str = "", start_
     the first/last point (dur 2 s for one point). side: auto (flag placed so it stays on screen) | ne | nw | se | sw.
     Title max 40 characters, subtitle 60, single lines. Coordinates usually come from detect.py (an external object
     detector), not from guessing."""
-    return commit(_b_add_callout(title, track, subtitle, start_s, dur_s, side, fade_s))
+    return commit(_b_add_callout(title, track, subtitle, start_s, dur_s, side, fade_s, theme))
 
 
 @mcp.tool()

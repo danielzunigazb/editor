@@ -6,6 +6,7 @@ import hashlib, os
 from PIL import Image, ImageDraw, ImageFilter
 
 import textrender as T
+import themes
 
 KINDS = ("frame", "letterbox", "vignette")
 AMOUNT = {            # kind -> (name, min, max, default)
@@ -35,16 +36,17 @@ def frame(W, H, amount):
     return img.resize((W, H), Image.LANCZOS)
 
 
-def letterbox(W, H, amount):
-    """Cinema bars with a hairline of gold on the inner edge."""
+def letterbox(W, H, amount, color=None):
+    """Cinema bars with a hairline of gold (or the theme's accent) on the inner edge."""
+    color = color or GOLD
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     bh = int(round(amount * H))
     d.rectangle([0, 0, W, bh], fill=(0, 0, 0, 255))
     d.rectangle([0, H - bh, W, H], fill=(0, 0, 0, 255))
     t = max(1, int(round(H * 0.0012)))
-    d.rectangle([0, bh, W, bh + t], fill=GOLD + (170,))
-    d.rectangle([0, H - bh - t, W, H - bh], fill=GOLD + (170,))
+    d.rectangle([0, bh, W, bh + t], fill=tuple(color) + (170,))
+    d.rectangle([0, H - bh - t, W, H - bh], fill=tuple(color) + (170,))
     return img
 
 
@@ -71,8 +73,8 @@ def _fit(line, style, px, max_w, track_em=None):
     return None
 
 
-def lower_third(W, H, title, subtitle="", align="left", strict=True):
-    """Glass panel with a gold side bar; title in luxury gold, subtitle in tracked ivory capitals."""
+def _lower_third_glass(W, H, title, subtitle="", align="left", strict=True):
+    """Glass panel with a gold side bar; title in luxury gold, subtitle in tracked ivory capitals (the luxury template)."""
     title = T.clean(title, "luxury")
     subtitle = T.clean(subtitle, "modern") if subtitle else ""
     if "\n" in title or "\n" in subtitle:
@@ -128,6 +130,29 @@ def lower_third(W, H, title, subtitle="", align="left", strict=True):
     return img
 
 
+def _theme(theme):
+    """A themes.Theme from a project theme spec ({"name", "accent"} | name | Theme | None)."""
+    return theme if isinstance(theme, themes.Theme) else themes.get(theme)
+
+
+def lower_third(W, H, title, subtitle="", align="left", strict=True, theme=None):
+    """Name/role panel in the project's template (luxury = the original glass panel with the gold bar)."""
+    th = _theme(theme)
+    if th.shape == "glass":
+        return _lower_third_glass(W, H, title, subtitle, align, strict)
+    import themed
+    return themed.lower_third(W, H, title, subtitle, align, strict, th)
+
+
+def callout(W, H, title, subtitle="", side="ne", strict=True, theme=None):
+    """(image, ax, ay): a label pinned to a point; the image is small and (ax, ay) is the ring centre inside it."""
+    th = _theme(theme)
+    if th.shape == "glass":
+        return _callout_glass(W, H, title, subtitle, side, strict)
+    import themed
+    return themed.callout(W, H, title, subtitle, side, strict, th)
+
+
 def render_merged(parts, W, H, cache_dir):
     """Alpha-composite several graphics (list of (kind, params)) into ONE cached PNG, so a single qtblend draws them."""
     key = "merged|" + "|".join(f"{k}:{sorted(p.items())}" for k, p in parts)
@@ -157,17 +182,24 @@ def validate(kind, params):
 
 def render(kind, W, H, cache_dir, **params):
     """Render a graphic (or lower third) to a cached PNG and return its path."""
+    th = _theme(params.get("theme"))
     if kind == "lower_third":
         key = f"lt|{params['title']}|{params.get('subtitle','')}|{params.get('align','left')}"
     else:
         validate(kind, params)
         amount = params.get("amount") if params.get("amount") is not None else AMOUNT[kind][3]
         key = f"{kind}|{amount}"
-    out = os.path.join(cache_dir, f"gfx_{hashlib.sha1(f'v1|{key}|{W}|{H}'.encode()).hexdigest()[:16]}.png")
+    key += f"|{th.name}|{th.accent}"
+    out = os.path.join(cache_dir, f"gfx_{hashlib.sha1(f'v2|{key}|{W}|{H}'.encode()).hexdigest()[:16]}.png")
     if os.path.exists(out):
         return out
     if kind == "lower_third":
-        img = lower_third(W, H, params["title"], params.get("subtitle", ""), params.get("align", "left"), strict=False)
+        img = lower_third(W, H, params["title"], params.get("subtitle", ""), params.get("align", "left"), strict=False, theme=th)
+    elif kind == "frame" and th.shape != "glass":
+        import themed
+        img = themed.frame(W, H, amount, th)
+    elif kind == "letterbox" and th.shape != "glass":
+        img = letterbox(W, H, amount, themes.rgb(th.accent))
     else:
         img = {"frame": frame, "letterbox": letterbox, "vignette": vignette}[kind](W, H, amount)
     os.makedirs(cache_dir, exist_ok=True)
@@ -182,7 +214,7 @@ CALLOUT_TITLE_MAX, CALLOUT_SUB_MAX = 40, 60
 CALLOUT_SIDES = ("auto", "ne", "nw", "se", "sw")      # where the flag sits relative to the pinned point
 
 
-def callout(W, H, title, subtitle="", side="ne", strict=True):
+def _callout_glass(W, H, title, subtitle="", side="ne", strict=True):
     """A gold ring on the exact point + a thin staff + a glass flag with the name. Returns (RGBA image, ax, ay):
     the image is SMALL (not frame-sized) and (ax, ay) is where the ring centre is inside it, so the editor can place
     the image with its ring on any x,y of the frame. side: ne/nw/se/sw = flag up-right, up-left, down-right, down-left."""
@@ -247,10 +279,11 @@ def callout(W, H, title, subtitle="", side="ne", strict=True):
     return img, ax / S, ay / S
 
 
-def render_callout(W, H, title, subtitle, side, cache_dir):
+def render_callout(W, H, title, subtitle, side, cache_dir, theme=None):
     """Cached PNG of a callout + its anchor. Returns (path, w, h, ax, ay)."""
     import json
-    key = f"v1|{title}|{subtitle}|{side}|{W}|{H}"
+    th = _theme(theme)
+    key = f"v2|{title}|{subtitle}|{side}|{W}|{H}|{th.name}|{th.accent}"
     base = os.path.join(cache_dir, f"callout_{hashlib.sha1(key.encode()).hexdigest()[:16]}")
     try:
         with open(base + ".json") as f:
@@ -259,7 +292,7 @@ def render_callout(W, H, title, subtitle, side, cache_dir):
             return (base + ".png", *meta)
     except (OSError, ValueError):
         pass
-    img, ax, ay = callout(W, H, title, subtitle, side, strict=False)
+    img, ax, ay = callout(W, H, title, subtitle, side, strict=False, theme=th)
     os.makedirs(cache_dir, exist_ok=True)
     tmp = base + f".{os.getpid()}.tmp"
     img.save(tmp, format="PNG")

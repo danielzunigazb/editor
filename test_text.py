@@ -99,6 +99,43 @@ for label, kw, needle in [("unknown style", dict(style="fancy"), "unknown style"
 import golden, json as _json
 _ref, _cur = _json.load(open(golden.GOLD)), golden.compute()
 check("luxury renders are pixel-identical to the reference recorded before the template refactor (golden.py)", all(_cur.get(k) == v for k, v in _ref.items()), [k for k, v in _ref.items() if _cur.get(k) != v])
+# ---- themed overlays (lower third / callout / frame per template): pure PIL, no MLT needed
+import graphics
+NEW = [n for n in themes.NAMES if n != "luxury"]
+TW, TH = 960, 540
+for n_ in NEW:
+    th_ = themes.get(n_)
+    im_ = graphics.lower_third(TW, TH, "Señor Muñoz", "Director de Proyecto", "left", theme=th_)
+    bb_ = im_.getchannel("A").getbbox()
+    check(f"{n_}: lower third draws inside the frame, in the lower half", im_.size == (TW, TH) and bb_ and bb_[0] >= 0 and bb_[2] <= TW and bb_[1] > TH * 0.5 and bb_[3] <= TH, bb_)
+    check(f"{n_}: lower third is deterministic (same pixels twice)", graphics.lower_third(TW, TH, "Señor Muñoz", "Director de Proyecto", "left", theme=th_).tobytes() == im_.tobytes())
+    try:
+        graphics.lower_third(TW, TH, "W" * 60, "M" * 80, "left", strict=True, theme=th_); e_ = None
+    except ValueError as ex_:
+        e_ = str(ex_)
+    ov_ = graphics.lower_third(TW, TH, "W" * 60, "M" * 80, "left", strict=False, theme=th_).getchannel("A").getbbox()
+    check(f"{n_}: an over-long lower third never overflows the frame (rejected in strict mode, or shrunk to fit)",
+          (e_ is None or "fit" in e_) and ov_ and ov_[0] >= 0 and ov_[2] <= TW, (e_, ov_))
+    right_ = graphics.lower_third(TW, TH, "Ana García", "", "right", theme=th_).getchannel("A").getbbox()
+    check(f"{n_}: right-aligned lower third sits on the right half" + (" (minimal: its soft scrim spans the width, so only the lower band is checked)" if n_ == "minimal" else ""),
+          right_ and right_[2] <= TW and right_[1] > TH * 0.5 and (n_ == "minimal" or right_[0] > TW * 0.3), right_)
+    for side_ in ("ne", "nw", "se", "sw"):
+        c_, ax_, ay_ = graphics.callout(TW, TH, "Arco monumental", "Entrada", side_, theme=th_)
+        a_ = c_.getchannel("A")
+        near_ = a_.crop((max(0, int(ax_) - 14), max(0, int(ay_) - 14), min(c_.width, int(ax_) + 14), min(c_.height, int(ay_) + 14))).getbbox()
+        check(f"{n_}/{side_}: callout is small, its anchor is inside it and the marker is drawn on the anchor",
+              c_.width < TW * 0.45 and c_.height < TH * 0.4 and 0 <= ax_ < c_.width and 0 <= ay_ < c_.height and near_ is not None, (c_.size, ax_, ay_, near_))
+    c1_ = graphics.callout(TW, TH, "Edificio 1", "En construcción", "ne", theme=th_)[0].tobytes(); c2_ = graphics.callout(TW, TH, "Edificio 1", "En construcción", "ne", theme=th_)[0].tobytes()
+    check(f"{n_}: callout is deterministic (hand-drawn strokes included)", c1_ == c2_)
+    fr_ = graphics.render("frame", TW, TH, tmp, theme={"name": n_, "accent": th_.accent})
+    fim_ = Image.open(fr_).convert("RGBA"); fa_ = fim_.getchannel("A")
+    check(f"{n_}: frame leaves the picture alone (centre transparent, <8% of pixels covered) and is not empty", fa_.getpixel((TW // 2, TH // 2)) == 0 and sum(1 for v in fa_.getdata() if v > 8) < 0.08 * TW * TH and fa_.getbbox(), fa_.getbbox())
+check("accent override changes the template's signature colour in its overlays",
+      graphics.lower_third(TW, TH, "Hola", "", "left", theme={"name": "corporate", "accent": "#FF0000"}).tobytes() != graphics.lower_third(TW, TH, "Hola", "", "left", theme="corporate").tobytes())
+check("sketch strokes are seeded by content: a different text gets different pencil strokes",
+      graphics.callout(TW, TH, "Uno", "", "ne", theme="sketch")[0].tobytes() != graphics.callout(TW, TH, "Dos", "", "ne", theme="sketch")[0].tobytes())
+check("letterbox takes the theme's accent for its hairline (and gold for luxury, unchanged)",
+      graphics.letterbox(TW, TH, 0.1, (0, 229, 255)).tobytes() != graphics.letterbox(TW, TH, 0.1).tobytes())
 check("style fonts all ship in the repo", all(os.path.isfile(T.font_path(s_)) for s_ in T.STYLE_NAMES))
 
 # ---------------- graphics

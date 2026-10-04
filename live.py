@@ -220,7 +220,7 @@ def layout(ops):
                 layers.append({"kind": "text", "op": n, "sub": ci, "start": st_, "dur": en_ - st_, **style,
                                "text": _clean(c.get("text"), f"{where} cue {ci}", style["style"])})
         elif k == "graphic":
-            gk, par = o.get("kind"), {"amount": o.get("amount")}
+            gk, par = o.get("kind"), {"amount": o.get("amount"), "theme": _theme_key(o, where)}
             try:
                 graphics.validate(gk, par)
             except ValueError as e:
@@ -229,10 +229,12 @@ def layout(ops):
         elif k == "lower_third":
             if o.get("align", "left") not in ("left", "right"):
                 raise ValueError(f"{where}: align must be left or right")
-            title, sub = _clean(o.get("title"), where, "luxury"), (_clean(o["subtitle"], where, "modern") if o.get("subtitle") else "")
+            tk = _theme_key(o, where)
+            th_ = themes.get(tk)
+            title, sub = _clean(o.get("title"), where, th_.title_style), (_clean(o["subtitle"], where, th_.caption_style) if o.get("subtitle") else "")
             if "\n" in title or "\n" in sub or len(title) > 60 or len(sub) > 80:
                 raise ValueError(f"{where}: lower third needs single-line text (title max 60, subtitle max 80 characters)")
-            layers.append(_gfx_layer(n, o, "lower_third", {"title": title, "subtitle": sub, "align": o.get("align", "left")}, where))
+            layers.append(_gfx_layer(n, o, "lower_third", {"title": title, "subtitle": sub, "align": o.get("align", "left"), "theme": tk}, where))
         elif k == "image":
             if o.get("pos", "center") not in POS_IMG:
                 raise ValueError(f"{where}: pos must be one of {POS_IMG}")
@@ -259,11 +261,13 @@ def layout(ops):
                 if pts and pt[0] <= pts[-1][0]:
                     raise ValueError(f"{where}: path times must increase (point {i_})")
                 pts.append((float(pt[0]), float(pt[1]), float(pt[2])))
-            title, sub = _clean(o.get("title"), where, "luxury"), (_clean(o["subtitle"], where, "modern") if o.get("subtitle") else "")
+            tk = _theme_key(o, where)
+            th_ = themes.get(tk)
+            title, sub = _clean(o.get("title"), where, th_.title_style), (_clean(o["subtitle"], where, th_.caption_style) if o.get("subtitle") else "")
             if not title or "\n" in title or "\n" in sub or len(title) > graphics.CALLOUT_TITLE_MAX or len(sub) > graphics.CALLOUT_SUB_MAX:
                 raise ValueError(f"{where}: callout needs a single-line title (1-{graphics.CALLOUT_TITLE_MAX} characters) and a subtitle of at most {graphics.CALLOUT_SUB_MAX}")
             layers.append({"kind": "callout", "op": n, "start": float(o["start"]), "dur": float(o["dur"]), "title": title, "sub": sub,
-                           "side": o.get("side", "auto"), "path": pts, "fade": float(o.get("fade", 0.3))})
+                           "side": o.get("side", "auto"), "path": pts, "fade": float(o.get("fade", 0.3)), "theme": tk})
         else:
             raise ValueError(f"{where}: unknown op")
     for i, e in enumerate(entries):   # a clip must be long enough for the dissolves on both of its sides
@@ -387,6 +391,16 @@ def _clean(text, where, style="classic"):
         raise ValueError(f"{where}: {e}")
 
 
+def _theme_key(o, where):
+    """{"name","accent"} of the template a graphic/lower third/callout is drawn in: the op's own `theme` if given, else the project's."""
+    t = o.get("theme")
+    if t in (None, "", "auto"):
+        return {"name": THEME.name, "accent": THEME.accent}
+    if t not in themes.THEMES:
+        raise ValueError(f"{where}: unknown template '{t}'; choose one of {themes.NAMES}")
+    return {"name": t, "accent": THEME.accent if t == THEME.name else themes.THEMES[t].accent}
+
+
 def resolve_style(o):
     """Concrete textrender style of a text/subtitles op: an explicit name wins; None/"auto" follows the project's template."""
     style = o.get("style")
@@ -450,13 +464,13 @@ def check_new_op(op):
     k = op.get("op")
     if k == "lower_third":
         try:
-            graphics.lower_third(W, H, op["title"], op.get("subtitle", ""), op.get("align", "left"), strict=True)
+            graphics.lower_third(W, H, op["title"], op.get("subtitle", ""), op.get("align", "left"), strict=True, theme=_theme_key(op, "lower_third"))
         except ValueError as e:
             raise ValueError(str(e))
         return
     if k == "callout":
         try:
-            graphics.callout(W, H, op["title"], op.get("subtitle", ""), "ne", strict=True)
+            graphics.callout(W, H, op["title"], op.get("subtitle", ""), "ne", strict=True, theme=_theme_key(op, "callout"))
         except ValueError as e:
             raise ValueError(str(e))
         return
@@ -500,7 +514,7 @@ def _callout_source(L):
     sides = ("ne", "nw", "se", "sw") if L["side"] == "auto" else (L["side"],)
     best = None
     for s in sides:
-        png, w, h, ax, ay = graphics.render_callout(W, H, L["title"], L["sub"], s, CACHE)
+        png, w, h, ax, ay = graphics.render_callout(W, H, L["title"], L["sub"], s, CACHE, L.get("theme"))
         over = 0.0
         for t_, x_, y_ in L["path"]:
             px, py = x_ * W, y_ * H

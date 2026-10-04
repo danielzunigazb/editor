@@ -258,6 +258,35 @@ for label_, patch_, needle_ in [("an empty path", {"path": []}, "path"), ("x out
     try: live.layout(BASE + [{**CO, **patch_}]); e_ = None
     except ValueError as ex: e_ = str(ex)
     chk(f"callout rejects {label_}", e_ is not None and needle_ in e_, e_)
+# ---- templates in the engine: the same callout path in every theme must land on the requested point
+import themes
+for n_ in [n for n in themes.NAMES if n != "luxury"]:
+    live.THEME = themes.get(n_)
+    png_t, cw_t, ch_t, cax_t, cay_t = graphics.render_callout(live.W, live.H, "Arco monumental", "Entrada", "ne", live.CACHE, {"name": n_, "accent": live.THEME.accent})
+    vis_ = Image.open(png_t).convert("RGBA").getchannel("A").point(lambda v: 255 if v > 70 else 0).getbbox()      # the VISIBLE part (the PNG has transparent margins)
+    co_t = {**CO, "path": [[1.0, 0.3, 0.6], [3.0, 0.6, 0.45]], "side": "ne"}
+    for t_ in (1.0, 2.0, 3.0):
+        u_ = min(max((t_ - 1) / 2, 0), 1); px_, py_ = (0.3 + 0.3 * u_) * live.W, (0.6 - 0.15 * u_) * live.H
+        exp_ = (px_ - cax_t + vis_[0], py_ - cay_t + vis_[1], px_ - cax_t + vis_[2], py_ - cay_t + vis_[3])
+        bb_ = _bbox(BASE[:1] + [co_t], t_)
+        chk(f"template {n_}: callout drawing at t={t_:g}s sits where the path says (+-6 px)", bb_ is not None and all(abs(a_ - b_) <= 6 for a_, b_ in zip(bb_, exp_)), (bb_, exp_))
+    lt_ = {"op": "lower_third", "title": "Señor Muñoz", "subtitle": "Director", "start": 0.5, "dur": 2.0}
+    chk(f"template {n_}: a lower third leaves no residue after it ends", _bbox(BASE[:1] + [lt_], 3.5) is None)
+    chk(f"template {n_}: a lower third is visible while it is on", _bbox(BASE[:1] + [lt_], 1.5) is not None)
+live.THEME = themes.get(None)
+try: live.layout(BASE + [{**CO, "theme": "neon-pink"}]); e_ = None
+except ValueError as ex: e_ = str(ex)
+chk("an op naming an unknown template is rejected", e_ is not None and "unknown template" in e_, e_)
+lay_ = live.layout(BASE + [{**CO, "theme": "tech"}, {"op": "lower_third", "title": "Hola", "start": 0.5, "dur": 2.0, "theme": "sketch"}])
+_tn = lambda L: (L.get("theme") or L["params"]["theme"])["name"]            # callouts carry it on the layer, graphics inside params
+chk("an op can use another template than the project's (per-item theme)", sorted(_tn(L) for L in lay_["layers"]) == ["sketch", "tech"], [_tn(L) for L in lay_["layers"]])
+live.THEME = themes.get("playful")
+lay2_ = live.layout(BASE + [T("Hola", 1.0, 2.0), cues([(1.0, 2.0)])])
+chk("style=auto follows the project's template (text -> title style, subtitles -> subtitle style)", [L["style"] for L in lay2_["layers"]] == ["kids-title", "kids-body"], [L["style"] for L in lay2_["layers"]])
+chk("the template's panel default applies (kids-title has no default panel, subtitles keep theirs)", [L["box"] for L in lay2_["layers"]] == [False, True], [L["box"] for L in lay2_["layers"]])
+live.THEME = themes.get("corporate")
+chk("corporate titles come with their navy panel by default", live.layout(BASE + [T("Hola", 1.0, 2.0)])["layers"][0]["box"] is True)
+live.THEME = themes.get(None)
 live.W, live.H = _W, _H
 
 print(f"\n{len(SCENARIOS)+1+extra-bad} passed, {bad} failed"); sys.exit(1 if bad else 0)

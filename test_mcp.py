@@ -133,8 +133,8 @@ async def main():
             import base64
             from PIL import Image as PILImage
 
-            async def still_gray(tm, w=160, h=90):
-                res = await s.call_tool("get_still", {"time_s": tm})
+            async def still_gray(tm, w=160, h=90, full=False):
+                res = await s.call_tool("get_still", {"time_s": tm, "full_res": full})
                 im = next((c for c in res.content if c.type == "image"), None)
                 if res.isError or im is None:
                     return None
@@ -601,6 +601,34 @@ async def main():
             check("...and the project stays in the previous template", tl2["template"] == "playful", tl2["template"])
             ls_, err = await call("list_styles")
             check("list_styles lists the 7 templates and the template styles", err is None and ls_ and len(ls_["templates"]) == 7 and "corp-title" in ls_["text_styles"] and ls_["current_template"] == "playful", err)
+
+            # ---- template overlays through the tools
+            await clean_project()
+            await call("add_clip", source="A", end_s=4.0)
+            plain_t = await still_gray(1.0)
+            for name in ("corporate", "academic", "sketch", "tech", "minimal", "playful"):
+                await call("set_template", name=name)
+                res, err = await call("add_lower_third", title="Señor Muñoz", subtitle="Director de Proyecto", start_s=0.5, dur_s=2.0)
+                lt_img = await still_gray(1.0)
+                check(f"{name}: add_lower_third draws in the lower part of the picture", err is None and plain_t and lt_img and changed(plain_t, lt_img, 0.6, 1.0) > 40 and changed(plain_t, lt_img, 0.0, 0.4) < 25, err or (changed(plain_t, lt_img, 0.6, 1.0), changed(plain_t, lt_img, 0.0, 0.4)))
+                await call("undo")
+                fw_, fh_ = 480, 270
+                plain_hi = await still_gray(1.0, fw_, fh_, True)   # full-res: no rescaling noise between with/without overlay
+                res, err = await call("add_graphic", kind="frame", start_s=0.5, dur_s=2.0)
+                fr_hi = await still_gray(1.0, fw_, fh_, True)
+                def region(a, b, x0, x1, y0, y1, thr=18):
+                    return sum(1 for y in range(int(fh_ * y0), int(fh_ * y1)) for x in range(int(fw_ * x0), int(fw_ * x1)) if abs(a[y * fw_ + x] - b[y * fw_ + x]) > thr)
+                centre = region(plain_hi, fr_hi, 0.12, 0.88, 0.12, 0.88)
+                border = region(plain_hi, fr_hi, 0, 1, 0, 1) - centre
+                check(f"{name}: add_graphic frame follows the template: it marks the border and leaves the picture alone", err is None and border >= 20 and centre < 8, (err, border, centre))
+                await call("undo")
+            await call("set_template", name="luxury")
+            res, err = await call("add_lower_third", title="Hola", start_s=0.5, dur_s=2.0, theme="tech")
+            check("a single item can use another template (theme='tech' inside a luxury project)", err is None and res and res["template"] == "luxury", err)
+            _, err = await call("add_lower_third", title="Hola", start_s=0.5, dur_s=2.0, theme="neon-pink")
+            check("an unknown per-item template is rejected", err is not None and "unknown template" in err, err)
+            res, err = await call("set_template", name="luxury", accent="#112233")
+            check("luxury ignores the accent override and says so", err is None and res and "note" in res and "metallic gold" in res["note"], err or res)
             await call("set_template", name="luxury")
             await call("add_clip", source="A")
 
