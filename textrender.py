@@ -50,6 +50,55 @@ STYLES = {
                    font="Montserrat.ttf", wght=500, tracking=0.2, upper=True, fill="#ffffff", stroke=False, halo=(0.016, 0.45),
                    shadow=(0.0, 0.04, 0.06, 0.7), ornament="none", glass=True),
 }
+# ---- template styles. Optional keys beyond the ones above (defaults reproduce the luxury look exactly):
+#   axes: {"wght":.., "opsz":.., "wdth":..} variable-font axes by name (wins over `wght`)
+#   box_fill / box_outline (RGBA) / box_radius (x padding): the panel behind the text when box=True; box_default: panel on unless told otherwise
+#   orn_color: colour of the ornament rule | glow: (colour, blur em, alpha) neon halo | outline: (colour, width em) opaque coloured outline
+#   sticker: (dx em, dy em, colour) hard offset shadow, no blur
+NAVY, INK, BURGUNDY, PAPER = (11, 37, 69), "#1E2A3A", "#7A1F2B", (247, 243, 232)
+STYLES.update({
+    "corp-title": dict(label="Inter semibold, white on a navy panel (corporate titles)", font="Inter.ttf", axes={"wght": 650, "opsz": 32},
+                       tracking=0.0, upper=False, fill="#ffffff", stroke=False, halo=None, shadow=(0.0, 0.03, 0.05, 0.35), ornament="none",
+                       glass=False, box_fill=NAVY + (238,), box_outline=None, box_radius=0.18, box_default=True),
+    "corp-body": dict(label="Inter regular, near-white on a navy panel (corporate captions)", font="Inter.ttf", axes={"wght": 450, "opsz": 14},
+                      tracking=0.005, upper=False, fill="#eef3fa", stroke=False, halo=None, shadow=None, ornament="none",
+                      glass=False, box_fill=NAVY + (220,), box_outline=None, box_radius=0.18, box_default=True),
+    "acad-title": dict(label="Source Serif semibold, ink on a paper panel with a burgundy rule (academic titles)", font="SourceSerif4.ttf",
+                       axes={"wght": 650, "opsz": 40}, tracking=0.004, upper=False, fill=INK, stroke=False, halo=None, shadow=None,
+                       ornament="line", orn_color=BURGUNDY, glass=False, box_fill=PAPER + (242,), box_outline=(122, 31, 43, 255),
+                       box_radius=0.12, box_default=True),
+    "acad-body": dict(label="Source Sans medium, ink on a paper panel (academic captions)", font="SourceSans3.ttf", axes={"wght": 520},
+                      tracking=0.008, upper=False, fill=INK, stroke=False, halo=None, shadow=None, ornament="none", glass=False,
+                      box_fill=PAPER + (240,), box_outline=(122, 31, 43, 200), box_radius=0.12, box_default=True),
+    "sketch-title": dict(label="Caveat bold marker lettering on a paper note (sketch titles)", font="Caveat.ttf", axes={"wght": 700},
+                         tracking=0.01, upper=False, fill="#222222", stroke=False, halo=None, shadow=None, ornament="none", glass=False,
+                         box_fill=(251, 250, 245, 244), box_outline=(34, 34, 34, 255), box_radius=0.3, box_default=True),
+    "sketch-body": dict(label="Patrick Hand handwriting on a paper note (sketch captions)", font="PatrickHand.ttf", tracking=0.012,
+                        upper=False, fill="#222222", stroke=False, halo=None, shadow=None, ornament="none", glass=False,
+                        box_fill=(251, 250, 245, 240), box_outline=(34, 34, 34, 230), box_radius=0.3, box_default=True),
+    "tech-title": dict(label="Space Grotesk, UPPERCASE with a cyan neon glow on a dark panel (tech titles)", font="SpaceGrotesk.ttf",
+                       axes={"wght": 600}, tracking=0.1, upper=True, fill="#e8fbff", stroke=False, halo=None, shadow=None, ornament="none",
+                       glow=("#00e5ff", 0.1, 0.95), glass=False, box_fill=(10, 15, 28, 222), box_outline=(0, 229, 255, 210),
+                       box_radius=0.1, box_default=True),
+    "tech-mono": dict(label="JetBrains Mono with a soft cyan glow (tech captions, labels)", font="JetBrainsMono.ttf", axes={"wght": 500},
+                      tracking=0.02, upper=False, fill="#cff9ff", stroke=False, halo=None, shadow=None, ornament="none",
+                      glow=("#00e5ff", 0.06, 0.7), glass=False, box_fill=(10, 15, 28, 205), box_outline=(0, 229, 255, 150),
+                      box_radius=0.1, box_default=True),
+    "min-title": dict(label="Manrope medium, white, airy, soft shadow, no panel (minimal titles)", font="Manrope.ttf", axes={"wght": 500},
+                      tracking=0.012, upper=False, fill="#ffffff", stroke=False, halo=(0.014, 0.35), shadow=(0.0, 0.035, 0.07, 0.6),
+                      ornament="none", glass=False, box_fill=(0, 0, 0, 120), box_outline=None, box_radius=0.3),
+    "min-body": dict(label="Manrope regular, white, soft shadow (minimal captions)", font="Manrope.ttf", axes={"wght": 420}, tracking=0.01,
+                     upper=False, fill="#ffffff", stroke=False, halo=(0.014, 0.35), shadow=(0.0, 0.03, 0.06, 0.6), ornament="none",
+                     glass=False, box_fill=(0, 0, 0, 120), box_outline=None, box_radius=0.3),
+    "kids-title": dict(label="Fredoka bold, sunny yellow with a thick dark outline and a sticker shadow (playful titles)", font="Fredoka.ttf",
+                       axes={"wght": 650, "wdth": 100}, tracking=0.012, upper=False, fill="#ffd93d", stroke=False, halo=None, shadow=None,
+                       outline=("#2b2d42", 0.11), sticker=(0.035, 0.06, "#2b2d42"), ornament="none", glass=False,
+                       box_fill=(255, 255, 255, 235), box_outline=(43, 45, 66, 255), box_radius=0.7),
+    "kids-body": dict(label="Nunito extra-bold, white with a dark outline and a sticker shadow (playful captions)", font="Nunito.ttf",
+                      axes={"wght": 800}, tracking=0.01, upper=False, fill="#ffffff", stroke=False, halo=None, shadow=None,
+                      outline=("#2b2d42", 0.09), sticker=(0.03, 0.05, "#2b2d42"), ornament="none", glass=False,
+                      box_fill=(255, 255, 255, 235), box_outline=(43, 45, 66, 255), box_radius=0.7),
+})
 STYLE_NAMES = tuple(STYLES)
 _MISSING = {}              # font cache key -> notdef mask bytes (to detect missing glyphs)
 
@@ -75,7 +124,16 @@ def make_font(style, px):
 def _font(style, px):                   # loading a TTF + setting its variation axis is slow; layout() asks for it constantly
     st = STYLES[style]
     font = ImageFont.truetype(font_path(style), px)
-    if st["wght"]:
+    if st.get("axes"):                                   # several axes (weight, optical size, width): set by NAME, in the font's own order
+        want = {"wght": "weight", "opsz": "optical", "wdth": "width"}
+        vals = []
+        for ax in font.get_variation_axes():
+            nm = ax["name"] if isinstance(ax["name"], str) else ax["name"].decode()
+            key = next((k for k, frag in want.items() if frag in nm.lower()), None)
+            v = st["axes"].get(key, ax["default"]) if key else ax["default"]
+            vals.append(min(max(v, ax["minimum"]), ax["maximum"]))
+        font.set_variation_by_axes(vals)
+    elif st.get("wght"):
         font.set_variation_by_axes([st["wght"]])
     return font
 
@@ -171,7 +229,7 @@ def layout_text(text, W, H, size, strict=True, style="classic", uppercase=None):
     if st["upper"] if uppercase is None else uppercase:
         text = text.upper()
     px = size * H
-    max_w = 0.9 * W
+    max_w = (0.84 if st.get("glow") else 0.9) * W      # a neon glow bleeds past the glyphs: keep it inside the frame too
     while True:
         font = make_font(style, px)
         stroke = max(1, int(round(px * 0.07))) if st["stroke"] else 0
@@ -238,11 +296,10 @@ def render_text_image(text, W, H, pos="bottom", size=0.06, color=None, box=False
         bw = max(block_w, 0.35 * W if orn != "none" else 0) + 2 * pad
         x0 = (W - bw) / 2
         rect = [x0, y0 - pad * 0.55, x0 + bw, y0 + total_h + pad * 0.25]
-        if st["glass"]:
-            d.rounded_rectangle(rect, radius=pad * 0.5, fill=(8, 8, 11, 150), outline=(217, 178, 90, 110),
-                                width=max(1, int(font.size * 0.025)))
-        else:
-            d.rounded_rectangle(rect, radius=pad * 0.5, fill=(0, 0, 0, 150))
+        bfill = st.get("box_fill", (8, 8, 11, 150) if st["glass"] else (0, 0, 0, 150))
+        bline = st.get("box_outline", (217, 178, 90, 110) if st["glass"] else None)
+        d.rounded_rectangle(rect, radius=pad * st.get("box_radius", 0.5), fill=bfill, outline=bline,
+                            width=max(1, int(font.size * (0.025 if st["glass"] else 0.03))) if bline else 0)
 
     mask = Image.new("L", (W, H), 0)                         # the glyphs, as an alpha mask
     md = ImageDraw.Draw(mask)
@@ -265,6 +322,28 @@ def render_text_image(text, W, H, pos="bottom", size=0.06, color=None, box=False
         sh = sh.filter(ImageFilter.GaussianBlur(max(0.5, blur * font.size))).point(lambda v: int(v * alpha))
         shadow = Image.new("RGBA", (W, H), (0, 0, 0, 255)); shadow.putalpha(sh)
         img = Image.alpha_composite(img, shadow)
+    if st.get("glow"):                                       # neon: the glyphs blurred and tinted, under the fill
+        gc, gb, ga = st["glow"]
+        gm = mask.filter(ImageFilter.GaussianBlur(max(1.0, gb * font.size))).point(lambda v: min(255, int(v * 2.2 * ga)))
+        glow = Image.new("RGBA", (W, H), tuple(int(gc[i:i + 2], 16) for i in (1, 3, 5)) + (255,)); glow.putalpha(gm)
+        img = Image.alpha_composite(img, glow)
+    if st.get("sticker"):                                    # hard offset shadow (sticker look), same silhouette incl. the outline
+        sx, sy, sc = st["sticker"]
+        ow = st.get("outline", (None, 0))[1]
+        sm = Image.new("L", (W, H), 0); sd_ = ImageDraw.Draw(sm)
+        for i, (line, w) in enumerate(zip(lines, widths)):
+            draw_tracked(sd_, (W - w) / 2 + sx * font.size, ty + i * lh + sy * font.size, line.upper() if up and not st["upper"] else line, font, track, 255,
+                         stroke_width=max(1, int(round(ow * font.size))) if ow else 0, stroke_fill=255)
+        sticker = Image.new("RGBA", (W, H), tuple(int(sc[i:i + 2], 16) for i in (1, 3, 5)) + (255,)); sticker.putalpha(sm)
+        img = Image.alpha_composite(img, sticker)
+    if st.get("outline"):                                    # opaque coloured outline under the fill
+        oc, ow = st["outline"]
+        om = Image.new("L", (W, H), 0); od_ = ImageDraw.Draw(om)
+        for i, (line, w) in enumerate(zip(lines, widths)):
+            draw_tracked(od_, (W - w) / 2, ty + i * lh, line.upper() if up and not st["upper"] else line, font, track, 255,
+                         stroke_width=max(1, int(round(ow * font.size))), stroke_fill=255)
+        outl = Image.new("RGBA", (W, H), tuple(int(oc[i:i + 2], 16) for i in (1, 3, 5)) + (255,)); outl.putalpha(om)
+        img = Image.alpha_composite(img, outl)
     if stroke:                                               # classic outline
         od = ImageDraw.Draw(img)
         for i, (line, w) in enumerate(zip(lines, widths)):
@@ -282,7 +361,8 @@ def render_text_image(text, W, H, pos="bottom", size=0.06, color=None, box=False
         img = Image.alpha_composite(img, flat)
     if orn != "none":
         oy = (ty - orn_gap * 0.5) if pos == "bottom" else (ty + block_h + orn_gap * 0.05)
-        _ornament(ImageDraw.Draw(img), W / 2, oy + (orn_gap * 0.45 if pos != "bottom" else 0), min(0.5 * W, block_w * 0.8 + font.size * 2), font.size, orn)
+        _ornament(ImageDraw.Draw(img), W / 2, oy + (orn_gap * 0.45 if pos != "bottom" else 0), min(0.5 * W, block_w * 0.8 + font.size * 2), font.size, orn,
+                  st.get("orn_color", GOLD_FLAT))
     return img
 
 

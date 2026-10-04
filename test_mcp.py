@@ -27,8 +27,8 @@ async def main():
             await s.initialize()
 
             def mkcall(sess):
-                async def call(name, **kw):
-                    res = await sess.call_tool(name, kw)
+                async def call(_tool, **kw):                  # `_tool` (not `name`): some tools take a `name` argument
+                    res = await sess.call_tool(_tool, kw)
                     if res.isError:
                         return None, res.content[0].text
                     if res.structuredContent is not None:
@@ -567,6 +567,41 @@ async def main():
             check("apply_ops takes moving and fixed callouts in one batch", err is None and res and res["applied"] == 2, err)
             ex_c, err = await call("export", output_path=os.path.join(TMP, "callouts.mp4"), quality="draft")
             check("a project with callouts exports", err is None and ex_c and abs(ex_c["duration_s"] - 4.0) < 0.05, err or ex_c)
+
+            # =================== design templates ===================
+            await clean_project()
+            await call("add_clip", source="A", end_s=4.0)
+            tl0, _ = await call("get_timeline")
+            check("a new project starts in the luxury template", tl0 and tl0["template"] == "luxury", tl0 and tl0.get("template"))
+            for label, kw, needle in [("an unknown template", dict(name="neon-pink"), "unknown template"), ("a bad accent colour", dict(name="corporate", accent="red"), "accent")]:
+                _, err = await call("set_template", **kw)
+                check(f"set_template rejects {label}", err is not None and needle in err, err)
+            await call("add_text", text="Gran Inauguración", start_s=0.5, dur_s=2.0, position="center")
+            lux = await still_gray(1.0)
+            res, err = await call("set_template", name="corporate")
+            check("set_template switches the project's template and keeps its edits", err is None and res and res["template"] == "corporate" and len(res["overlays"]) == 1, err or res)
+            corp = await still_gray(1.0)
+            check("the SAME edit now renders in the new template (different pixels)", lux and corp and changed(lux, corp) > 150, lux and corp and changed(lux, corp))
+            tl1, _ = await call("get_timeline")
+            check("...while the timeline itself did not change", tl1["duration_s"] == tl0["duration_s"] and [o["start_s"] for o in tl1["overlays"]] == [0.5], tl1)
+            await call("set_template", name="luxury")
+            back = await still_gray(1.0)
+            check("switching back to luxury restores the exact original pixels", back == lux)
+            for name in ("academic", "sketch", "tech", "minimal", "playful"):
+                res, err = await call("set_template", name=name, accent="#12AB34")
+                st_ = await still_gray(1.0)
+                check(f"template {name}: renders the same edit and is distinct from luxury", err is None and st_ and changed(lux, st_) > 100, err)
+            res, err = await call("set_template", name="playful")
+            long_txt = ("palabra " * 20).strip()
+            res, err = await call("add_text", text=long_txt, start_s=0.5, dur_s=2.0, size=0.12, position="top")
+            check("a long text that fits the playful (condensed) type is accepted there", err is None, err)
+            _, err = await call("set_template", name="luxury")
+            check("switching to a template where an existing text would not fit is rejected, naming the op", err is not None and "would not fit" in err and "nothing was changed" in err, err)
+            tl2, _ = await call("get_timeline")
+            check("...and the project stays in the previous template", tl2["template"] == "playful", tl2["template"])
+            ls_, err = await call("list_styles")
+            check("list_styles lists the 7 templates and the template styles", err is None and ls_ and len(ls_["templates"]) == 7 and "corp-title" in ls_["text_styles"] and ls_["current_template"] == "playful", err)
+            await call("set_template", name="luxury")
             await call("add_clip", source="A")
 
             # ---- stability: many renders in one process (repeated Factory.init / profile creation)

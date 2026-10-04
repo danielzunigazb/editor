@@ -53,7 +53,22 @@ r, m = raises(lambda: T.parse_srt(srt("\n\n")), "no subtitle cues"); check("empt
 
 # ---------------- styles
 import graphics as G
-check("6 styles registered", set(T.STYLE_NAMES) == {"classic", "luxury", "luxury-italic", "champagne", "noir", "modern"}, T.STYLE_NAMES)
+check("the 6 original styles are still registered", {"classic", "luxury", "luxury-italic", "champagne", "noir", "modern"} <= set(T.STYLE_NAMES), T.STYLE_NAMES)
+check("12 template styles registered (corp/acad/sketch/tech/min/kids x title+body)", len([s_ for s_ in T.STYLE_NAMES if s_.split("-")[0] in ("corp", "acad", "sketch", "tech", "min", "kids")]) == 12)
+import themes
+check("every template points at registered styles", all(s_ in T.STYLES for th_ in themes.THEMES.values() for s_ in (th_.title_style, th_.subtitle_style, th_.caption_style)))
+check("7 templates: luxury + the 6 new ones", set(themes.NAMES) == {"luxury", "corporate", "academic", "sketch", "tech", "minimal", "playful"}, themes.NAMES)
+for st_ in T.STYLE_NAMES:
+    try:
+        T.clean("áéíóúüñÁÉÍÓÚÜÑ ¿Qué? ¡Sí! 5€ «hola» “eco” — …", st_); ok_ = True
+    except ValueError as e_:
+        ok_ = e_
+    check(f"style {st_}: every Spanish character (accents, ñ, ¿¡, €, quotes) has a glyph", ok_ is True, ok_)
+w400 = T.text_width("Gran Inauguración", T._font("corp-body", 80), 0); w650 = T.text_width("Gran Inauguración", T._font("corp-title", 80), 0)
+check("variable-font axes are applied by name (Inter wght+opsz: title and body widths differ by >2%)", abs(w650 - w400) > 0.02 * w400, (w400, w650))
+wa = T.text_width("Gran Inauguración", T._font("acad-title", 80), 0); wb = T.text_width("Gran Inauguración", T._font("acad-body", 80), 0)
+check("Source Serif (wght+opsz axes) and Source Sans load as different faces", abs(wa - wb) > 5, (wa, wb))
+check("template styles carry their panel/outline/glow settings", T.STYLES["tech-title"]["glow"][0] == "#00e5ff" and T.STYLES["kids-title"]["sticker"] and T.STYLES["acad-title"]["box_default"])
 for st in T.STYLE_NAMES:
     try:
         p = T.render_text_png("Señor Muñoz: ¿Cómo estás? ¡Excelente!", 540, 960, style=st, cache_dir=tmp); bb = bbox(p)
@@ -81,6 +96,9 @@ check("uppercase option changes the rendering", up != lo)
 check("ornament override works (none vs diamond differ)", bbox(T.render_text_png("Hola", 540, 960, style="luxury", ornament="none", pos="top", cache_dir=tmp)) != bbox(T.render_text_png("Hola", 540, 960, style="luxury", ornament="diamond", pos="top", cache_dir=tmp)))
 for label, kw, needle in [("unknown style", dict(style="fancy"), "unknown style"), ("bad ornament", dict(ornament="swirl"), "ornament must")]:
     r, m = raises(lambda: T.render_text_png("Hola", 540, 960, cache_dir=tmp, **kw), needle); check(f"rejects {label}", r, m)
+import golden, json as _json
+_ref, _cur = _json.load(open(golden.GOLD)), golden.compute()
+check("luxury renders are pixel-identical to the reference recorded before the template refactor (golden.py)", all(_cur.get(k) == v for k, v in _ref.items()), [k for k, v in _ref.items() if _cur.get(k) != v])
 check("style fonts all ship in the repo", all(os.path.isfile(T.font_path(s_)) for s_ in T.STYLE_NAMES))
 
 # ---------------- graphics

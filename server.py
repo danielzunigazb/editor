@@ -46,6 +46,7 @@ def _ensure_display():
 
 _ensure_display()
 import live  # noqa: E402  (engine: layout/build/render)
+import themes  # noqa: E402
 import graphics  # noqa: E402
 import textrender  # noqa: E402
 from mcp.server.fastmcp import FastMCP, Image  # noqa: E402
@@ -53,7 +54,7 @@ from mcp.server.fastmcp import FastMCP, Image  # noqa: E402
 mcp = FastMCP("mlt-video-editor")
 
 # ------------------------------------------------------------------ project state
-DEFAULT = {"sources": {}, "ops": [], "width": 1280, "height": 720, "fps": 25}
+DEFAULT = {"sources": {}, "ops": [], "width": 1280, "height": 720, "fps": 25, "theme": {"name": "luxury", "accent": None}}
 LOCK = os.path.join(HOME, "project.lock")
 MAX_OPS, MAX_SOURCES = 500, 50
 SUBPROCESS_TIMEOUT = 60          # ffprobe / still-encode: a hung or hostile file must not freeze the server
@@ -113,6 +114,7 @@ def bind(st, scale=1.0):
     live.H = max(2, int(st["height"] * scale) // 2 * 2)
     live.FPS = st["fps"]
     live.CACHE = os.path.join(HOME, "cache")
+    live.THEME = themes.get(st.get("theme"))              # projects saved before templates existed have no theme: luxury, as always
 
 
 OVERLAYS = ("pip", "text", "subtitles", "image", "graphic", "lower_third", "callout")
@@ -170,14 +172,14 @@ def _b_add_pip(source, start_s, dur_s, position="top-right", scale=0.3, opacity=
             "opacity": opacity, "in": source_in_s}
 
 
-def _b_add_text(text, start_s, dur_s, position="bottom", size=0.06, style="luxury", color="", box=False,
+def _b_add_text(text, start_s, dur_s, position="bottom", size=0.06, style="auto", color="", box=None,
                 uppercase=None, ornament="", fade_s=0.15):
     return {"op": "text", "text": text, "start": start_s, "dur": dur_s, "pos": position, "size": size, "style": style,
             "color": color or None, "box": box, "uppercase": uppercase, "ornament": ornament or None, "fade": fade_s}
 
 
-def _b_add_subtitles(srt_path="", cues=None, offset_s=0.0, position="bottom", size=0.05, style="champagne", color="",
-                     box=True):
+def _b_add_subtitles(srt_path="", cues=None, offset_s=0.0, position="bottom", size=0.05, style="auto", color="",
+                     box=None):
     if bool(srt_path) == bool(cues):
         raise ValueError("give exactly one of srt_path or cues")
     items = textrender.parse_srt(_safe_path(srt_path, "add_subtitles")) if srt_path else cues
@@ -250,6 +252,7 @@ def summary(st, full=False):
             d["source"] = L["src"]
         layers.append(d)
     out = {
+        "template": live.THEME.name,
         "duration_s": round(m["total"], 3),
         "entries": [{"index": i, "source": e["src"], "source_in_s": round(e["in"], 3),
                      "start_s": round(e["start"], 3), "end_s": round(e["start"] + e["dur"], 3)}
@@ -372,36 +375,60 @@ def add_pip(source: str, start_s: float, dur_s: float, position: str = "top-righ
 @mcp.tool()
 def list_styles() -> dict:
     """Text styles available for add_text / add_subtitles, and the graphic kinds for add_graphic."""
-    return {"text_styles": {k: v["label"] for k, v in textrender.STYLES.items()},
-            "default_title_style": "luxury", "default_subtitle_style": "champagne",
+    bind(load())
+    return {"templates": themes.describe(), "current_template": live.THEME.name,
+            "text_styles": {k: v["label"] for k, v in textrender.STYLES.items()},
+            "default_title_style": live.THEME.title_style, "default_subtitle_style": live.THEME.subtitle_style,
             "graphics": {k: f"amount = {graphics.AMOUNT[k][0]}, {graphics.AMOUNT[k][1]}-{graphics.AMOUNT[k][2]} "
                             f"(default {graphics.AMOUNT[k][3]})" for k in graphics.KINDS},
             "lower_third": "name + role panel with a gold side bar (add_lower_third)"}
 
 
 @mcp.tool()
+def set_template(name: str, accent: str = "") -> dict:
+    """Choose the project's design template: luxury | corporate | academic | sketch | tech | minimal | playful (see list_styles).
+    Everything that does not name its own style (text, subtitles, lower thirds, labels, cards) follows it, so switching
+    restyles the whole edit; edits are kept. accent: optional #RRGGBB brand colour replacing the template's signature colour.
+    Rejected, changing nothing, if an existing text would not fit in the new template's type."""
+    spec = {"name": name, "accent": accent or None}
+    themes.get(spec)                                       # validates name and colour
+    with locked():
+        st = load()
+        st["theme"] = spec
+        bind(st)
+        for i, o in enumerate(st["ops"]):
+            try:
+                live.check_new_op(o)
+            except ValueError as e:
+                raise ValueError(f"op {i} would not fit in the '{name}' template: {e}; nothing was changed")
+        live.layout(st["ops"])
+        save(st)
+        return {"template": name, "accent": live.THEME.accent, **summary(st)}
+
+
+@mcp.tool()
 def add_text(text: str, start_s: float, dur_s: float, position: str = "bottom", size: float = 0.06,
-             style: str = "luxury", color: str = "", box: bool = False, uppercase: bool | None = None,
+             style: str = "auto", color: str = "", box: bool | None = None, uppercase: bool | None = None,
              ornament: str = "", fade_s: float = 0.15) -> dict:
     """Show a title/caption from start_s for dur_s (TIMELINE time). Latin text with accents, ñ, ¿¡ is
     supported; use \\n for a line break. Long text is wrapped and shrunk to fit (max 4 lines, 200 chars);
     text that cannot fit, or characters the font lacks (CJK, newer emoji), are rejected with a message.
-    style: luxury (default, Playfair Display in metallic gold) | luxury-italic | champagne (Cormorant, soft ivory) |
-    noir (Cinzel capitals, wide tracking) | modern (Montserrat uppercase) | classic (plain white sans). See list_styles.
+    style: "auto" (default) follows the project's template (set_template); or a name from list_styles
+    (luxury, luxury-italic, champagne, noir, modern, classic, corp-*, acad-*, sketch-*, tech-*, min-*, kids-*).
     position: bottom | center | top. size: fraction of frame height (0.02-0.2).
     color: optional #RRGGBB; leave empty to keep the style's own colour (gold gradient for luxury).
-    box: dark glass box behind the text. uppercase: force/forbid capitals (default per style).
+    box: panel behind the text (default: the style decides). uppercase: force/forbid capitals (default per style).
     ornament: none | line | diamond (thin gold rule; default per style). All styles add a soft shadow for readability."""
     return commit(_b_add_text(text, start_s, dur_s, position, size, style, color, box, uppercase, ornament, fade_s))
 
 
 @mcp.tool()
 def add_subtitles(srt_path: str = "", cues: list[dict] | None = None, offset_s: float = 0.0,
-                  position: str = "bottom", size: float = 0.05, style: str = "champagne", color: str = "",
-                  box: bool = True) -> dict:
+                  position: str = "bottom", size: float = 0.05, style: str = "auto", color: str = "",
+                  box: bool | None = None) -> dict:
     """Add subtitles from an .srt file (srt_path) OR a list of cues [{"start":1.0,"end":2.5,"text":"Hola"}]
     (seconds, timeline time). Give exactly one. offset_s shifts every cue (positive = later).
-    style: champagne (default, elegant Cormorant on a dark glass box) | luxury | luxury-italic | noir | modern | classic.
+    style: "auto" (default) = the template's subtitle style, or any name from list_styles.
     Same text rules as add_text (accents/ñ fine; up to 300 cues). Cues after the timeline end are
     dropped with a warning. Calling it again ADDS another subtitle track; use remove_op to replace."""
     return commit(_b_add_subtitles(srt_path, cues, offset_s, position, size, style, color, box))
@@ -539,7 +566,7 @@ def _state_key(st, scale):
             stt = os.stat(p); files.append((p, stt.st_mtime_ns, stt.st_size))
         except OSError:
             files.append((p, None, None))
-    return json.dumps([st["ops"], st["width"], st["height"], st["fps"], scale, files], sort_keys=True)
+    return json.dumps([st["ops"], st["width"], st["height"], st["fps"], scale, files, st.get("theme")], sort_keys=True)
 
 
 def _built(st, scale):

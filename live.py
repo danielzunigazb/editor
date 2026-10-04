@@ -19,6 +19,7 @@ import base64, html, json, os, subprocess, sys, time
 
 import graphics
 import textrender
+import themes
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LIVE = os.path.join(HERE, "out", "live")
@@ -30,6 +31,7 @@ CLIP_LEN = {"A": 6.0, "B": 5.0, "C": 4.0}
 W, H, FPS = 640, 360, 25
 CACHE = os.path.join(LIVE, "cache")     # rendered text PNGs (server points this at the project dir)
 MAX_LAYER_TRACKS = 6
+THEME = themes.get(None)                 # active template (server.bind sets it from the project); luxury = the original look
 _BBOX = {}                              # cropped-overlay cache: png path -> (cropped path, x, y, w, h) or None
 
 
@@ -206,7 +208,7 @@ def layout(ops):
             cues = o.get("cues")
             if not isinstance(cues, list) or not 1 <= len(cues) <= 300:
                 raise ValueError(f"{where}: needs 1-300 cues")
-            style = _text_style({"pos": "bottom", "size": 0.05, "box": True, "fade": 0.0, "style": "champagne",
+            style = _text_style({"pos": "bottom", "size": 0.05, "fade": 0.0, "style": "auto",
                                  "ornament": "none", **{k: v for k, v in o.items() if v is not None}}, where)
             for ci, c in enumerate(cues):
                 try:
@@ -385,9 +387,17 @@ def _clean(text, where, style="classic"):
         raise ValueError(f"{where}: {e}")
 
 
+def resolve_style(o):
+    """Concrete textrender style of a text/subtitles op: an explicit name wins; None/"auto" follows the project's template."""
+    style = o.get("style")
+    if style in (None, "", "auto"):
+        return THEME.subtitle_style if o.get("op") == "subtitles" else THEME.title_style
+    return style
+
+
 def _text_style(o, where):
     pos, size, color = o.get("pos", "bottom"), o.get("size", 0.06), o.get("color") or None
-    style, upper, orn = o.get("style", "luxury"), o.get("uppercase"), o.get("ornament") or None
+    style, upper, orn = resolve_style(o), o.get("uppercase"), o.get("ornament") or None
     fade = float(o.get("fade", 0.15))
     try:
         textrender.validate_style(style)
@@ -405,7 +415,10 @@ def _text_style(o, where):
         raise ValueError(f"{where}: color must look like #RRGGBB (or omit it to use the style's own colour)")
     if fade < 0:
         raise ValueError(f"{where}: fade must be >= 0")
-    return {"pos": pos, "size": float(size), "color": color, "box": bool(o.get("box", False)), "fade": fade,
+    box = o.get("box")
+    if box is None:                                       # the style decides (template panels), else the old defaults: subtitles on, titles off
+        box = textrender.STYLES[style].get("box_default", o.get("op") == "subtitles")
+    return {"pos": pos, "size": float(size), "color": color, "box": bool(box), "fade": fade,
             "style": style, "uppercase": upper, "ornament": orn}
 
 
@@ -448,10 +461,10 @@ def check_new_op(op):
             raise ValueError(str(e))
         return
     if k == "text":
-        texts, style, up = [(op.get("text"), op.get("size", 0.06))], op.get("style", "luxury"), op.get("uppercase")
+        texts, style, up = [(op.get("text"), op.get("size", 0.06))], resolve_style(op), op.get("uppercase")
     elif k == "subtitles":
         texts = [(c.get("text"), op.get("size", 0.05)) for c in op.get("cues", [])]
-        style, up = op.get("style") or "champagne", op.get("uppercase")
+        style, up = resolve_style(op), op.get("uppercase")
     else:
         return
     for i, (t, size) in enumerate(texts):
