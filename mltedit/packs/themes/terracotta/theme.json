@@ -1,0 +1,159 @@
+{
+ "name": "terracotta",
+ "default": false,
+ "label": "Clay, cream and coffee; DM Serif Display; warm paper panels with a clay rule and grain; travel, food, craft",
+ "palette": {
+  "ink": "#3e2b1e",
+  "paper": "#f3e9d8",
+  "accent": "#c56a3c",
+  "accent2": "#8a5a3b",
+  "muted": "#7a6552"
+ },
+ "styles": {
+  "title": "terra-title",
+  "subtitle": "terra-body",
+  "caption": "terra-body"
+ },
+ "text_styles": {
+  "terra-title": {
+   "label": "DM Serif Display, coffee on warm paper with a clay rule (terracotta titles)",
+   "font": "DMSerifDisplay.ttf",
+   "tracking": 0.004,
+   "upper": false,
+   "fill": "#3E2B1E",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "ornament": "line",
+   "orn_color": "#C56A3C",
+   "box_fill": [
+    243,
+    233,
+    216,
+    244
+   ],
+   "box_outline": [
+    197,
+    106,
+    60,
+    255
+   ],
+   "box_radius": 0.12,
+   "box_default": true
+  },
+  "terra-body": {
+   "label": "DM Sans medium, coffee on warm paper (terracotta captions)",
+   "font": "DMSans.ttf",
+   "axes": {
+    "wght": 500,
+    "opsz": 14
+   },
+   "tracking": 0.006,
+   "upper": false,
+   "fill": "#3E2B1E",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "ornament": "none",
+   "box_fill": [
+    243,
+    233,
+    216,
+    240
+   ],
+   "box_outline": [
+    197,
+    106,
+    60,
+    200
+   ],
+   "box_radius": 0.12,
+   "box_default": true
+  }
+ },
+ "shape": {
+  "name": "rule",
+  "radius": 0.004,
+  "stroke": 0.0012
+ },
+ "lower_third": {
+  "scrim": false
+ },
+ "callout": {
+  "flag": "panel"
+ },
+ "decor": "page",
+ "card": {
+  "bg": "grain",
+  "bg_options": {},
+  "title": "#3e2b1e",
+  "sub": "#7a6552",
+  "accent": "#c56a3c",
+  "effects": false,
+  "align": "center",
+  "vertical_bar": false,
+  "rule": "dot-mid",
+  "list_role": "sub",
+  "stat_role": "accent",
+  "bento": {
+   "title_y": 0.07,
+   "top": 0.28,
+   "bottom": 0.9
+  },
+  "motion": {
+   "enter_s": 0.8,
+   "stagger_s": 0.2,
+   "rise": 0.02,
+   "dx": 0.0
+  }
+ },
+ "plate": {
+  "fill": "paper@245",
+  "outline": "accent@255",
+  "width": 0.03,
+  "color": "accent"
+ },
+ "motion": {
+  "lower_third": {
+   "in": "rise",
+   "out": "fade",
+   "in_s": 0.7,
+   "out_s": 0.5
+  },
+  "text": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.7,
+   "out_s": 0.5
+  },
+  "image": {
+   "in": "zoom",
+   "out": "fade",
+   "in_s": 0.6,
+   "out_s": 0.4
+  },
+  "pip": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.4,
+   "out_s": 0.4
+  },
+  "callout": {
+   "in": "draw",
+   "out": "fade",
+   "in_s": 0.6,
+   "out_s": 0.4
+  }
+ },
+ "transition": "dissolve",
+ "music_moods": [
+  "acoustic",
+  "warm",
+  "calm"
+ ],
+ "sfx": [
+  "page-turn",
+  "bell",
+  "pluck"
+ ]
+}

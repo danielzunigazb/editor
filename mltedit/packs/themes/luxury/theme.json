@@ -1,0 +1,342 @@
+{
+ "name": "luxury",
+ "default": true,
+ "label": "Gold on dark glass; Playfair + Cormorant; diamonds and keylines (the original look)",
+ "palette": {
+  "ink": "#f6ecd6",
+  "paper": "#08080b",
+  "accent": "#d9b25a",
+  "accent2": "#e8c25f",
+  "muted": "#c9b48a"
+ },
+ "styles": {
+  "title": "luxury",
+  "subtitle": "champagne",
+  "caption": "modern"
+ },
+ "text_styles": {
+  "luxury": {
+   "label": "Playfair Display, metallic gold, soft shadow, thin gold ornament",
+   "font": "PlayfairDisplay.ttf",
+   "wght": 600,
+   "tracking": 0.025,
+   "upper": false,
+   "fill": [
+    [
+     0.0,
+     "#fff4cc"
+    ],
+    [
+     0.48,
+     "#e8c25f"
+    ],
+    [
+     0.52,
+     "#c99a3a"
+    ],
+    [
+     1.0,
+     "#8e6a22"
+    ]
+   ],
+   "stroke": false,
+   "shadow": [
+    0.0,
+    0.05,
+    0.07,
+    0.75
+   ],
+   "halo": [
+    0.022,
+    0.55
+   ],
+   "ornament": "diamond",
+   "box_fill": [
+    8,
+    8,
+    11,
+    150
+   ],
+   "box_outline": [
+    217,
+    178,
+    90,
+    110
+   ],
+   "box_width": 0.025
+  },
+  "luxury-italic": {
+   "label": "Playfair Display Italic, metallic gold, soft shadow",
+   "font": "PlayfairDisplay-Italic.ttf",
+   "wght": 600,
+   "tracking": 0.02,
+   "upper": false,
+   "fill": [
+    [
+     0.0,
+     "#fff4cc"
+    ],
+    [
+     0.48,
+     "#e8c25f"
+    ],
+    [
+     0.52,
+     "#c99a3a"
+    ],
+    [
+     1.0,
+     "#8e6a22"
+    ]
+   ],
+   "stroke": false,
+   "shadow": [
+    0.0,
+    0.05,
+    0.07,
+    0.75
+   ],
+   "halo": [
+    0.022,
+    0.55
+   ],
+   "ornament": "line",
+   "box_fill": [
+    8,
+    8,
+    11,
+    150
+   ],
+   "box_outline": [
+    217,
+    178,
+    90,
+    110
+   ],
+   "box_width": 0.025
+  },
+  "champagne": {
+   "label": "Cormorant Garamond semibold, champagne white, soft shadow; ideal for subtitles",
+   "font": "CormorantGaramond.ttf",
+   "wght": 600,
+   "tracking": 0.012,
+   "upper": false,
+   "fill": "#f6ecd6",
+   "stroke": false,
+   "shadow": [
+    0.0,
+    0.045,
+    0.06,
+    0.8
+   ],
+   "halo": [
+    0.02,
+    0.5
+   ],
+   "ornament": "none",
+   "box_fill": [
+    8,
+    8,
+    11,
+    150
+   ],
+   "box_outline": [
+    217,
+    178,
+    90,
+    110
+   ],
+   "box_width": 0.025
+  },
+  "noir": {
+   "label": "Cinzel capitals, wide tracking, ivory with a thin gold line",
+   "font": "Cinzel.ttf",
+   "wght": 600,
+   "tracking": 0.16,
+   "upper": false,
+   "fill": "#f8f4ea",
+   "stroke": false,
+   "halo": [
+    0.018,
+    0.5
+   ],
+   "shadow": [
+    0.0,
+    0.05,
+    0.07,
+    0.8
+   ],
+   "ornament": "line",
+   "box_fill": [
+    8,
+    8,
+    11,
+    150
+   ],
+   "box_outline": [
+    217,
+    178,
+    90,
+    110
+   ],
+   "box_width": 0.025
+  },
+  "modern": {
+   "label": "Montserrat medium, UPPERCASE, very wide tracking, white",
+   "font": "Montserrat.ttf",
+   "wght": 500,
+   "tracking": 0.2,
+   "upper": true,
+   "fill": "#ffffff",
+   "stroke": false,
+   "halo": [
+    0.016,
+    0.45
+   ],
+   "shadow": [
+    0.0,
+    0.04,
+    0.06,
+    0.7
+   ],
+   "ornament": "none",
+   "box_fill": [
+    8,
+    8,
+    11,
+    150
+   ],
+   "box_outline": [
+    217,
+    178,
+    90,
+    110
+   ],
+   "box_width": 0.025
+  }
+ },
+ "shape": {
+  "name": "glass",
+  "radius": 0.012,
+  "stroke": 0.0012,
+  "gradient": [
+   [
+    0.0,
+    "#fff4cc"
+   ],
+   [
+    0.48,
+    "#e8c25f"
+   ],
+   [
+    0.52,
+    "#c99a3a"
+   ],
+   [
+    1.0,
+    "#8e6a22"
+   ]
+  ],
+  "sub_tracking": 0.16
+ },
+ "lower_third": {
+  "scrim": false
+ },
+ "callout": {
+  "flag": "panel"
+ },
+ "decor": "frame",
+ "card": {
+  "bg": "marble",
+  "bg_options": {
+   "glow": "#463416"
+  },
+  "title": [
+   [
+    0.0,
+    "#fff4cc"
+   ],
+   [
+    0.48,
+    "#e8c25f"
+   ],
+   [
+    0.52,
+    "#c99a3a"
+   ],
+   [
+    1.0,
+    "#8e6a22"
+   ]
+  ],
+  "sub": "#cdbb94",
+  "accent": "#d9b25a",
+  "effects": false,
+  "align": "center",
+  "vertical_bar": false,
+  "rule": "diamond",
+  "list_role": "sub",
+  "stat_role": "title",
+  "bento": {
+   "title_y": 0.07,
+   "top": 0.28,
+   "bottom": 0.9
+  },
+  "motion": {
+   "enter_s": 0.9,
+   "stagger_s": 0.22,
+   "rise": 0.02,
+   "dx": 0.0
+  }
+ },
+ "plate": {
+  "fill": "#08080b@215",
+  "outline": "accent@200",
+  "width": 0.035,
+  "color": "accent"
+ },
+ "motion": {
+  "lower_third": {
+   "in": "slide-left",
+   "out": "fade",
+   "in_s": 0.8,
+   "out_s": 0.6,
+   "ease_in": "out"
+  },
+  "text": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.7,
+   "out_s": 0.6
+  },
+  "image": {
+   "in": "zoom",
+   "out": "fade",
+   "in_s": 0.7,
+   "out_s": 0.5
+  },
+  "pip": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.4,
+   "out_s": 0.4
+  },
+  "callout": {
+   "in": "draw",
+   "out": "fade",
+   "in_s": 0.7,
+   "out_s": 0.4
+  }
+ },
+ "transition": "dissolve",
+ "music_moods": [
+  "elegant",
+  "cinematic",
+  "piano"
+ ],
+ "sfx": [
+  "chime",
+  "whoosh-low"
+ ],
+ "accent_locked": "luxury keeps its metallic gold; accent was ignored (it applies to the other templates)"
+}

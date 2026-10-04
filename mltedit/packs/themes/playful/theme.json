@@ -1,0 +1,182 @@
+{
+ "name": "playful",
+ "default": false,
+ "label": "Coral, yellow, green and blue; Fredoka; thick outlines and sticker shadows; kids and social",
+ "palette": {
+  "ink": "#2b2d42",
+  "paper": "#fff8e7",
+  "accent": "#ff6b6b",
+  "accent2": "#4d96ff",
+  "muted": "#6b6f8a",
+  "extra": [
+   "#ffd93d",
+   "#6bcb77"
+  ]
+ },
+ "styles": {
+  "title": "kids-title",
+  "subtitle": "kids-body",
+  "caption": "kids-body"
+ },
+ "text_styles": {
+  "kids-title": {
+   "label": "Fredoka bold, sunny yellow with a thick dark outline and a sticker shadow (playful titles)",
+   "font": "Fredoka.ttf",
+   "axes": {
+    "wght": 650,
+    "wdth": 100
+   },
+   "tracking": 0.012,
+   "upper": false,
+   "fill": "#ffd93d",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "outline": [
+    "#2b2d42",
+    0.11
+   ],
+   "sticker": [
+    0.035,
+    0.06,
+    "#2b2d42"
+   ],
+   "ornament": "none",
+   "box_fill": [
+    255,
+    255,
+    255,
+    235
+   ],
+   "box_outline": [
+    43,
+    45,
+    66,
+    255
+   ],
+   "box_radius": 0.7
+  },
+  "kids-body": {
+   "label": "Nunito extra-bold, white with a dark outline and a sticker shadow (playful captions)",
+   "font": "Nunito.ttf",
+   "axes": {
+    "wght": 800
+   },
+   "tracking": 0.01,
+   "upper": false,
+   "fill": "#ffffff",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "outline": [
+    "#2b2d42",
+    0.09
+   ],
+   "sticker": [
+    0.03,
+    0.05,
+    "#2b2d42"
+   ],
+   "ornament": "none",
+   "box_fill": [
+    255,
+    255,
+    255,
+    235
+   ],
+   "box_outline": [
+    43,
+    45,
+    66,
+    255
+   ],
+   "box_radius": 0.7
+  }
+ },
+ "shape": {
+  "name": "bubble",
+  "radius": 0.03,
+  "stroke": 0.004
+ },
+ "lower_third": {
+  "scrim": false
+ },
+ "callout": {
+  "flag": "panel"
+ },
+ "decor": "doodle",
+ "card": {
+  "bg": "confetti",
+  "bg_options": {},
+  "title": null,
+  "sub": null,
+  "accent": "#ff6b6b",
+  "effects": true,
+  "align": "center",
+  "vertical_bar": false,
+  "rule": "dots",
+  "list_role": "sub",
+  "stat_role": "title",
+  "bento": {
+   "title_y": 0.07,
+   "top": 0.28,
+   "bottom": 0.9
+  },
+  "motion": {
+   "enter_s": 0.55,
+   "stagger_s": 0.14,
+   "rise": -0.05,
+   "dx": 0.0
+  }
+ },
+ "plate": {
+  "fill": "accent2@255",
+  "outline": "ink@255",
+  "width": 0.06,
+  "color": "#ffffff"
+ },
+ "motion": {
+  "lower_third": {
+   "in": "drop",
+   "out": "zoom",
+   "in_s": 0.6,
+   "out_s": 0.3
+  },
+  "text": {
+   "in": "pop",
+   "out": "pop",
+   "in_s": 0.45,
+   "out_s": 0.3
+  },
+  "image": {
+   "in": "spin",
+   "out": "pop",
+   "in_s": 0.55,
+   "out_s": 0.3
+  },
+  "pip": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.4,
+   "out_s": 0.4
+  },
+  "callout": {
+   "in": "pop",
+   "out": "pop",
+   "in_s": 0.5,
+   "out_s": 0.3
+  }
+ },
+ "transition": "iris-out",
+ "music_moods": [
+  "happy",
+  "bouncy",
+  "playful"
+ ],
+ "sfx": [
+  "pop",
+  "boing",
+  "applause",
+  "ding"
+ ]
+}

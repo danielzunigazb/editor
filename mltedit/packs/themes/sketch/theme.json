@@ -1,0 +1,157 @@
+{
+ "name": "sketch",
+ "default": false,
+ "label": "Hand-drawn: wobbly marker lines, highlighter underlines, Caveat lettering; friendly explainers",
+ "palette": {
+  "ink": "#222222",
+  "paper": "#fbfaf5",
+  "accent": "#e4572e",
+  "accent2": "#2e86de",
+  "muted": "#555555"
+ },
+ "styles": {
+  "title": "sketch-title",
+  "subtitle": "sketch-body",
+  "caption": "sketch-body"
+ },
+ "text_styles": {
+  "sketch-title": {
+   "label": "Caveat bold marker lettering on a paper note (sketch titles)",
+   "font": "Caveat.ttf",
+   "axes": {
+    "wght": 700
+   },
+   "tracking": 0.01,
+   "upper": false,
+   "fill": "#222222",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "ornament": "none",
+   "box_fill": [
+    251,
+    250,
+    245,
+    244
+   ],
+   "box_outline": [
+    34,
+    34,
+    34,
+    255
+   ],
+   "box_radius": 0.3,
+   "box_default": true
+  },
+  "sketch-body": {
+   "label": "Patrick Hand handwriting on a paper note (sketch captions)",
+   "font": "PatrickHand.ttf",
+   "tracking": 0.012,
+   "upper": false,
+   "fill": "#222222",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "ornament": "none",
+   "box_fill": [
+    251,
+    250,
+    245,
+    240
+   ],
+   "box_outline": [
+    34,
+    34,
+    34,
+    230
+   ],
+   "box_radius": 0.3,
+   "box_default": true
+  }
+ },
+ "shape": {
+  "name": "sketch",
+  "radius": 0.02,
+  "stroke": 0.0035
+ },
+ "lower_third": {
+  "scrim": false
+ },
+ "callout": {
+  "flag": "panel"
+ },
+ "decor": "doodle",
+ "card": {
+  "bg": "dots",
+  "bg_options": {},
+  "title": "#222222",
+  "sub": "#555555",
+  "accent": "#e4572e",
+  "effects": false,
+  "align": "center",
+  "vertical_bar": false,
+  "rule": "scribble",
+  "list_role": "sub",
+  "stat_role": "accent",
+  "bento": {
+   "title_y": 0.07,
+   "top": 0.28,
+   "bottom": 0.9
+  },
+  "motion": {
+   "enter_s": 0.5,
+   "stagger_s": 0.15,
+   "rise": 0.05,
+   "dx": 0.0
+  }
+ },
+ "plate": {
+  "fill": "paper@248",
+  "outline": "ink@255",
+  "width": 0.05,
+  "color": "accent"
+ },
+ "motion": {
+  "lower_third": {
+   "in": "pop",
+   "out": "zoom",
+   "in_s": 0.45,
+   "out_s": 0.3
+  },
+  "text": {
+   "in": "pop",
+   "out": "fade",
+   "in_s": 0.4,
+   "out_s": 0.3
+  },
+  "image": {
+   "in": "spin",
+   "out": "zoom",
+   "in_s": 0.5,
+   "out_s": 0.3
+  },
+  "pip": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.4,
+   "out_s": 0.4
+  },
+  "callout": {
+   "in": "pop",
+   "out": "zoom",
+   "in_s": 0.45,
+   "out_s": 0.3
+  }
+ },
+ "transition": "iris-in",
+ "music_moods": [
+  "ukulele",
+  "light",
+  "playful"
+ ],
+ "sfx": [
+  "pencil",
+  "paper",
+  "pop"
+ ]
+}

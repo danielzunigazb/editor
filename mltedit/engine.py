@@ -242,10 +242,10 @@ def layout(ops):
             if fr(o["dur"]) < 1:
                 raise ValueError(f"{where}: dur {o['dur']:g}s is shorter than one frame ({1 / fps:g}s)")
             xfades[a_] = fr(o["dur"])               # frames
-            style_ = transitions.validate(o.get("style", "dissolve"), where)
+            style_ = transitions.validate(o.get("style") or S.default_transition, where)
             if style_ == "auto":                    # the template's own transition, only when the project's motion is on
-                style_ = THEME.transition if MOTION else "dissolve"
-            if style_ != "dissolve" and o["dur"] < transitions.MIN_S:
+                style_ = THEME.transition if MOTION else S.default_transition
+            if not transitions.is_plain(style_) and o["dur"] < transitions.MIN_S:
                 raise ValueError(f"{where}: a '{style_}' transition needs at least {transitions.MIN_S:g}s (dur is {o['dur']:g}s); use dissolve for a quick blend")
             xstyles[a_] = style_
         elif k == "fade":
@@ -725,7 +725,7 @@ def build(ops):
     done = 0
     for a in sorted(m["xfades_f"]):
         n = m["xfades_f"][a]
-        base.mix(a + done, n, transitions.apply(mlt7, p, m["xstyles"].get(a, "dissolve"), W, H, CACHE, n))
+        base.mix(a + done, n, transitions.apply(mlt7, p, m["xstyles"].get(a, S.default_transition), W, H, CACHE, n))
         base.mix_add(a + done, mlt7.Transition(p, "mix"))
         done += 1
 
@@ -967,9 +967,9 @@ def describe(o):
     if k == "cut":
         return f"Cortar la entrada {o['clip']} en {o['at']:g} s", f"cut #{o['clip']} @ {o['at']:g}s"
     if k == "crossfade":
-        st_ = o.get("style", "dissolve")
-        return (f"Fundido cruzado de {o['dur']:g} s entre {o['between'][0]} y {o['between'][1]}" + ("" if st_ == "dissolve" else f" ({st_})"),
-                f"xfade {o['between'][0]}-{o['between'][1]} {o['dur']:g}s" + ("" if st_ == "dissolve" else f" {st_}"))
+        st_ = o.get("style") or ""
+        return (f"Fundido cruzado de {o['dur']:g} s entre {o['between'][0]} y {o['between'][1]}" + (f" ({st_})" if st_ else ""),
+                f"xfade {o['between'][0]}-{o['between'][1]} {o['dur']:g}s" + (f" {st_}" if st_ else ""))
     if k == "fade":
         return f"Fade desde negro ({o['in']:g} s) y a negro ({o['out']:g} s)", f"fade in {o['in']:g} out {o['out']:g}"
     if k == "text":

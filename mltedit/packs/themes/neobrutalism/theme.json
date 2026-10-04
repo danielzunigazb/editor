@@ -1,0 +1,162 @@
+{
+ "name": "neobrutalism",
+ "default": false,
+ "label": "Yellow, violet and cream; Space Grotesk; square panels with thick ink borders and hard offset shadows",
+ "palette": {
+  "ink": "#1c293c",
+  "paper": "#fbfbf9",
+  "accent": "#fdc800",
+  "accent2": "#432dd7",
+  "muted": "#4a5568"
+ },
+ "styles": {
+  "title": "brut-title",
+  "subtitle": "brut-body",
+  "caption": "brut-body"
+ },
+ "text_styles": {
+  "brut-title": {
+   "label": "Space Grotesk bold, ink on a yellow block with a thick border (neobrutalism titles)",
+   "font": "SpaceGrotesk.ttf",
+   "axes": {
+    "wght": 700
+   },
+   "tracking": 0.0,
+   "upper": false,
+   "fill": "#1C293C",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "ornament": "none",
+   "box_fill": [
+    253,
+    200,
+    0,
+    255
+   ],
+   "box_outline": [
+    28,
+    41,
+    60,
+    255
+   ],
+   "box_radius": 0.0,
+   "box_default": true
+  },
+  "brut-body": {
+   "label": "Inter semibold, ink on a cream block with a thick border (neobrutalism captions)",
+   "font": "Inter.ttf",
+   "axes": {
+    "wght": 600,
+    "opsz": 14
+   },
+   "tracking": 0.0,
+   "upper": false,
+   "fill": "#1C293C",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "ornament": "none",
+   "box_fill": [
+    251,
+    251,
+    249,
+    255
+   ],
+   "box_outline": [
+    28,
+    41,
+    60,
+    255
+   ],
+   "box_radius": 0.0,
+   "box_default": true
+  }
+ },
+ "shape": {
+  "name": "brutal",
+  "radius": 0.0,
+  "stroke": 0.0045
+ },
+ "lower_third": {
+  "scrim": false
+ },
+ "callout": {
+  "flag": "panel"
+ },
+ "decor": "frame",
+ "card": {
+  "bg": "brutal",
+  "bg_options": {},
+  "title": "#1c293c",
+  "sub": "#4a5568",
+  "accent": "#432dd7",
+  "effects": false,
+  "align": "center",
+  "vertical_bar": false,
+  "rule": "block",
+  "list_role": "sub",
+  "stat_role": "accent",
+  "bento": {
+   "title_y": 0.07,
+   "top": 0.28,
+   "bottom": 0.9
+  },
+  "motion": {
+   "enter_s": 0.35,
+   "stagger_s": 0.1,
+   "rise": 0.0,
+   "dx": -0.06
+  }
+ },
+ "plate": {
+  "fill": "accent@255",
+  "outline": "ink@255",
+  "width": 0.07,
+  "color": "ink"
+ },
+ "motion": {
+  "lower_third": {
+   "in": "slide-left",
+   "out": "slide-left",
+   "in_s": 0.3,
+   "out_s": 0.25,
+   "ease_in": "back"
+  },
+  "text": {
+   "in": "slide-bottom",
+   "out": "slide-bottom",
+   "in_s": 0.3,
+   "out_s": 0.25
+  },
+  "image": {
+   "in": "pop",
+   "out": "zoom",
+   "in_s": 0.3,
+   "out_s": 0.25
+  },
+  "pip": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.4,
+   "out_s": 0.4
+  },
+  "callout": {
+   "in": "pop",
+   "out": "zoom",
+   "in_s": 0.3,
+   "out_s": 0.25
+  }
+ },
+ "transition": "slide-left",
+ "music_moods": [
+  "funk",
+  "indie",
+  "upbeat"
+ ],
+ "sfx": [
+  "click",
+  "pop",
+  "whoosh"
+ ]
+}

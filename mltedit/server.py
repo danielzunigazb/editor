@@ -163,8 +163,8 @@ def _b_cut_clip(index, at_s):
     return {"op": "cut", "clip": index, "at": at_s}
 
 
-def _b_crossfade(first_index, dur_s=1.0, style="dissolve"):
-    return {"op": "crossfade", "between": [first_index, first_index + 1], "dur": dur_s, **({"style": style} if style != "dissolve" else {})}
+def _b_crossfade(first_index, dur_s=1.0, style=""):
+    return {"op": "crossfade", "between": [first_index, first_index + 1], "dur": dur_s, **({"style": style} if style and style != S.default_transition else {})}
 
 
 def _b_set_fades(fade_in_s=0.0, fade_out_s=0.0):
@@ -454,7 +454,7 @@ def cut_clip(index: int, at_s: float) -> dict:
 
 
 @mcp.tool()
-def crossfade(first_index: int, dur_s: float = 1.0, style: str = "dissolve", sfx: str = "") -> dict:
+def crossfade(first_index: int, dur_s: float = 1.0, style: str = "", sfx: str = "") -> dict:
     """Transition (video) and crossfade (audio) between entry `first_index` and the next one. The two entries overlap by dur_s, so the
     timeline gets shorter by dur_s. style: dissolve | wipe-right|left|up|down | iris-out|in | blinds-v|h | diagonal | clock |
     slide-left|right|up|down (the new clip travels over the old one) | auto (the template's own, only when the project's motion is on).
@@ -517,10 +517,10 @@ def set_template(name: str, accent: str = "", motion: bool | None = None) -> dic
     motion: true/false switches the template's own motion (default animations and the style="auto" transition) for the whole project; omit to keep it.
     Rejected, changing nothing, if an existing text would not fit in the new template's type."""
     spec = {"name": name, "accent": accent or None}
-    themes.get(spec)                                       # validates name and colour
+    base = themes.get(spec)                                # validates name and colour
     note = None
-    if name == "luxury" and accent:                        # the luxury look is a metallic gold gradient, not one colour
-        spec["accent"], note = None, "luxury keeps its metallic gold; accent was ignored (it applies to the other templates)"
+    if accent and base.options.get("accent_locked"):        # a template whose look is not one colour (e.g. a metallic gradient) keeps its own
+        spec["accent"], note = None, base.options["accent_locked"]
     with locked():
         st = load()
         st["theme"] = spec

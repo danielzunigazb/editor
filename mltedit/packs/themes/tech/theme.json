@@ -1,0 +1,170 @@
+{
+ "name": "tech",
+ "default": false,
+ "label": "Dark navy with cyan/magenta neon, Space Grotesk + mono, corner brackets and glow",
+ "palette": {
+  "ink": "#e8fbff",
+  "paper": "#0a0f1c",
+  "accent": "#00e5ff",
+  "accent2": "#ff2bd6",
+  "muted": "#7fa6b3"
+ },
+ "styles": {
+  "title": "tech-title",
+  "subtitle": "tech-mono",
+  "caption": "tech-mono"
+ },
+ "text_styles": {
+  "tech-title": {
+   "label": "Space Grotesk, UPPERCASE with a cyan neon glow on a dark panel (tech titles)",
+   "font": "SpaceGrotesk.ttf",
+   "axes": {
+    "wght": 600
+   },
+   "tracking": 0.1,
+   "upper": true,
+   "fill": "#e8fbff",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "ornament": "none",
+   "glow": [
+    "#00e5ff",
+    0.1,
+    0.95
+   ],
+   "box_fill": [
+    10,
+    15,
+    28,
+    222
+   ],
+   "box_outline": [
+    0,
+    229,
+    255,
+    210
+   ],
+   "box_radius": 0.1,
+   "box_default": true
+  },
+  "tech-mono": {
+   "label": "JetBrains Mono with a soft cyan glow (tech captions, labels)",
+   "font": "JetBrainsMono.ttf",
+   "axes": {
+    "wght": 500
+   },
+   "tracking": 0.02,
+   "upper": false,
+   "fill": "#cff9ff",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "ornament": "none",
+   "glow": [
+    "#00e5ff",
+    0.06,
+    0.7
+   ],
+   "box_fill": [
+    10,
+    15,
+    28,
+    205
+   ],
+   "box_outline": [
+    0,
+    229,
+    255,
+    150
+   ],
+   "box_radius": 0.1,
+   "box_default": true
+  }
+ },
+ "shape": {
+  "name": "neon",
+  "radius": 0.008,
+  "stroke": 0.002
+ },
+ "lower_third": {
+  "scrim": false
+ },
+ "callout": {
+  "flag": "panel"
+ },
+ "decor": "brackets",
+ "card": {
+  "bg": "dark_grid",
+  "bg_options": {},
+  "title": null,
+  "sub": null,
+  "accent": "#00e5ff",
+  "effects": true,
+  "align": "left",
+  "vertical_bar": true,
+  "rule": "dot-end",
+  "list_role": "sub",
+  "stat_role": "title",
+  "bento": {
+   "title_y": 0.07,
+   "top": 0.28,
+   "bottom": 0.9
+  },
+  "motion": {
+   "enter_s": 0.4,
+   "stagger_s": 0.1,
+   "rise": 0.0,
+   "dx": -0.04
+  }
+ },
+ "plate": {
+  "fill": "#0a0f1c@232",
+  "outline": "accent@255",
+  "width": 0.03,
+  "color": "accent"
+ },
+ "motion": {
+  "lower_third": {
+   "in": "wipe",
+   "out": "wipe",
+   "in_s": 0.4,
+   "out_s": 0.3
+  },
+  "text": {
+   "in": "wipe",
+   "out": "fade",
+   "in_s": 0.5,
+   "out_s": 0.3
+  },
+  "image": {
+   "in": "zoom",
+   "out": "zoom",
+   "in_s": 0.3,
+   "out_s": 0.25
+  },
+  "pip": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.4,
+   "out_s": 0.4
+  },
+  "callout": {
+   "in": "draw",
+   "out": "draw",
+   "in_s": 0.35,
+   "out_s": 0.25
+  }
+ },
+ "transition": "blinds-v",
+ "music_moods": [
+  "electronic",
+  "synth",
+  "futuristic"
+ ],
+ "sfx": [
+  "glitch",
+  "bleep",
+  "power-up"
+ ]
+}

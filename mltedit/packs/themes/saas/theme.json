@@ -1,0 +1,167 @@
+{
+ "name": "saas",
+ "default": false,
+ "label": "Near-black with a blue accent; IBM Plex Sans/Mono; flat dark panels with a 1 px line; product demos and dashboards",
+ "palette": {
+  "ink": "#fafafa",
+  "paper": "#111114",
+  "accent": "#2f81f7",
+  "accent2": "#3f3f46",
+  "muted": "#a1a1aa"
+ },
+ "styles": {
+  "title": "saas-title",
+  "subtitle": "saas-body",
+  "caption": "saas-body"
+ },
+ "text_styles": {
+  "saas-title": {
+   "label": "IBM Plex Sans semibold, white on a near-black panel with a thin line (saas titles)",
+   "font": "IBMPlexSans.ttf",
+   "axes": {
+    "wght": 600,
+    "wdth": 100
+   },
+   "tracking": 0.0,
+   "upper": false,
+   "fill": "#fafafa",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "ornament": "none",
+   "box_fill": [
+    17,
+    17,
+    20,
+    240
+   ],
+   "box_outline": [
+    63,
+    63,
+    70,
+    255
+   ],
+   "box_radius": 0.12,
+   "box_default": true
+  },
+  "saas-body": {
+   "label": "IBM Plex Sans regular, light grey on a near-black panel (saas captions)",
+   "font": "IBMPlexSans.ttf",
+   "axes": {
+    "wght": 400,
+    "wdth": 100
+   },
+   "tracking": 0.004,
+   "upper": false,
+   "fill": "#d4d4d8",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "ornament": "none",
+   "box_fill": [
+    17,
+    17,
+    20,
+    228
+   ],
+   "box_outline": [
+    63,
+    63,
+    70,
+    220
+   ],
+   "box_radius": 0.12,
+   "box_default": true
+  }
+ },
+ "shape": {
+  "name": "flat",
+  "radius": 0.006,
+  "stroke": 0.0012
+ },
+ "lower_third": {
+  "scrim": false
+ },
+ "callout": {
+  "flag": "panel"
+ },
+ "decor": "brackets",
+ "card": {
+  "bg": "blobs",
+  "bg_options": {
+   "strength": 0.34,
+   "second": "#5a3cc8",
+   "third": null,
+   "grid": true
+  },
+  "title": "#fafafa",
+  "sub": "#a1a1aa",
+  "accent": "#2f81f7",
+  "effects": false,
+  "align": "left",
+  "vertical_bar": true,
+  "rule": "bar",
+  "list_role": "sub",
+  "stat_role": "accent",
+  "bento": {
+   "title_y": 0.07,
+   "top": 0.28,
+   "bottom": 0.9
+  },
+  "motion": {
+   "enter_s": 0.45,
+   "stagger_s": 0.1,
+   "rise": 0.03,
+   "dx": 0.0
+  }
+ },
+ "plate": {
+  "fill": "paper@240",
+  "outline": "accent2@255",
+  "width": 0.03,
+  "color": "accent"
+ },
+ "motion": {
+  "lower_third": {
+   "in": "rise",
+   "out": "fade",
+   "in_s": 0.4,
+   "out_s": 0.3
+  },
+  "text": {
+   "in": "rise",
+   "out": "fade",
+   "in_s": 0.45,
+   "out_s": 0.3
+  },
+  "image": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.3,
+   "out_s": 0.25
+  },
+  "pip": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.4,
+   "out_s": 0.4
+  },
+  "callout": {
+   "in": "pop",
+   "out": "fade",
+   "in_s": 0.3,
+   "out_s": 0.25
+  }
+ },
+ "transition": "slide-up",
+ "music_moods": [
+  "corporate",
+  "electronic",
+  "ambient"
+ ],
+ "sfx": [
+  "click",
+  "ding",
+  "whoosh"
+ ]
+}

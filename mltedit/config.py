@@ -41,6 +41,8 @@ SPEC = {
     "max_layers":       (("MLT_MAX_LAYERS",), 1000, "int"),
     "project_defaults": (("MLT_PROJECT_DEFAULTS",), {"width": 1280, "height": 720, "fps": 25}, "json"),
     "xvfb_screen":      (("MLT_XVFB_SCREEN",), "1280x720x24", "str"),
+    "default_transition": (("MLT_DEFAULT_TRANSITION",), "dissolve", "str"),                   # crossfade without a style
+    "ornament_color":   (("MLT_ORNAMENT_COLOR",), "#d9b25a", "str"),                         # rule under/over text when its style names no orn_color
     "server_name":      (("MLT_SERVER_NAME",), "mlt-video-editor", "str"),
     "r2_url":           (("R2_WORKER_URL",), "", "secret"),                                   # env only
     "r2_token":         (("R2_UPLOAD_TOKEN",), "", "secret"),                                 # env only

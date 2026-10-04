@@ -1,0 +1,155 @@
+{
+ "name": "terminal",
+ "default": false,
+ "label": "Black with phosphor green; Space Mono + IBM Plex Mono; square panels, brackets and scanlines; dev and software demos",
+ "palette": {
+  "ink": "#b6f5d8",
+  "paper": "#0b0c14",
+  "accent": "#2db58a",
+  "accent2": "#37f712",
+  "muted": "#5f8f7c"
+ },
+ "styles": {
+  "title": "term-title",
+  "subtitle": "term-mono",
+  "caption": "term-mono"
+ },
+ "text_styles": {
+  "term-title": {
+   "label": "Space Mono bold, phosphor green on a black square panel (terminal titles)",
+   "font": "SpaceMono-Bold.ttf",
+   "tracking": 0.01,
+   "upper": false,
+   "fill": "#5df2b0",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "ornament": "none",
+   "box_fill": [
+    11,
+    12,
+    20,
+    238
+   ],
+   "box_outline": [
+    45,
+    181,
+    138,
+    255
+   ],
+   "box_radius": 0.0,
+   "box_default": true
+  },
+  "term-mono": {
+   "label": "IBM Plex Mono medium, pale green on a black square panel (terminal captions)",
+   "font": "IBMPlexMono-Medium.ttf",
+   "tracking": 0.01,
+   "upper": false,
+   "fill": "#b6f5d8",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "ornament": "none",
+   "box_fill": [
+    11,
+    12,
+    20,
+    226
+   ],
+   "box_outline": [
+    45,
+    181,
+    138,
+    190
+   ],
+   "box_radius": 0.0,
+   "box_default": true
+  }
+ },
+ "shape": {
+  "name": "term",
+  "radius": 0.0,
+  "stroke": 0.0022
+ },
+ "lower_third": {
+  "scrim": false
+ },
+ "callout": {
+  "flag": "panel"
+ },
+ "decor": "brackets",
+ "card": {
+  "bg": "scanlines",
+  "bg_options": {},
+  "title": "#5df2b0",
+  "sub": "#b6f5d8",
+  "accent": "#2db58a",
+  "effects": false,
+  "align": "left",
+  "vertical_bar": true,
+  "rule": "cursor",
+  "list_role": "sub",
+  "stat_role": "accent",
+  "bento": {
+   "title_y": 0.085,
+   "top": 0.28,
+   "bottom": 0.9
+  },
+  "motion": {
+   "enter_s": 0.3,
+   "stagger_s": 0.1,
+   "rise": 0.0,
+   "dx": -0.03
+  }
+ },
+ "plate": {
+  "fill": "paper@238",
+  "outline": "accent@255",
+  "width": 0.04,
+  "color": "accent"
+ },
+ "motion": {
+  "lower_third": {
+   "in": "wipe",
+   "out": "wipe",
+   "in_s": 0.35,
+   "out_s": 0.25
+  },
+  "text": {
+   "in": "wipe",
+   "out": "wipe",
+   "in_s": 0.6,
+   "out_s": 0.3
+  },
+  "image": {
+   "in": "pop",
+   "out": "fade",
+   "in_s": 0.2,
+   "out_s": 0.2,
+   "ease_in": "linear"
+  },
+  "pip": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.4,
+   "out_s": 0.4
+  },
+  "callout": {
+   "in": "draw",
+   "out": "draw",
+   "in_s": 0.3,
+   "out_s": 0.2
+  }
+ },
+ "transition": "blinds-h",
+ "music_moods": [
+  "electronic",
+  "dark",
+  "synth"
+ ],
+ "sfx": [
+  "click",
+  "bleep",
+  "glitch"
+ ]
+}

@@ -1,0 +1,162 @@
+{
+ "name": "riso",
+ "default": false,
+ "label": "Pink and blue risograph inks on warm paper; Space Grotesk + Space Mono; misregistered offsets and halftone; zines, music",
+ "palette": {
+  "ink": "#2c40a7",
+  "paper": "#f6efe2",
+  "accent": "#f237a1",
+  "accent2": "#2c40a7",
+  "muted": "#6b6f9a"
+ },
+ "styles": {
+  "title": "riso-title",
+  "subtitle": "riso-body",
+  "caption": "riso-body"
+ },
+ "text_styles": {
+  "riso-title": {
+   "label": "Space Grotesk bold, pink ink with a misregistered blue copy on warm paper (riso titles)",
+   "font": "SpaceGrotesk.ttf",
+   "axes": {
+    "wght": 700
+   },
+   "tracking": -0.004,
+   "upper": false,
+   "fill": "#f237a1",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "sticker": [
+    0.045,
+    0.035,
+    "#2c40a7"
+   ],
+   "ornament": "none",
+   "box_fill": [
+    246,
+    239,
+    226,
+    246
+   ],
+   "box_outline": [
+    44,
+    64,
+    167,
+    255
+   ],
+   "box_radius": 0.06,
+   "box_default": true
+  },
+  "riso-body": {
+   "label": "Space Mono, blue ink on warm paper (riso captions)",
+   "font": "SpaceMono.ttf",
+   "tracking": 0.0,
+   "upper": false,
+   "fill": "#2c40a7",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "ornament": "none",
+   "box_fill": [
+    246,
+    239,
+    226,
+    240
+   ],
+   "box_outline": [
+    44,
+    64,
+    167,
+    220
+   ],
+   "box_radius": 0.06,
+   "box_default": true
+  }
+ },
+ "shape": {
+  "name": "riso",
+  "radius": 0.0,
+  "stroke": 0.003
+ },
+ "lower_third": {
+  "scrim": false
+ },
+ "callout": {
+  "flag": "panel"
+ },
+ "decor": "frame",
+ "card": {
+  "bg": "halftone",
+  "bg_options": {},
+  "title": null,
+  "sub": null,
+  "accent": "#2c40a7",
+  "effects": true,
+  "align": "center",
+  "vertical_bar": false,
+  "rule": "misregister",
+  "list_role": "sub",
+  "stat_role": "accent",
+  "bento": {
+   "title_y": 0.07,
+   "top": 0.28,
+   "bottom": 0.9
+  },
+  "motion": {
+   "enter_s": 0.5,
+   "stagger_s": 0.12,
+   "rise": 0.0,
+   "dx": 0.06
+  }
+ },
+ "plate": {
+  "fill": "paper@248",
+  "outline": "accent2@255",
+  "width": 0.04,
+  "color": "accent"
+ },
+ "motion": {
+  "lower_third": {
+   "in": "slide-right",
+   "out": "slide-right",
+   "in_s": 0.4,
+   "out_s": 0.3
+  },
+  "text": {
+   "in": "rise",
+   "out": "fade",
+   "in_s": 0.5,
+   "out_s": 0.3
+  },
+  "image": {
+   "in": "spin",
+   "out": "zoom",
+   "in_s": 0.5,
+   "out_s": 0.3
+  },
+  "pip": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.4,
+   "out_s": 0.4
+  },
+  "callout": {
+   "in": "draw",
+   "out": "fade",
+   "in_s": 0.45,
+   "out_s": 0.3
+  }
+ },
+ "transition": "diagonal",
+ "music_moods": [
+  "indie",
+  "funk",
+  "lofi"
+ ],
+ "sfx": [
+  "pop",
+  "pluck",
+  "click"
+ ]
+}

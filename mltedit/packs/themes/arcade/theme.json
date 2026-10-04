@@ -1,0 +1,162 @@
+{
+ "name": "arcade",
+ "default": false,
+ "label": "Black, blue and yellow; Press Start 2P and VT323 pixel type with no smoothing; block borders and dither; games and retro",
+ "palette": {
+  "ink": "#ffffff",
+  "paper": "#05060f",
+  "accent": "#ffda14",
+  "accent2": "#2a3fe5",
+  "muted": "#f4b9b0"
+ },
+ "styles": {
+  "title": "arc-title",
+  "subtitle": "arc-body",
+  "caption": "arc-body"
+ },
+ "text_styles": {
+  "arc-title": {
+   "label": "Press Start 2P, UPPERCASE yellow pixel type with a blue block shadow (arcade titles)",
+   "font": "PressStart2P.ttf",
+   "tracking": 0.03,
+   "upper": true,
+   "fill": "#ffda14",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "sticker": [
+    0.08,
+    0.08,
+    "#2a3fe5"
+   ],
+   "pixel": true,
+   "ornament": "none",
+   "box_fill": [
+    5,
+    6,
+    15,
+    255
+   ],
+   "box_outline": [
+    255,
+    218,
+    20,
+    255
+   ],
+   "box_radius": 0.0,
+   "box_default": true
+  },
+  "arc-body": {
+   "label": "VT323 white pixel type on a black block (arcade captions)",
+   "font": "VT323.ttf",
+   "tracking": 0.04,
+   "upper": false,
+   "fill": "#ffffff",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "pixel": true,
+   "ornament": "none",
+   "box_fill": [
+    5,
+    6,
+    15,
+    250
+   ],
+   "box_outline": [
+    255,
+    218,
+    20,
+    255
+   ],
+   "box_radius": 0.0,
+   "box_default": true
+  }
+ },
+ "shape": {
+  "name": "pixel",
+  "radius": 0.0,
+  "stroke": 0.0055
+ },
+ "lower_third": {
+  "scrim": false
+ },
+ "callout": {
+  "flag": "panel"
+ },
+ "decor": "frame",
+ "card": {
+  "bg": "dither",
+  "bg_options": {},
+  "title": "#ffda14",
+  "sub": "#ffffff",
+  "accent": "#f4b9b0",
+  "effects": false,
+  "align": "center",
+  "vertical_bar": false,
+  "rule": "blocks",
+  "list_role": "sub",
+  "stat_role": "accent",
+  "bento": {
+   "title_y": 0.09,
+   "top": 0.28,
+   "bottom": 0.9
+  },
+  "motion": {
+   "enter_s": 0.35,
+   "stagger_s": 0.12,
+   "rise": -0.04,
+   "dx": 0.0
+  }
+ },
+ "plate": {
+  "fill": "paper@255",
+  "outline": "accent@255",
+  "width": 0.08,
+  "color": "accent"
+ },
+ "motion": {
+  "lower_third": {
+   "in": "wipe",
+   "out": "wipe",
+   "in_s": 0.4,
+   "out_s": 0.3
+  },
+  "text": {
+   "in": "wipe",
+   "out": "wipe",
+   "in_s": 0.5,
+   "out_s": 0.3
+  },
+  "image": {
+   "in": "drop",
+   "out": "zoom",
+   "in_s": 0.5,
+   "out_s": 0.25
+  },
+  "pip": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.4,
+   "out_s": 0.4
+  },
+  "callout": {
+   "in": "pop",
+   "out": "zoom",
+   "in_s": 0.3,
+   "out_s": 0.25,
+   "ease_in": "linear"
+  }
+ },
+ "transition": "blinds-v",
+ "music_moods": [
+  "chiptune",
+  "retro",
+  "game"
+ ],
+ "sfx": [
+  "power-up",
+  "bleep",
+  "coin"
+ ]
+}

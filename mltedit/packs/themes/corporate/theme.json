@@ -1,0 +1,161 @@
+{
+ "name": "corporate",
+ "default": false,
+ "label": "Navy and blue, Inter, flat panels with an accent bar; clean business look",
+ "palette": {
+  "ink": "#0b2545",
+  "paper": "#ffffff",
+  "accent": "#1f6feb",
+  "accent2": "#0b2545",
+  "muted": "#5b6770"
+ },
+ "styles": {
+  "title": "corp-title",
+  "subtitle": "corp-body",
+  "caption": "corp-body"
+ },
+ "text_styles": {
+  "corp-title": {
+   "label": "Inter semibold, white on a navy panel (corporate titles)",
+   "font": "Inter.ttf",
+   "axes": {
+    "wght": 650,
+    "opsz": 32
+   },
+   "tracking": 0.0,
+   "upper": false,
+   "fill": "#ffffff",
+   "stroke": false,
+   "halo": null,
+   "shadow": [
+    0.0,
+    0.03,
+    0.05,
+    0.35
+   ],
+   "ornament": "none",
+   "box_fill": [
+    11,
+    37,
+    69,
+    238
+   ],
+   "box_outline": null,
+   "box_radius": 0.18,
+   "box_default": true
+  },
+  "corp-body": {
+   "label": "Inter regular, near-white on a navy panel (corporate captions)",
+   "font": "Inter.ttf",
+   "axes": {
+    "wght": 450,
+    "opsz": 14
+   },
+   "tracking": 0.005,
+   "upper": false,
+   "fill": "#eef3fa",
+   "stroke": false,
+   "halo": null,
+   "shadow": null,
+   "ornament": "none",
+   "box_fill": [
+    11,
+    37,
+    69,
+    220
+   ],
+   "box_outline": null,
+   "box_radius": 0.18,
+   "box_default": true
+  }
+ },
+ "shape": {
+  "name": "flat",
+  "radius": 0.006,
+  "stroke": 0.0
+ },
+ "lower_third": {
+  "scrim": false
+ },
+ "callout": {
+  "flag": "panel"
+ },
+ "decor": "brackets",
+ "card": {
+  "bg": "gradient",
+  "bg_options": {
+   "top": "#0b2545",
+   "bottom": "#13315c",
+   "light": "#1f6feb"
+  },
+  "title": "#ffffff",
+  "sub": "#bcd2f5",
+  "accent": "#4da3ff",
+  "effects": false,
+  "align": "left",
+  "vertical_bar": true,
+  "rule": "bar",
+  "list_role": "title",
+  "stat_role": "accent",
+  "bento": {
+   "title_y": 0.07,
+   "top": 0.28,
+   "bottom": 0.9
+  },
+  "motion": {
+   "enter_s": 0.5,
+   "stagger_s": 0.12,
+   "rise": 0.03,
+   "dx": 0.0
+  }
+ },
+ "plate": {
+  "fill": "#ffffff@245",
+  "outline": null,
+  "width": 0,
+  "color": "accent"
+ },
+ "motion": {
+  "lower_third": {
+   "in": "slide-left",
+   "out": "slide-left",
+   "in_s": 0.45,
+   "out_s": 0.35
+  },
+  "text": {
+   "in": "rise",
+   "out": "fade",
+   "in_s": 0.5,
+   "out_s": 0.35
+  },
+  "image": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.4,
+   "out_s": 0.3
+  },
+  "pip": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.4,
+   "out_s": 0.4
+  },
+  "callout": {
+   "in": "pop",
+   "out": "fade",
+   "in_s": 0.35,
+   "out_s": 0.3
+  }
+ },
+ "transition": "wipe-right",
+ "music_moods": [
+  "corporate",
+  "upbeat",
+  "inspiring"
+ ],
+ "sfx": [
+  "click",
+  "whoosh",
+  "ding"
+ ]
+}

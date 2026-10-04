@@ -1,0 +1,166 @@
+{
+ "name": "cinema",
+ "default": false,
+ "label": "Black, white and rose; Oswald condensed capitals with wide tracking; no panels; trailers and reels",
+ "palette": {
+  "ink": "#ffffff",
+  "paper": "#09090b",
+  "accent": "#f43f5e",
+  "accent2": "#8b5cf6",
+  "muted": "#a1a1aa"
+ },
+ "styles": {
+  "title": "cine-title",
+  "subtitle": "cine-body",
+  "caption": "cine-body"
+ },
+ "text_styles": {
+  "cine-title": {
+   "label": "Oswald semibold, UPPERCASE condensed, very wide tracking, white with a deep shadow, no panel (cinema titles)",
+   "font": "Oswald.ttf",
+   "axes": {
+    "wght": 600
+   },
+   "tracking": 0.14,
+   "upper": true,
+   "fill": "#ffffff",
+   "stroke": false,
+   "halo": [
+    0.012,
+    0.4
+   ],
+   "shadow": [
+    0.0,
+    0.05,
+    0.09,
+    0.85
+   ],
+   "ornament": "none",
+   "box_fill": [
+    0,
+    0,
+    0,
+    120
+   ],
+   "box_outline": null,
+   "box_radius": 0.2
+  },
+  "cine-body": {
+   "label": "Outfit regular, UPPERCASE, wide tracking, soft white with a shadow (cinema captions)",
+   "font": "Outfit.ttf",
+   "axes": {
+    "wght": 400
+   },
+   "tracking": 0.22,
+   "upper": true,
+   "fill": "#f4f4f5",
+   "stroke": false,
+   "halo": [
+    0.012,
+    0.4
+   ],
+   "shadow": [
+    0.0,
+    0.04,
+    0.08,
+    0.8
+   ],
+   "ornament": "none",
+   "box_fill": [
+    0,
+    0,
+    0,
+    120
+   ],
+   "box_outline": null,
+   "box_radius": 0.2
+  }
+ },
+ "shape": {
+  "name": "cinema",
+  "radius": 0.0,
+  "stroke": 0.0015
+ },
+ "lower_third": {
+  "scrim": true
+ },
+ "callout": {
+  "flag": "plate"
+ },
+ "decor": "none",
+ "card": {
+  "bg": "black",
+  "bg_options": {
+   "glow": "#3c1424"
+  },
+  "title": "#ffffff",
+  "sub": "#a1a1aa",
+  "accent": "#f43f5e",
+  "effects": false,
+  "align": "center",
+  "vertical_bar": false,
+  "rule": "bar-mid",
+  "list_role": "sub",
+  "stat_role": "accent",
+  "bento": {
+   "title_y": 0.145,
+   "top": 0.31,
+   "bottom": 0.86
+  },
+  "motion": {
+   "enter_s": 1.1,
+   "stagger_s": 0.3,
+   "rise": 0.0,
+   "dx": 0.0
+  }
+ },
+ "plate": {
+  "fill": "#000000@150",
+  "outline": "#ffffff@200",
+  "width": 0.03,
+  "color": "#ffffff"
+ },
+ "motion": {
+  "lower_third": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.9,
+   "out_s": 0.8
+  },
+  "text": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 1.0,
+   "out_s": 0.8
+  },
+  "image": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.8,
+   "out_s": 0.7
+  },
+  "pip": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.4,
+   "out_s": 0.4
+  },
+  "callout": {
+   "in": "fade",
+   "out": "fade",
+   "in_s": 0.8,
+   "out_s": 0.6
+  }
+ },
+ "transition": "dissolve",
+ "music_moods": [
+  "cinematic",
+  "epic",
+  "dramatic"
+ ],
+ "sfx": [
+  "hit",
+  "whoosh-low",
+  "rise"
+ ]
+}

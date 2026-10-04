@@ -61,26 +61,10 @@ def svg_aspect(path):
 
 
 def plate_style(th):
-    """(plate fill RGBA, outline RGBA or None, outline width as a fraction of the plate, default icon colour) for a template."""
-    c = themes.rgb
-    table = {
-        "luxury": ((8, 8, 11, 215), c(th.accent) + (200,), 0.035, th.accent),
-        "corporate": ((255, 255, 255, 245), None, 0, th.accent),
-        "academic": (c(th.paper) + (245,), c(th.accent) + (255,), 0.03, th.accent),
-        "sketch": (c(th.paper) + (248,), c(th.ink) + (255,), 0.05, th.accent),
-        "tech": ((10, 15, 28, 232), c(th.accent) + (255,), 0.03, th.accent),
-        "minimal": ((0, 0, 0, 125), None, 0, "#ffffff"),
-        "playful": (c(th.accent2) + (255,), c(th.ink) + (255,), 0.06, "#ffffff"),
-        "neobrutalism": (c(th.accent) + (255,), c(th.ink) + (255,), 0.07, th.ink),
-        "terracotta": (c(th.paper) + (245,), c(th.accent) + (255,), 0.03, th.accent),
-        "cinema": ((0, 0, 0, 150), (255, 255, 255, 200), 0.03, "#ffffff"),
-        "terminal": (c(th.paper) + (238,), c(th.accent) + (255,), 0.04, th.accent),
-        "arcade": (c(th.paper) + (255,), c(th.accent) + (255,), 0.08, th.accent),
-        "riso": (c(th.paper) + (248,), c(th.accent2) + (255,), 0.04, th.accent),
-        "saas": (c(th.paper) + (240,), c(th.accent2) + (255,), 0.03, th.accent),
-        "glass": (c(th.paper) + (150,), (255, 255, 255, 150), 0.03, "#ffffff"),
-    }
-    return table[th.name]
+    """(plate fill RGBA, outline RGBA or None, outline width as a fraction of the plate, default icon colour) from the theme's `plate`."""
+    p = th.plate
+    col = p.get("color", "accent")
+    return th.color(p.get("fill", "paper")), th.color(p.get("outline")), float(p.get("width", 0)), (getattr(th, col) if col in ("ink", "paper", "accent", "accent2", "muted") else col)
 
 
 def _tint(svg_text, color):
@@ -88,31 +72,14 @@ def _tint(svg_text, color):
 
 
 def _plate(size, th):
+    from . import shapes
     fill, outline, ow, _ = plate_style(th)
     ss = 3
     img = Image.new("RGBA", (size * ss, size * ss), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     pad = max(2, int(size * ss * 0.02))
     box = [pad, pad, size * ss - pad, size * ss - pad]
-    if th.name == "playful":                                       # hard sticker shadow
-        d.ellipse([box[0] + size * ss * 0.03, box[1] + size * ss * 0.04, box[2] + size * ss * 0.03, box[3] + size * ss * 0.04], fill=themes.rgb(th.ink) + (255,))
-    if th.shape in ("brutal", "pixel", "term"):                    # square plates; brutal/pixel add a hard offset block
-        if th.shape != "term":
-            sh = max(2, int(size * ss * 0.05))
-            d.rectangle([box[0] + sh, box[1] + sh, box[2], box[3]], fill=themes.rgb(th.ink if th.shape == "brutal" else th.accent2) + (255,))
-            box = [box[0], box[1], box[2] - sh, box[3] - sh]
-        d.rectangle(box, fill=fill, outline=outline, width=max(1, int(size * ss * ow)) if outline else 0)
-        return img.resize((size, size), Image.LANCZOS)
-    if th.name == "riso":                                          # pink ink block misregistered under the paper disc
-        sh = max(2, int(size * ss * 0.035))
-        d.ellipse([box[0] + sh, box[1] + sh, box[2], box[3]], fill=themes.rgb(th.accent) + (235,))
-        box = [box[0], box[1], box[2] - sh, box[3] - sh]
-    if th.name == "sketch":
-        r = sketch.rng("plate", size)
-        d.ellipse(box, fill=fill)
-        sketch.circle(d, size * ss / 2, size * ss / 2, size * ss * 0.46, outline, max(3, size * ss * ow), r, turns=1.06)
-    else:
-        d.ellipse(box, fill=fill, outline=outline, width=max(1, int(size * ss * ow)) if outline else 0)
+    shapes.of(th).plate(img, d, box, size, ss, fill, outline, ow, th)
     return img.resize((size, size), Image.LANCZOS)
 
 
