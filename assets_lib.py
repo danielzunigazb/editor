@@ -91,3 +91,13 @@ def credit_lines(asset_ids):
         if it and it.get("attribution") and aid not in seen:
             seen.add(aid); lines.append(it["attribution"])
     return lines
+
+
+def auto_sfx(theme):
+    """The effect crossfade(sfx='auto') puts on a transition for a template: a whoosh/swoosh if one is tagged for it, else a pop, else a click,
+    else any effect tagged for it (lowest id each time, so the choice is stable)."""
+    for mood in ("whoosh", "swoosh", "pop", "click", ""):
+        rows, _ = listing("sfx", theme=theme, mood=mood, limit=500)
+        if rows:
+            return sorted(r["id"] for r in rows)[0]
+    raise ValueError(f"no sound effect is tagged for the '{theme}' template; name one with sfx=<asset id> (list_assets(kind='sfx'))")

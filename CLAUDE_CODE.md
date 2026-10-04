@@ -52,3 +52,9 @@ Las respuestas de edición son compactas (sin el listado de `ops`, solo `op_coun
 - `list_styles` muestra las plantillas; `set_template(name, accent)` cambia el aspecto de todo el proyecto. `add_card` para introducciones/cierres, `add_image(icon=…)` para iconos, `anim`/`animate` para movimiento.
 - Audio: `list_assets(kind="music"|"sfx", theme=…, license=…)` y `add_audio(asset=id, …)`. Las piezas se bajan de R2 la primera vez: el entorno necesita `R2_WORKER_URL` y `R2_UPLOAD_TOKEN` (configúralos en las variables del entorno de la sesión, no en archivos del repo).
 - Si usas algo CC-BY, `get_timeline` lo lista en `credits_required` y `export` escribe `<vídeo>.credits.txt`; ponlo donde publiques el vídeo.
+
+## Pulido: transiciones y movimiento
+- `crossfade(first_index, dur_s, style="dissolve", sfx="")`: 15 estilos (`list_styles` → `transitions`), `style="auto"` usa la transición de la plantilla y `sfx="auto"` pone su efecto de sonido. Todo salvo `dissolve` pide `dur_s >= 0.2`.
+- `new_project(motion=True)` o `set_template(name, motion=True)` activan el movimiento propio de la plantilla (overlays, tarjetas animadas, callouts, música que baja bajo la voz). Apagado por defecto: nada cambia si no lo pides.
+- `add_callout(..., size=1.3, anim={"in": "draw"})`: `size` mejora la lectura a 1080p; `draw` despliega el callout desde el aro. `get_timeline` avisa de textos ilegibles.
+- `export(..., master="loudnorm")` normaliza a −16 LUFS; el resultado trae `loudness_lufs` y `true_peak_db`. `tools/qa_frames.py video.mp4` mide cortes secos, parpadeos y cuadros congelados.

@@ -460,7 +460,7 @@ def crossfade(first_index: int, dur_s: float = 1.0, style: str = "dissolve", sfx
     timeline gets shorter by dur_s. style: dissolve | wipe-right|left|up|down | iris-out|in | blinds-v|h | diagonal | clock |
     slide-left|right|up|down (the new clip travels over the old one) | auto (the template's own, only when the project's motion is on).
     Anything but dissolve needs dur_s >= 0.2. sfx: also put a sound effect where the transition starts: an asset id from list_assets(kind='sfx'),
-    or "auto" = the template's own whoosh (CC0; needs R2 access the first time). Both edits are added together or neither."""
+    or "auto" = the template's own whoosh (or pop/click when it has none; CC0; needs R2 access the first time). Both edits are added together or neither."""
     op = _b_crossfade(first_index, dur_s, style)
     if not sfx:
         return commit(op)
@@ -473,10 +473,7 @@ def crossfade(first_index: int, dur_s: float = 1.0, style: str = "dissolve", sfx
         bind(st)
         t = live.layout(st["ops"])["entries"][first_index + 1]["start"]        # the new clip starts coming in here
         if sfx == "auto":
-            pool = [i for mood in ("whoosh", "swoosh") for i in assets_lib.listing("sfx", theme=live.THEME.name, mood=mood, limit=200)[0]]
-            if not pool:
-                raise ValueError(f"no whoosh effect is tagged for the '{live.THEME.name}' template; name one with sfx=<asset id> (list_assets(kind='sfx'))")
-            sfx = sorted(i["id"] for i in pool)[0]
+            sfx = assets_lib.auto_sfx(live.THEME.name)
         aop = _b_add_audio(start_s=t, dur_s=None, asset=sfx, volume_db=-10.0)
         _validate(st, aop)
         st["ops"].append(aop)

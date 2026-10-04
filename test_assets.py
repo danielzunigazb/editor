@@ -40,6 +40,8 @@ def unit():
     check("CC-BY always carries attribution text, CC0 never needs it", all(bool(i.get("attribution")) == i["license"].startswith("CC-BY") for i in items))
     check("r2 key follows kind/file", all(i["r2_key"] == f"assets/{i['kind']}/{i['file']}" for i in items))
     import themes
+    check("auto_sfx finds an effect for every one of the 15 templates (whoosh/swoosh, else pop, click or any)", all(assets_lib.find(assets_lib.auto_sfx(t_))["kind"] == "sfx" for t_ in themes.NAMES))
+    check("auto_sfx is stable (same id twice)", assets_lib.auto_sfx("tech") == assets_lib.auto_sfx("tech"))
     check("every template (all 15) has at least 2 pieces of music and 3 effects", all(assets_lib.listing("music", theme=t)[1] >= 2 and assets_lib.listing("sfx", theme=t)[1] >= 3 for t in themes.NAMES), [t for t in themes.NAMES if assets_lib.listing("music", theme=t)[1] < 2 or assets_lib.listing("sfx", theme=t)[1] < 3])
     check("staged files match the manifest hash", all(hashlib.sha256(open(os.path.join(STAGE, i["file"]), "rb").read()).hexdigest() == i["sha256"] for i in items if os.path.isfile(os.path.join(STAGE, i["file"]))))
 
@@ -128,7 +130,7 @@ async def e2e():
             await call("undo"); await call("undo")                       # drop both audio ops again
             res2, err = await call("export", output_path=out, quality="draft", overwrite=True)
             check("re-export without CC-BY removes the stale credits file", err is None and not os.path.exists(credit) and "credits_required" not in res2, err or res2)
-            wh_ = sorted(i["id"] for mood in ("whoosh", "swoosh") for i in assets_lib.listing("sfx", theme="tech", mood=mood, limit=200)[0])[0]
+            wh_ = assets_lib.auto_sfx("tech")
             seed(assets_lib.by_id()[wh_])                                # the effect crossfade(sfx="auto") will pick for the tech template
             await call("new_project", width=1280, height=720, fps=25)
             await call("import_clip", path=clip, id="A"); await call("add_clip", source="A", end_s=3.0); await call("add_clip", source="A", start_s=1.0, end_s=4.0)

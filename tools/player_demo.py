@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Demo video for the 'player' repo (Android music player) built with this editor: luxury template (gold on black, like the app's own
 design), the repo's real screenshots with callouts on the controls, music from the asset library.
-Usage: tools/player_demo.py <player_repo_dir> <out.mp4> [draft|high]. Read-only on the repo."""
+Usage: tools/player_demo.py <player_repo_dir> <out.mp4> [draft|high]. Read-only on the repo. v2: motion on (transitions, animated cards, callout animations, loudnorm)."""
 import os, subprocess, sys
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -14,7 +14,7 @@ os.environ["MLT_EDITOR_HOME"] = HOME
 import server  # noqa: E402
 
 W, H, FPS = 1920, 1080, 30
-SCENE, T0 = 6.5, 4.0
+SCENE, T0, X = 6.2, 4.0, 0.8                     # scene length; where the scenes start on the timeline; transition length
 os.makedirs(HOME, exist_ok=True)
 BG = os.path.join(HOME, "bg.mp4")
 from PIL import Image, ImageOps  # noqa: E402
@@ -53,18 +53,20 @@ SCENES = [   # headline, (file, y0, y1) crop or None, picture width, [(label, su
     ("Compártelo en tus historias", None, None, []),
 ]
 
-server.new_project(W, H, FPS)
+server.new_project(W, H, FPS, motion=True)          # the template's own motion: animated cards, transitions, overlay animations, ducking-ready music
 server.set_template("luxury")
 server.add_card("title", "Player", "Tu música, en tu bolsillo", dur_s=T0, push=True)
 server.import_clip(BG, "BG")
-server.add_clip("BG", 0.0, SCENE * len(SCENES))
+server.add_clip("BG", 0.0, 39.0)                    # on screen from T0 - X (the intro card dissolves into it) to T0 - X + 39
 server.add_card("list", "Y además", items=["Android Auto y búsqueda por voz", "Widget de pantalla de inicio", "Temas: sistema, claro, oscuro y AMOLED", "Español e inglés", "Tus datos se quedan en el teléfono"], dur_s=5.0)
-server.add_card("outro", "Player 1.6.1", "player.danzuniga.xyz  ·  Android 8.0 o superior", dur_s=4.0)
+server.add_card("outro", "Player 1.6.1", "player.danzuniga.xyz  ·  Android 8.0 o superior", dur_s=4.0, push=True)
+for first in (0, 1, 2):                             # card -> footage -> list card -> outro, each with the template's transition and its whoosh
+    server.crossfade(first, X, "auto", sfx="auto")
 
-server.add_graphic("frame", T0, SCENE * len(SCENES), opacity=0.7)
+server.add_graphic("frame", T0 - 0.4, SCENE * len(SCENES) + 0.4, opacity=0.7)
 for k, (head, pic, cw, calls) in enumerate(SCENES):
     t = T0 + k * SCENE
-    server.add_text(head, t + 0.15, SCENE - 0.3, position="top", size=0.065, anim={"in": "slide-top", "out": "fade"})
+    server.add_text(head, t + 0.15, SCENE - 0.3, position="top", size=0.065)                 # no anim given: luxury motion supplies it
     if pic:
         name, y0, y1 = pic
         path, asp = crop(name, y0, y1)
@@ -77,22 +79,19 @@ for k, (head, pic, cw, calls) in enumerate(SCENES):
             x, y = cx - cw / 2 + ((0.02 if px < 0.5 else 0.98) if edge else px) * cw, cy - h / 2 + (py - y0) / (y1 - y0) * h
             s0 = t + 1.2 + j * 1.5
             side = ("s" if (py - y0) / (y1 - y0) < 0.25 else "n") + ("w" if px < 0.5 else "e")   # flag towards the nearer edge, onto the empty background
-            server.add_callout(label, [[s0, round(x, 4), round(y, 4)], [s0 + 2.2, round(x, 4), round(y, 4)]], subtitle=sub, start_s=s0, dur_s=2.2, side=side)
+            server.add_callout(label, [[s0, round(x, 4), round(y, 4)], [s0 + 2.2, round(x, 4), round(y, 4)]], subtitle=sub, start_s=s0, dur_s=2.2, side=side, size=1.3)
     else:
         for i, (f, cxx) in enumerate((("share_song.png", 0.38), ("share_lyrics.png", 0.62))):
             server.add_image(t + i * 0.25, SCENE - 0.25 - i * 0.25, path=os.path.join(IMG, f), at=[cxx, 0.6], scale=0.19, anim={"in": "pop", "out": "zoom"})
         for j, (label, sub, p) in enumerate((("Tarjetas 9:16", "para Instagram, Snapchat, WhatsApp…", [0.33, 0.4]), ("Carátula o letra", "elige hasta 4 líneas", [0.67, 0.4]))):
             s0 = t + 1.5 + j * 1.6
-            server.add_callout(label, [[s0, p[0], p[1]], [s0 + 2.4, p[0], p[1]]], subtitle=sub, start_s=s0, dur_s=2.4, side="nw" if p[0] < 0.5 else "ne")
+            server.add_callout(label, [[s0, p[0], p[1]], [s0 + 2.4, p[0], p[1]]], subtitle=sub, start_s=s0, dur_s=2.4, side="nw" if p[0] < 0.5 else "ne", size=1.3)
 
-total = T0 + SCENE * len(SCENES) + 5.0 + 4.0
-server.add_audio(0.0, total, asset="m-trio-for-piano-cello-and-clarinet", volume_db=-17, fade_in_s=1.5, fade_out_s=3.0)
-server.add_audio(T0 - 0.15, asset="s-interface-sounds-maximize-003", volume_db=-9)
-for k in (1, 3, 5):                                  # the engine allows 8 audio ops: music + 5 effects + 2 spare
+server.add_audio(0.0, None, asset="m-trio-for-piano-cello-and-clarinet", volume_db=-17)     # fades and ducking are the defaults with motion on
+for k in (1, 3, 5):
     server.add_audio(T0 + k * SCENE + 0.1, asset="s-interface-sounds-minimize-003", volume_db=-12)
-server.add_audio(T0 + SCENE * len(SCENES), asset="s-interface-sounds-glass-004", volume_db=-9)
 
 tl = server.get_timeline()
 print("duration", tl["duration_s"], "warnings", tl["warnings"])
-r = server.export(OUT, quality=QUALITY, overwrite=True)
+r = server.export(OUT, quality=QUALITY, overwrite=True, master="loudnorm")
 print(r)

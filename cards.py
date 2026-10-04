@@ -5,7 +5,7 @@ track, so the editor treats it as any other source: add it with add_clip, dissol
 Everything is drawn with PIL (no numpy, no external images) and is deterministic: same card -> same pixels."""
 import hashlib, os, random, subprocess
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 import sketch
 import textrender as T
@@ -239,7 +239,19 @@ def _background2(kind, W, H, th, rg):
                 for x in range(step, W, step):
                     d.point((x, y), fill=(255, 255, 255, 40))
             img.alpha_composite(ov)
+        img = _dither(img, rg)                                                    # soft blobs on 8 bits band into visible rings: noise of +-7 levels survives the H.264 encode and hides them
     return img
+
+
+def _dither(img, rg, amp=7):
+    """Add seeded uniform noise of +-amp levels (sigma about 4) to an RGBA image's colour: breaks up the contour rings of smooth gradients.
+    Seeded from the card's own random.Random, so the same card is the same pixels."""
+    W, H = img.size
+    noise = Image.frombytes("L", (W, H), rg.randbytes(W * H)).point(lambda v: 128 + (v * (2 * amp + 1) >> 8) - amp).convert("RGB")
+    rgb = ImageChops.add(img.convert("RGB"), noise, scale=1, offset=-128)
+    out = rgb.convert("RGBA")
+    out.putalpha(img.getchannel("A"))
+    return out
 
 
 # ------------------------------------------------------------------------------------------------ text helpers
@@ -519,7 +531,7 @@ def render_card(layout, W, H, th, title="", subtitle="", items=(), number="", au
 # ------------------------------------------------------------------------------------------------ png + mp4
 def card_png(cache_dir, layout, W, H, th, **kw):
     key = repr((layout, W, H, th.name, th.accent, sorted(kw.items())))
-    out = os.path.join(cache_dir, f"card_{hashlib.sha1(('v1|' + key).encode()).hexdigest()[:16]}.png")
+    out = os.path.join(cache_dir, f"card_{hashlib.sha1(('v4|' + key).encode()).hexdigest()[:16]}.png")
     if not os.path.exists(out):
         img = render_card(layout, W, H, th, **kw)
         os.makedirs(cache_dir, exist_ok=True)
@@ -550,7 +562,7 @@ def card_video(png, out, W, H, fps, dur_s, push=False):
 # ------------------------------------------------------------------------------------------------ animated cards
 def card_layers(cache_dir, layout, W, H, th, **kw):
     """(background PNG, [foreground layer PNGs]) of a card, cached; compositing them gives the card (diff <= 1 level, measured)."""
-    key = hashlib.sha1(('v1|' + repr((layout, W, H, th.name, th.accent, sorted(kw.items())))).encode()).hexdigest()[:16]
+    key = hashlib.sha1(('v4|' + repr((layout, W, H, th.name, th.accent, sorted(kw.items())))).encode()).hexdigest()[:16]
     bgp = os.path.join(cache_dir, f"cardbg_{key}.png")
     probe = os.path.join(cache_dir, f"cardfg_{key}_0.png")
     if os.path.exists(bgp) and os.path.exists(probe):

@@ -828,6 +828,29 @@ Ocho demos de 14 s en R2 (`editados/templates/<plantilla>.mp4` + `.credits.txt`)
 **No verificado.** La música se eligió por metadatos del catálogo (género, instrumentos, descripción) y nadie la ha escuchado; los demos solo se comprobaron con `volumedetect` e imagen;
 `wipe` no se probó en 4K ni encadenado con rotación; el pixel-art a 720p depende del tamaño (los pasos de la fuente no caen siempre en píxeles enteros); las tarjetas `bento` con textos largos se encogen (mínimo 55 %) y pueden quedar pequeñas.
 
+## 21. Pulido: transiciones, movimiento por plantilla, tarjetas animadas, callouts y audio (añadido a petición del usuario)
+
+**Auditoría previa (medida con `tools/qa_frames.py` sobre los demos de la sección 19/20).** Cada demo tenía 2 cortes secos (tarjeta→video→tarjeta, a los 3.0 s y 11.0 s) y más de 2 s de cuadros idénticos en cada tarjeta
+(las tarjetas eran una imagen fija). MLT no trae máscaras de barrido (`/usr/share/mlt-7/lumas` no existe), pero `luma` acepta cualquier imagen.
+
+**Qué se hizo.**
+- **Transiciones (`transitions.py`):** `crossfade(style=…)` con 15 estilos: dissolve, wipe-right/left/up/down, iris-out/in, blinds-v/h, diagonal, clock (máscaras luma generadas con PIL, cacheadas) y slide-left/right/up/down
+  (`composite` con geometría animada); `auto` = la de la plantilla si el movimiento está activo. `crossfade(sfx="auto")` pone además el efecto de la plantilla donde empieza la transición.
+- **Movimiento por plantilla, opt-in** (`new_project(motion=True)` / `set_template(motion=…)`): cada plantilla trae animaciones propias para lower third, texto, imagen/icono y callout, más el preset nuevo `rise`; un `anim` explícito manda, `anim={}` = sin animación, los subtítulos nunca se animan.
+- **Tarjetas animadas:** cada tarjeta se parte en capas por grupo (título, regla, subtítulo, filas, teselas) que entran escalonadas con su estilo; el último cuadro es la tarjeta estática (medido, comparado con el mismo codificador); `push` mueve solo el fondo.
+- **Callouts:** `size` (0.7–2.0; 1 = idéntico al original), `anim` con `draw` (se despliega desde el aro), `pop`, `zoom`, `fade` escalando alrededor del aro (el aro nunca sale del punto, medido en píxeles); avisos de legibilidad (texto < 14 px, subtítulo de callout < 11 px al tamaño de exportación).
+- **Audio:** los clips que no se solapan comparten pista (hasta 32 clips, 8 a la vez; antes 8 en total), `export(master="loudnorm")` y `loudness_lufs`/`true_peak_db` medidos en el archivo; con movimiento la música (biblioteca o ≥ 20 s) baja sola bajo la voz.
+
+**Resultado medido (demos v2, `qa_frames`):** 0 cortes secos en los 15 demos y en el de Player (antes 2 por demo); 0 parpadeos; el tramo de cuadros idénticos al inicio desapareció en todos y quedan 3 de 15 con ~2 s de cierre idéntico al final.
+Loudness de los 15 demos: entre −18.4 y −16.1 LUFS (normalizados a −16 en una pasada). Los `slide-*` mueven toda la imagen, por eso `qa_frames` los reporta como `fast_motion`, no como cortes.
+Tests nuevos/ampliados: `test_transitions` 61, `test_cards_anim` 43, `test_engine` 270, `test_anim` 65, `test_mcp` 268, `test_assets` 38, `test_text` 353, golden 15/15.
+
+**Hallazgos y correcciones.** `composite` sí desliza (error medio 0.9 contra el resultado esperado; una lectura mía de la lámina lo dio por aplastado); las máscaras no pueden llegar a 255 (queda un borde al final: `iris-in`); `playful` no tenía ningún efecto «whoosh» (la elección `auto` cae a pop/click/cualquiera,
+con test para las 15 plantillas); los fondos `blobs` mostraban anillos por bandas de 8 bits (ahora con dither con semilla, determinista); la caché de tarjetas no cambiaba de clave al cambiar el código (versionada).
+
+**No verificado.** Las transiciones se juzgaron por cuadros y medidas, no viéndolas en reproducción continua; la música sigue sin escucharse; 4K sin probar; sigue habiendo 3 demos con ~2 s de cierre idéntico y el último tramo de Player tiene ~0.2 s con solo fondo entre la última escena y la tarjeta final;
+`slide-*` dentro de `Playlist.mix` se comprobó con clips sintéticos y en los demos, no con todos los formatos; las láminas B y C que te envié se hicieron antes del dither de `glass`/`saas` (el video final ya lo trae).
+
 ## 10. Archivos
 
 - `poc.py`: el POC (gen/build/bench/preview/export/measure).
@@ -840,4 +863,5 @@ Ocho demos de 14 s en R2 (`editados/templates/<plantilla>.mp4` + `.credits.txt`)
 - `live.py`, `viewer_template.html`: motor declarativo y visor de la sesión en vivo.
 - `stress_1080p.py`: prueba extra de estrés 1080p (secuencial vs. seek aleatorio).
 - `themes.py`, `themed.py`, `sketch.py`, `cards.py`, `icons.py`, `anim.py`, `assets_lib.py`, `fetch_assets.py`, `tools/` (curaduría, licencias, demos), `assets/`: plantillas, animación y biblioteca de audio (sección 19).
+- `transitions.py`, `tools/qa_frames.py`, `test_transitions.py`, `test_cards_anim.py`: transiciones, QA de movimiento y sus pruebas (sección 21).
 - `media/`, `out/`: clips y resultados generados (ignorados por git; se regeneran con `gen` y `export`).
