@@ -136,7 +136,8 @@ def _check_finite(v, where):
             _check_finite(x, where)
 
 
-ANIMATABLE = ("text", "image", "pip", "graphic", "lower_third")
+ANIMATABLE = ("text", "image", "pip", "graphic", "lower_third", "callout")
+CALLOUT_PRESETS = ("none", "fade", "pop", "zoom", "draw")
 MAX_AUDIOS = 8                          # simultaneous/total audio ops (each one is an MLT track)
 DUCK_RAMP_S = 0.3                       # how fast the music dips/recovers around speech
 MAX_LAYERS = 1000                       # overlays in one project (a 300-cue subtitle file counts 300)
@@ -373,11 +374,15 @@ def layout(ops):
                 pts.append((float(pt[0]), float(pt[1]), float(pt[2])))
             tk = _theme_key(o, where)
             th_ = themes.get(tk)
+            size_ = o.get("size", 1.0)
+            if not isinstance(size_, (int, float)) or isinstance(size_, bool) or not 0.7 <= size_ <= 2.0:
+                raise ValueError(f"{where}: size must be a number between 0.7 and 2.0 (1 = normal)")
             title, sub = _clean(o.get("title"), where, th_.title_style), (_clean(o["subtitle"], where, th_.caption_style) if o.get("subtitle") else "")
             if not title or "\n" in title or "\n" in sub or len(title) > graphics.CALLOUT_TITLE_MAX or len(sub) > graphics.CALLOUT_SUB_MAX:
                 raise ValueError(f"{where}: callout needs a single-line title (1-{graphics.CALLOUT_TITLE_MAX} characters) and a subtitle of at most {graphics.CALLOUT_SUB_MAX}")
             layers.append({"kind": "callout", "op": n, "start": float(o["start"]), "dur": float(o["dur"]), "title": title, "sub": sub,
-                           "side": o.get("side", "auto"), "path": pts, "fade": float(o.get("fade", 0.3)), "theme": tk})
+                           "side": o.get("side", "auto"), "path": pts, "fade": float(o.get("fade", 0.3)), "theme": tk,
+                           "size": float(size_), "anim": _anim(o, where)})
         else:
             raise ValueError(f"{where}: unknown op")
     for i, e in enumerate(entries):   # a clip must be long enough for the dissolves on both of its sides
@@ -540,7 +545,14 @@ def _anim(o, where):
             if tot > 0.8 * dur:
                 k = 0.8 * dur / tot
                 spec = {**spec, **{x: round(spec[x] * k, 3) for x in ("in_s", "out_s") if spec.get(x)}}
-    return animmod.validate(spec, where, dur)
+    spec = animmod.validate(spec, where, dur)
+    if spec and o.get("op") == "callout":
+        bad = [v for v in (spec["in"], spec["out"]) if v not in CALLOUT_PRESETS]
+        if bad or spec["keys"] or spec["rotate"] or spec["scale"]:
+            raise ValueError(f"{where}: a callout takes in/out among {CALLOUT_PRESETS} (no keys, rotate or scale: it follows its own track)")
+    elif spec and "draw" in (spec["in"], spec["out"]):
+        raise ValueError(f"{where}: anim 'draw' is for callouts only")
+    return spec
 
 
 def _theme_key(o, where):
@@ -666,7 +678,7 @@ def _callout_source(L):
     sides = ("ne", "nw", "se", "sw") if L["side"] == "auto" else (L["side"],)
     best = None
     for s in sides:
-        png, w, h, ax, ay = graphics.render_callout(W, H, L["title"], L["sub"], s, CACHE, L.get("theme"))
+        png, w, h, ax, ay = graphics.render_callout(W, H, L["title"], L["sub"], s, CACHE, L.get("theme"), L.get("size", 1.0))
         over = 0.0
         for t_, x_, y_ in L["path"]:
             px, py = x_ * W, y_ * H
@@ -750,6 +762,11 @@ def build(ops):
                 raise RuntimeError(f"cannot open overlay source {src}")
             first = fr(L.get("in", 0.0)) if L["kind"] == "pip" else 0
             wk = animmod.wipe_keys(L["anim"], n, FPS, min(L.get("fade", 0.24), n / FPS / 2)) if L.get("anim") and L["kind"] != "callout" else []
+            dk = animmod.draw_keys(L["anim"], n, FPS, min(L["fade"], n / FPS / 2)) if L.get("anim") and L["kind"] == "callout" else []
+            if dk:                                            # callout draw: qtcrop rect grows from the ring to the whole image (ring at cax, cay)
+                df = mlt7.Filter(p, "qtcrop")
+                df.set("rect", ";".join(f"{f_}={(cax - cax * p_) / cw * 100:.3f}%/{(cay - cay * p_) / ch * 100:.3f}%:{(cax * p_ + (cw - cax) * p_) / cw * 100:.3f}%x{(cay * p_ + (ch - cay) * p_) / ch * 100:.3f}%" for f_, p_ in dk))
+                prod.attach(df)
             if wk:                                            # wipe: qtcrop pads everything outside the animated rect with transparency (image size unchanged)
                 wf = mlt7.Filter(p, "qtcrop")
                 wf.set("rect", ";".join(f"{f_}={lo * 100:.3f}%/0%:{(hi - lo) * 100:.3f}%x100%" for f_, lo, hi in wk))
@@ -761,9 +778,22 @@ def build(ops):
             if L["kind"] == "callout":
                 w, h, op, ramp = cw, ch, 1.0, min(fr(L["fade"]), (n - 1) // 2)
                 lo, hi = s0 + ramp, s0 + n - 1 - ramp
-                keys = sorted({s0, lo, hi, s0 + n - 1} | {f for f in (int(round(t_ * FPS)) for t_, _, _ in L["path"]) if lo < f < hi})
-                alpha = lambda f_: 0 if ramp and f_ in (s0, s0 + n - 1) else 1
-                pts = [(f_, "{:.2f} {:.2f} {} {} {}".format(*_callout_pos(L, f_ / FPS, cax, cay, w, h), w, h, alpha(f_))) for f_ in keys]
+                if L.get("anim"):                              # pop / zoom / fade scale about the RING (it must stay on the pinned point); draw is the crop above
+                    ck = {f_: (s_, o_) for f_, s_, o_ in animmod.callout_keys(L["anim"], n, FPS, min(L["fade"], n / FPS / 2))}
+                    knots = {f for f in (int(round(t_ * FPS)) for t_, _, _ in L["path"]) if s0 < f < s0 + n - 1}
+                    keys = sorted({s0 + f_ for f_ in ck} | knots)
+                    last = (1.0, 1.0)
+                    pts = []
+                    for f_ in keys:
+                        s_, o_ = ck.get(f_ - s0, last)
+                        last = (s_, o_) if f_ - s0 in ck else last
+                        x_, y_ = _callout_pos(L, f_ / FPS, cax, cay, w, h)
+                        rx_, ry_ = x_ + cax, y_ + cay
+                        pts.append((f_, "{:.2f} {:.2f} {:.2f} {:.2f} {:.3f}".format(rx_ - cax * s_, ry_ - cay * s_, w * s_, h * s_, o_)))
+                else:
+                    keys = sorted({s0, lo, hi, s0 + n - 1} | {f for f in (int(round(t_ * FPS)) for t_, _, _ in L["path"]) if lo < f < hi})
+                    alpha = lambda f_: 0 if ramp and f_ in (s0, s0 + n - 1) else 1
+                    pts = [(f_, "{:.2f} {:.2f} {} {} {}".format(*_callout_pos(L, f_ / FPS, cax, cay, w, h), w, h, alpha(f_))) for f_ in keys]
             elif L["kind"] in ("text", "graphic"):
                 x, y, w, h = crop[1:] if crop else (0, 0, W, H)
                 op, ramp = L.get("opacity", 1.0), min(fr(L["fade"]), (n - 1) // 2)

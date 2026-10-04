@@ -1,8 +1,9 @@
 """Animation of overlays: entrance/exit presets, free keyframes, constant tilt/scale. Pure functions (no MLT), so they are unit-testable.
 
 An `anim` spec (all keys optional):
-  in / out        preset for the entrance / exit: none | fade | slide-left | slide-right | slide-top | slide-bottom | pop | zoom | spin | drop | wipe | rise
-                  (wipe = revealed left to right like typing; as an exit it is erased left to right. Not for pip: it crops the item with MLT's qtcrop)
+  in / out        preset for the entrance / exit: none | fade | slide-left | slide-right | slide-top | slide-bottom | pop | zoom | spin | drop | wipe | rise | draw
+                  (draw = callouts only: unfolds from the ring along the staff to the flag; callouts also take none | fade | pop | zoom, scaled about the ring.
+                  wipe = revealed left to right like typing; as an exit it is erased left to right. Not for pip: it crops the item with MLT's qtcrop)
                   (slide-* name the SIDE OF THE SCREEN: as an entrance the item comes from that side, as an exit it leaves toward it)
   in_s / out_s    how long they take (default: fade = the item's own fade, others 0.5 s in / 0.4 s out)
   ease_in/ease_out  linear | in | out | inout | back | bounce  (defaults suit each preset)
@@ -13,7 +14,7 @@ The result is sampled per frame and written as MLT keyframes, so every easing is
 import math
 
 EASES = ("linear", "in", "out", "inout", "back", "bounce")
-PRESETS = ("none", "fade", "slide-left", "slide-right", "slide-top", "slide-bottom", "pop", "zoom", "spin", "drop", "wipe", "rise")
+PRESETS = ("none", "fade", "slide-left", "slide-right", "slide-top", "slide-bottom", "pop", "zoom", "spin", "drop", "wipe", "rise", "draw")
 KEY_FIELDS = {"t", "x", "y", "scale", "rotate", "opacity"}
 SPEC_KEYS = {"in", "out", "in_s", "out_s", "ease_in", "ease_out", "keys", "keys_ease", "rotate", "scale"}
 DEFAULT_EASE_IN = {"pop": "back", "drop": "bounce", "spin": "back", "wipe": "linear"}
@@ -114,6 +115,8 @@ def _preset(name, p, x, y, w, h, W, H):
         return 0.0, q * (H - y), 1.0, 0.0, min(1.0, p * 4)
     if name in ("slide-top", "drop"):
         return 0.0, -q * (y + h), 1.0, 0.0, min(1.0, p * 4)
+    if name == "draw":                                            # callouts: the reveal is a crop growing from the ring (draw_keys); nothing else moves
+        return 0.0, 0.0, 1.0, 0.0, 1.0
     if name == "rise":                                            # drifts up 6% of the frame height while it fades in (as an exit it sinks)
         return 0.0, q * 0.06 * H, 1.0, 0.0, min(max(p, 0.0), 1.0)
     if name == "wipe":                                            # position/size/opacity stay put: the reveal is a crop (wipe_keys)
@@ -244,3 +247,53 @@ def wipe_keys(a, n, fps, fade_s):
     if a["out"] == "wipe":
         frames |= set(range(max(0, n - 2 - int(math.ceil(out_s * fps))), n))
     return [(f, *span(f)) for f in sorted(frames)]
+
+
+def _windows(a, n, fps, fade_s):
+    total = (n - 1) / fps
+    in_s = a["in_s"] if a["in_s"] is not None else (fade_s if a["in"] == "fade" else 0.5)
+    out_s = a["out_s"] if a["out_s"] is not None else (fade_s if a["out"] == "fade" else 0.4)
+    if in_s + out_s > total > 0:
+        k = total / (in_s + out_s); in_s, out_s = in_s * k, out_s * k
+    return in_s, out_s
+
+
+def draw_keys(a, n, fps, fade_s):
+    """Callout 'draw': [(frame, p)] with p = how much of the callout has unfolded from its ring (0.02-1). Entrance grows 0 -> 1, exit shrinks 1 -> 0. [] without draw."""
+    if "draw" not in (a["in"], a["out"]):
+        return []
+    in_s, out_s = _windows(a, n, fps, fade_s)
+    total = (n - 1) / fps
+    e_in = a["ease_in"] or "out"
+    e_out = a["ease_out"] if a["ease_out"] not in (None, "back", "bounce") else "in"
+
+    def p_at(f):
+        t, p = f / fps, 1.0
+        if a["in"] == "draw" and in_s > 0 and t < in_s:
+            p = ease(e_in, t / in_s)
+        tail = total - t
+        if a["out"] == "draw" and out_s > 0 and tail < out_s:
+            p = min(p, 1 - ease(e_out, 1 - max(tail, 0.0) / out_s))
+        return min(max(p, 0.02), 1.0)
+
+    frames = {0, max(0, n - 1)}
+    if a["in"] == "draw":
+        frames |= set(range(0, min(n, int(math.ceil(in_s * fps)) + 2)))
+    if a["out"] == "draw":
+        frames |= set(range(max(0, n - 2 - int(math.ceil(out_s * fps))), n))
+    return [(f, p_at(f)) for f in sorted(frames)]
+
+
+def callout_keys(a, n, fps, fade_s):
+    """Callout pop/zoom/fade: [(frame, scale, opacity)] to apply about the ring on every frame of the entrance/exit windows (+ both ends)."""
+    in_s, out_s = _windows(a, n, fps, fade_s)
+    frames = {0, max(0, n - 1)}
+    if a["in"] != "none":
+        frames |= set(range(0, min(n, int(math.ceil(in_s * fps)) + 1)))
+    if a["out"] != "none":
+        frames |= set(range(max(0, n - 1 - int(math.ceil(out_s * fps))), n))
+    out = []
+    for f in sorted(frames):
+        r, o, _ = transform_at(a, f, n, fps, (0.0, 0.0, 100.0, 100.0), 1000, 1000, fade_s)
+        out.append((f, r[2] / 100.0, o))
+    return out

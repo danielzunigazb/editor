@@ -453,13 +453,57 @@ except ValueError as ex: e_ = str(ex)
 chk("wipe is rejected on pip with a clear message", e_ is not None and "wipe" in e_ and "pip" in e_, e_)
 static_ = live.layout(BASE + [tx_])["layers"][0]
 chk("a layer without anim keeps exactly the old fade path (anim is None)", static_["anim"] is None)
-for label_, op_, needle_ in [("an animation on a callout", {"op": "callout", "title": "x", "path": [[1.0, 0.5, 0.5]], "start": 0.5, "dur": 2.0, "anim": {"in": "pop"}}, "not supported"),
+for label_, op_, needle_ in [
                              ("an animation on subtitles", {"op": "subtitles", "cues": [{"start": 1.0, "end": 2.0, "text": "x"}], "anim": {"in": "pop"}}, "not supported"),
                              ("an unknown preset", A(**{"in": "explode"}), "anim.in"), ("keys going back in time", A(keys=[{"t": 2.0}, {"t": 1.0}]), "increase"),
                              ("entrance+exit longer than the item", {**IMG, "dur": 1.0, "anim": {"in_s": 0.8, "out_s": 0.8}}, "longer than the item")]:
     try: live.layout(BASE + [op_]); e_ = None
     except ValueError as ex: e_ = str(ex)
     chk(f"layout rejects {label_}", e_ is not None and needle_ in e_, e_)
+TXT_ = {"op": "text", "text": "Hola mundo", "start": 0.5, "dur": 3.0, "pos": "center", "size": 0.08}
+# ---- callouts: size, and animations about the ring (draw / pop / zoom / fade)
+live.THEME = themes.get(None)
+CO2 = {"op": "callout", "title": "Arco monumental", "subtitle": "Entrada", "path": [[1.0, 0.4, 0.6]], "start": 1.0, "dur": 3.0, "side": "ne", "fade": 0.3}
+PX_, PY_ = 0.4 * live.W, 0.6 * live.H
+rest_ = _bbox(BASE[:1] + [CO2], 2.5)
+inside = lambda bb, m=3: bb is not None and bb[0] - m <= PX_ <= bb[2] + m and bb[1] - m <= PY_ <= bb[3] + m
+ar = lambda bb: (bb[2] - bb[0]) * (bb[3] - bb[1]) if bb else 0
+big_ = _bbox(BASE[:1] + [{**CO2, "size": 1.5}], 2.5)
+chk("callout size=1.5 makes the whole callout 1.5x as big (width within 6%)", rest_ and big_ and abs((big_[2] - big_[0]) / (rest_[2] - rest_[0]) - 1.5) < 0.09, (rest_, big_))
+png_a = graphics.render_callout(live.W, live.H, "Arco monumental", "Entrada", "ne", live.CACHE)
+png_b = graphics.render_callout(live.W, live.H, "Arco monumental", "Entrada", "ne", live.CACHE, None, 1.0)
+chk("size=1 is the original callout (same cached file)", png_a == png_b)
+pa_, pb_ = graphics.render_callout(live.W, live.H, "Arco monumental", "Entrada", "ne", live.CACHE, None, 1.5), png_a
+chk("the ring of a size=1.5 callout still lands on the point (+-3 px)", inside(big_))
+for name_, an_ in (("draw", {"in": "draw", "out": "draw", "in_s": 1.0, "out_s": 1.0}), ("pop", {"in": "pop", "out": "zoom", "in_s": 1.0, "out_s": 1.0}), ("fade", {"in": "fade", "out": "fade", "in_s": 1.0, "out_s": 1.0})):
+    op_ = {**CO2, "anim": an_}
+    r_ = _bbox(BASE[:1] + [op_], 2.5)
+    chk(f"callout anim {name_}: at rest it is the static callout (+-2 px)", r_ is not None and all(abs(a_ - b_) <= 2 for a_, b_ in zip(r_, rest_)), (r_, rest_))
+    if name_ == "fade":
+        continue
+    areas_ = [ar(_bbox(BASE[:1] + [op_], t_)) for t_ in (1.1, 1.3, 1.5, 1.8, 2.5)]
+    if name_ == "draw":
+        chk("callout anim draw: it unfolds during the entrance (area never shrinks, starts small)", all(b_ >= a_ - 40 for a_, b_ in zip(areas_, areas_[1:])) and areas_[0] < 0.5 * areas_[-1], areas_)
+    else:                                                       # pop eases with 'back': it overshoots rest size on the way (that is the point)
+        chk("callout anim pop: it starts smaller than at rest and overshoots at most 30%", areas_[0] < 0.75 * areas_[-1] and max(areas_) < 1.3 * areas_[-1], areas_)
+    chk(f"callout anim {name_}: the ring stays on the pinned point while it moves", all(inside(_bbox(BASE[:1] + [op_], t_)) for t_ in (1.3, 1.5, 1.8, 3.2, 3.5)), [_bbox(BASE[:1] + [op_], t_) for t_ in (1.3, 1.5, 1.8)])
+    if name_ == "draw":
+        out_areas = [ar(_bbox(BASE[:1] + [op_], t_)) for t_ in (3.2, 3.5, 3.8)]
+        chk("callout anim draw: it folds back into the ring during the exit", all(b_ <= a_ + 40 for a_, b_ in zip(out_areas, out_areas[1:])) and out_areas[-1] < 0.6 * ar(rest_), out_areas)
+    chk(f"callout anim {name_}: nothing is left after it ends", _bbox(BASE[:1] + [op_], 4.3) is None)
+for label_, op_, needle_ in [("an entrance that slides", {**CO2, "anim": {"in": "slide-left"}}, "in/out among"), ("rotate", {**CO2, "anim": {"rotate": 10}}, "in/out among"),
+                             ("keys", {**CO2, "anim": {"keys": [{"t": 0, "x": 0.5}]}}, "in/out among"), ("size 3", {**CO2, "size": 3}, "size must be"), ("size 0.2", {**CO2, "size": 0.2}, "size must be"),
+                             ("draw on a text", {**TXT_, "anim": {"in": "draw"}}, "callouts only")]:
+    try: live.layout(BASE + [op_]); e_ = None
+    except ValueError as ex: e_ = str(ex)
+    chk(f"layout rejects {label_} on this op", e_ is not None and needle_ in e_, e_)
+live.MOTION = True
+for n_ in themes.NAMES:
+    live.THEME = themes.get(n_)
+    got_ = [L["anim"]["in"] for L in live.layout(BASE + [CO2])["layers"] if L["kind"] == "callout"]
+    chk(f"motion on, {n_}: a callout enters with {live.THEME.motion['callout']['in']}", got_ == [live.THEME.motion["callout"]["in"]], got_)
+live.MOTION, live.THEME = False, themes.get(None)
+
 # ---- template motion (opt-in): ops that name no anim get the template's own; nothing changes while the project's motion is off
 import themes  # noqa: E811
 TXT_ = {"op": "text", "text": "Hola mundo", "start": 0.5, "dur": 3.0, "pos": "center", "size": 0.08}

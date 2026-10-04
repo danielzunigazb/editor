@@ -144,8 +144,11 @@ def lower_third(W, H, title, subtitle="", align="left", strict=True, theme=None)
     return themed.lower_third(W, H, title, subtitle, align, strict, th)
 
 
-def callout(W, H, title, subtitle="", side="ne", strict=True, theme=None):
-    """(image, ax, ay): a label pinned to a point; the image is small and (ax, ay) is the ring centre inside it."""
+def callout(W, H, title, subtitle="", side="ne", strict=True, theme=None, size=1.0):
+    """(image, ax, ay): a label pinned to a point; the image is small and (ax, ay) is the ring centre inside it. size scales the whole callout
+    (type, ring, staff, flag): it is drawn as if the frame were `size` times bigger, so 1.0 is exactly the original."""
+    if size != 1.0:
+        W, H = int(round(W * size)), int(round(H * size))
     th = _theme(theme)
     if th.shape == "glass":
         return _callout_glass(W, H, title, subtitle, side, strict)
@@ -279,11 +282,11 @@ def _callout_glass(W, H, title, subtitle="", side="ne", strict=True):
     return img, ax / S, ay / S
 
 
-def render_callout(W, H, title, subtitle, side, cache_dir, theme=None):
+def render_callout(W, H, title, subtitle, side, cache_dir, theme=None, size=1.0):
     """Cached PNG of a callout + its anchor. Returns (path, w, h, ax, ay)."""
     import json
     th = _theme(theme)
-    key = f"v2|{title}|{subtitle}|{side}|{W}|{H}|{th.name}|{th.accent}"
+    key = f"v2|{title}|{subtitle}|{side}|{W}|{H}|{th.name}|{th.accent}" + (f"|size{size:g}" if size != 1.0 else "")
     base = os.path.join(cache_dir, f"callout_{hashlib.sha1(key.encode()).hexdigest()[:16]}")
     try:
         with open(base + ".json") as f:
@@ -292,7 +295,7 @@ def render_callout(W, H, title, subtitle, side, cache_dir, theme=None):
             return (base + ".png", *meta)
     except (OSError, ValueError):
         pass
-    img, ax, ay = callout(W, H, title, subtitle, side, strict=False, theme=th)
+    img, ax, ay = callout(W, H, title, subtitle, side, strict=False, theme=th, size=size)
     os.makedirs(cache_dir, exist_ok=True)
     tmp = base + f".{os.getpid()}.tmp"
     img.save(tmp, format="PNG")

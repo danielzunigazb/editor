@@ -129,6 +129,17 @@ CARD_MOTION = {   # how a card's element groups arrive: (enter seconds, stagger 
     "tech": (0.4, 0.10, 0.0, -0.04), "minimal": (0.8, 0.20, 0.015, 0.0), "playful": (0.55, 0.14, -0.05, 0.0), "neobrutalism": (0.35, 0.10, 0.0, -0.06),
     "terracotta": (0.8, 0.20, 0.02, 0.0), "cinema": (1.1, 0.30, 0.0, 0.0), "terminal": (0.3, 0.10, 0.0, -0.03), "arcade": (0.35, 0.12, -0.04, 0.0),
     "riso": (0.5, 0.12, 0.0, 0.06), "saas": (0.45, 0.10, 0.03, 0.0), "glass": (0.7, 0.16, 0.025, 0.0)}
+CALLOUT_MOTION = {
+    "luxury": {"in": "draw", "out": "fade", "in_s": 0.7, "out_s": 0.4}, "corporate": {"in": "pop", "out": "fade", "in_s": 0.35, "out_s": 0.3},
+    "academic": {"in": "draw", "out": "fade", "in_s": 0.6, "out_s": 0.4}, "sketch": {"in": "pop", "out": "zoom", "in_s": 0.45, "out_s": 0.3},
+    "tech": {"in": "draw", "out": "draw", "in_s": 0.35, "out_s": 0.25}, "minimal": {"in": "fade", "out": "fade", "in_s": 0.5, "out_s": 0.4},
+    "playful": {"in": "pop", "out": "pop", "in_s": 0.5, "out_s": 0.3}, "neobrutalism": {"in": "pop", "out": "zoom", "in_s": 0.3, "out_s": 0.25},
+    "terracotta": {"in": "draw", "out": "fade", "in_s": 0.6, "out_s": 0.4}, "cinema": {"in": "fade", "out": "fade", "in_s": 0.8, "out_s": 0.6},
+    "terminal": {"in": "draw", "out": "draw", "in_s": 0.3, "out_s": 0.2}, "arcade": {"in": "pop", "out": "zoom", "in_s": 0.3, "out_s": 0.25, "ease_in": "linear"},
+    "riso": {"in": "draw", "out": "fade", "in_s": 0.45, "out_s": 0.3}, "saas": {"in": "pop", "out": "fade", "in_s": 0.3, "out_s": 0.25},
+    "glass": {"in": "draw", "out": "fade", "in_s": 0.5, "out_s": 0.4}}
+for _n, _c in CALLOUT_MOTION.items():
+    MOTION[_n]["callout"] = _c
 for _n, _spec in CARD_MOTION.items():
     MOTION[_n]["card"] = dict(zip(("enter_s", "stagger_s", "rise", "dx"), _spec))
 THEMES = {n: replace(t, transition=TRANSITIONS[n], motion=MOTION[n]) for n, t in THEMES.items()}

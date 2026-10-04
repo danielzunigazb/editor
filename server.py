@@ -221,7 +221,7 @@ def _b_add_image(start_s, dur_s, path="", position="center", scale=0.3, opacity=
     return op
 
 
-def _b_add_callout(title, track, subtitle="", start_s=None, dur_s=None, side="auto", fade_s=0.3, theme="auto"):
+def _b_add_callout(title, track, subtitle="", start_s=None, dur_s=None, side="auto", fade_s=0.3, theme="auto", size=1.0, anim=None):
     if not isinstance(track, list) or not track or not all(isinstance(p, (list, tuple)) and len(p) == 3 for p in track):
         raise ValueError("track must be a list of [t_s, x, y] points (timeline seconds; x, y = fractions 0-1 of the frame)")
     t0 = track[0][0]
@@ -230,7 +230,8 @@ def _b_add_callout(title, track, subtitle="", start_s=None, dur_s=None, side="au
     if dur_s is None and dur <= 0:
         dur = 2.0                                          # a single point: show it for a couple of seconds
     return {"op": "callout", "title": title, "subtitle": subtitle, "path": [list(p) for p in track], "start": start,
-            "dur": dur, "side": side, "fade": fade_s, "theme": _theme_arg(theme)}
+            "dur": dur, "side": side, "fade": fade_s, "theme": _theme_arg(theme),
+            **({"size": size} if size != 1.0 else {}), **({"anim": anim} if anim else {})}
 
 
 def _probe_audio(path):
@@ -309,6 +310,19 @@ def _speech_intervals(st):
 BUILDERS = {n[3:]: f for n, f in list(globals().items()) if n.startswith("_b_")}
 
 
+def _legibility(st, max_warnings=3):
+    """Warnings for type that would be too small to read at the project's export size (text under 14 px, callout subtitles under 11 px)."""
+    H, out = st["height"], []
+    for i, o in enumerate(st["ops"]):
+        if o.get("op") == "text" and isinstance(o.get("size"), (int, float)) and o["size"] * H < 14:
+            out.append(f"op {i} (text) would be only {o['size'] * H:.0f} px tall at {st['width']}x{H}: raise its size to at least {14 / H:.3f}")
+        elif o.get("op") == "callout":
+            sz = o.get("size", 1.0) if isinstance(o.get("size"), (int, float)) else 1.0
+            if o.get("subtitle") and 0.0135 * H * sz < 11:
+                out.append(f"op {i} (callout) has a subtitle only {0.0135 * H * sz:.0f} px tall at {st['width']}x{H}: use size={min(2.0, 11 / (0.0135 * H)):.1f} or more")
+    return out[:max_warnings]
+
+
 def summary(st, full=False):
     """Timeline as JSON. Edit tools return the compact form (the model already knows the op it just sent);
     get_timeline/undo/remove_op return `full` with the numbered op list."""
@@ -348,7 +362,7 @@ def summary(st, full=False):
         "overlays": layers,
         "audio": [{"op": a["op"], "name": a["name"], "start_s": round(a["start"], 3), "end_s": round(a["start"] + a["dur_eff"], 3), "volume_db": a["vol"],
                    "loop": a["loop"], "ducked": len(a["duck"])} for a in m["audios"]],
-        "warnings": m["warnings"],
+        "warnings": m["warnings"] + _legibility(st),
         "op_count": len(st["ops"]),
     }
     credits = assets_lib.credit_lines([o.get("asset") for o in st["ops"] if o.get("op") == "audio" and o.get("asset")])
@@ -562,7 +576,7 @@ def animate(index: int, anim: dict | None = None) -> dict:
     e: linear | in | out | inout | back | bounce. keys = free motion between entrance and exit, each {"t": seconds from the item's start,
     "x": 0-1, "y": 0-1 (centre of the item in the frame), "scale": 1 = normal, "rotate": degrees clockwise, "opacity": 0-1}; omitted fields hold.
     rotate/scale = constant tilt / size multiplier. Examples: {"in": "slide-left", "out": "fade"}; {"in": "pop", "rotate": -6};
-    {"keys": [{"t": 0, "x": 0.2, "y": 0.5}, {"t": 2, "x": 0.8, "y": 0.5}]} (glide across). Not for callouts (they follow their own track)."""
+    {"keys": [{"t": 0, "x": 0.2, "y": 0.5}, {"t": 2, "x": 0.8, "y": 0.5}]} (glide across). Callouts accept only in/out among none | fade | pop | zoom | draw (they follow their own track)."""
     with locked():
         st = load()
         n = len(st["ops"])
@@ -570,8 +584,8 @@ def animate(index: int, anim: dict | None = None) -> dict:
         if not 0 <= i < n:
             raise ValueError(f"no op {index} (have {n})")
         op = st["ops"][i]
-        if op.get("op") not in ("text", "image", "pip", "graphic", "lower_third"):
-            raise ValueError(f"op {i} is a '{op.get('op')}': only text, image, pip, graphic and lower_third can be animated")
+        if op.get("op") not in ("text", "image", "pip", "graphic", "lower_third", "callout"):
+            raise ValueError(f"op {i} is a '{op.get('op')}': only text, image, pip, graphic, lower_third and callout can be animated")
         new = dict(op)
         if anim:
             new["anim"] = anim
@@ -678,15 +692,18 @@ def list_assets(kind: str = "icon", theme: str = "", mood: str = "", license: st
 
 @mcp.tool()
 def add_callout(title: str, track: list[list[float]], subtitle: str = "", start_s: float | None = None,
-                dur_s: float | None = None, side: str = "auto", fade_s: float = 0.3, theme: str = "auto") -> dict:
+                dur_s: float | None = None, side: str = "auto", fade_s: float = 0.3, theme: str = "auto", size: float = 1.0,
+                anim: dict | None = None) -> dict:
     """Pin a name label to a point of the picture: a gold ring on the exact spot, a thin staff and a glass flag with
     `title` (and optional `subtitle`). `track` = [[t_s, x, y], ...]: where the point is at each moment (t_s in TIMELINE
     seconds, increasing; x, y = fractions of the frame, 0,0 = top-left, 1,1 = bottom-right). With several points the ring
     glides linearly between them (use it to follow a moving object); one point = fixed. start_s/dur_s default to
     the first/last point (dur 2 s for one point). side: auto (flag placed so it stays on screen) | ne | nw | se | sw.
     Title max 40 characters, subtitle 60, single lines. Coordinates usually come from detect.py (an external object
-    detector), not from guessing."""
-    return commit(_b_add_callout(title, track, subtitle, start_s, dur_s, side, fade_s, theme))
+    detector), not from guessing. size 0.7-2.0 scales the whole callout (1 = normal; 1.3 reads better at 1080p and above).
+    anim: {"in": ..., "out": ...} with none | fade | pop | zoom (about the ring) | draw (unfolds from the ring along the staff to the flag), plus
+    in_s/out_s/ease_in/ease_out; the project's motion supplies one when it names none."""
+    return commit(_b_add_callout(title, track, subtitle, start_s, dur_s, side, fade_s, theme, size, anim))
 
 
 @mcp.tool()
