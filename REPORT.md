@@ -32,7 +32,7 @@ falla con `ModuleNotFoundError: No module named '_mlt7'`. Hay que usar
 
 ## 2. Qué hace el script
 
-`poc.py` (un solo archivo, subcomandos `gen | build | bench | preview | export | measure`):
+`legacy/poc.py` (un solo archivo, subcomandos `gen | build | bench | preview | export | measure`):
 
 1. `gen`: genera con ffmpeg dos clips de 720p25 (A: `testsrc2` 6 s + tono 440 Hz;
    B: `smptehdbars` 5 s + tono 880 Hz).
@@ -508,7 +508,7 @@ temporal de sensor (para que decodificar sea exigente como con cámara): H.264 4
 **Piso de la CPU (solo ffmpeg, sin MLT, 4 núcleos):** 65.5 / 51.6 / 81.5 fps decodificando esos tres clips, usando 3.1-3.5 núcleos.
 
 **Prueba:** timeline 3840x2160@30 de 10.4 s (312 frames), 3 clips (uno a 60 fps) con 2 fundidos cruzados, fades y la pila de lujo
-completa (viñeta, marco, título, tercio inferior, subtítulos), a través del servidor MCP real (`bench_4k.py`).
+completa (viñeta, marco, título, tercio inferior, subtítulos), a través del servidor MCP real (`legacy/bench_4k.py`).
 
 | Herramienta (servidor, antes de la optimización) | Tiempo | RAM pico | CPU (de 400%) |
 |---|---|---|---|
@@ -589,7 +589,7 @@ pueden diferir; la sincronía A/V no se evaluó; una corrida por caso a 4K y tre
 
 ## 14. Revisión completa del código (añadido a petición del usuario)
 
-Se leyeron íntegros los ~3.800 líneas del proyecto (`live.py`, `server.py`, `textrender.py`, `graphics.py`, `poc.py`, las tres suites, los
+Se leyeron íntegros los ~3.800 líneas del proyecto (`live.py`, `server.py`, `textrender.py`, `graphics.py`, `legacy/poc.py`, las tres suites, los
 scripts de benchmark y demo, las plantillas HTML y la configuración). Cada sospecha se **comprobó con un experimento** antes de tocar nada;
 análisis estático con `pyflakes` (sin nombres indefinidos), `node --check` sobre el JavaScript de ambas plantillas, `bash -n` y validación
 de los JSON de configuración.
@@ -853,10 +853,10 @@ con test para las 15 plantillas); los fondos `blobs` mostraban anillos por banda
 
 ## 10. Archivos
 
-- `poc.py`: el POC (gen/build/bench/preview/export/measure).
-- `POC_MODE=multi` en `poc.py`: multipista con composición (sección 9; requiere `xvfb-run`).
-- `POC_MODE=real` en `poc.py`: timeline con clips reales de `media_real/` (sección 8).
-- `bench_4k.py`: benchmark 4K a través del servidor MCP (sección 13).
+- `legacy/poc.py`: el POC (gen/build/bench/preview/export/measure).
+- `POC_MODE=multi` en `legacy/poc.py`: multipista con composición (sección 9; requiere `xvfb-run`).
+- `POC_MODE=real` en `legacy/poc.py`: timeline con clips reales de `media_real/` (sección 8).
+- `legacy/bench_4k.py`: benchmark 4K a través del servidor MCP (sección 13).
 - `graphics.py`, `fonts/`: recursos de lujo y fuentes OFL (sección 11.3).
 - `textrender.py`, `test_text.py`, `test_engine.py`: texto/subtítulos y pruebas cuadro a cuadro (sección 11.2).
 - `server.py`, `test_mcp.py`, `setup.sh`, `requirements.txt`, `mcp.example.json`: servidor MCP y su prueba (sección 11).

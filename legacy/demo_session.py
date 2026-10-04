@@ -9,7 +9,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from PIL import Image
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # repo root (this script lives in legacy/)
 DEMO = os.path.join(HERE, "out", "demo")
 SRC = lambda n: os.path.join(DEMO, "src", n)
 STEPS = os.path.join(DEMO, "steps")

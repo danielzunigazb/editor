@@ -15,7 +15,7 @@ Must run with the interpreter that matches the apt binding: /usr/bin/python3.12.
 """
 import argparse, json, os, statistics, subprocess, sys, threading, time
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # repo root (this script lives in legacy/)
 MEDIA = os.path.join(HERE, "media")
 CLIP_A = os.path.join(MEDIA, "clip_a.mp4")
 CLIP_B = os.path.join(MEDIA, "clip_b.mp4")

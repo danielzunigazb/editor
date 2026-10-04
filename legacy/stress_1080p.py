@@ -3,7 +3,7 @@
 Reports sequential-decode vs random-seek (scrub) latency of the MLT playlist."""
 import os, random, subprocess, time, mlt7
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # repo root (this script lives in legacy/)
 HD = os.path.join(HERE, "media", "hd.mp4")
 if not os.path.exists(HD):
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "mandelbrot=size=1920x1080:rate=30",

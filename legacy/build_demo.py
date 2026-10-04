@@ -3,7 +3,7 @@
 Run after demo_session.py:  .venv/bin/python build_demo.py"""
 import base64, json, os, re
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # repo root (this script lives in legacy/)
 D = os.path.join(HERE, "out", "demo")
 b64 = lambda p: base64.b64encode(open(p, "rb").read()).decode()
 sess = json.load(open(os.path.join(D, "session.json")))

@@ -1,0 +1,303 @@
+{
+ "template": "luxury",
+ "size": {
+  "width": 1920,
+  "height": 1080,
+  "fps": 30
+ },
+ "images_subdir": "player-showcase/public/img",
+ "screenshot_px": [
+  1200,
+  2580
+ ],
+ "scene_s": 6.2,
+ "intro_s": 4.0,
+ "transition_s": 0.8,
+ "frame_overlay": {
+  "opacity": 0.7
+ },
+ "background": {
+  "center": [
+   76,
+   62,
+   40
+  ],
+  "edge": [
+   18,
+   15,
+   11
+  ],
+  "length_s": 41,
+  "clip_s": 39.0
+ },
+ "intro": {
+  "title": "Player",
+  "subtitle": "Tu música, en tu bolsillo"
+ },
+ "list_card": {
+  "title": "Y además",
+  "dur_s": 5.0,
+  "items": [
+   "Android Auto y búsqueda por voz",
+   "Widget de pantalla de inicio",
+   "Temas: sistema, claro, oscuro y AMOLED",
+   "Español e inglés",
+   "Tus datos se quedan en el teléfono"
+  ]
+ },
+ "outro": {
+  "title": "Player 1.6.1",
+  "subtitle": "player.danzuniga.xyz  ·  Android 8.0 o superior",
+  "dur_s": 4.0
+ },
+ "music": {
+  "asset": "m-trio-for-piano-cello-and-clarinet",
+  "volume_db": -17
+ },
+ "sfx": {
+  "asset": "s-interface-sounds-minimize-003",
+  "volume_db": -12,
+  "scenes": [
+   1,
+   3,
+   5
+  ]
+ },
+ "phone": {
+  "width": 0.2,
+  "cx": 0.5,
+  "cy": 0.59
+ },
+ "callout_size": 1.3,
+ "scenes": [
+  {
+   "headline": "Tu biblioteca, a tu manera",
+   "image": {
+    "file": "dz_home.png",
+    "crop": [
+     0.0,
+     0.5
+    ],
+    "width": 0.36,
+    "edge_callouts": true
+   },
+   "callouts": [
+    {
+     "label": "Aleatorio",
+     "sub": "toda la biblioteca de un toque",
+     "at": [
+      0.19,
+      0.275
+     ]
+    },
+    {
+     "label": "Búsqueda",
+     "sub": "sin importar mayúsculas ni acentos",
+     "at": [
+      0.68,
+      0.035
+     ]
+    },
+    {
+     "label": "Recién añadidas",
+     "sub": "listas automáticas",
+     "at": [
+      0.33,
+      0.38
+     ]
+    }
+   ]
+  },
+  {
+   "headline": "Reproduce sin ataduras",
+   "image": {
+    "file": "dz_now_playing.png",
+    "crop": [
+     0.45,
+     1.0
+    ],
+    "width": 0.36,
+    "edge_callouts": true
+   },
+   "callouts": [
+    {
+     "label": "Controles completos",
+     "sub": "aleatorio, repetir, siguiente…",
+     "at": [
+      0.8,
+      0.82
+     ]
+    },
+    {
+     "label": "Temporizador",
+     "sub": "por minutos o al terminar la canción",
+     "at": [
+      0.33,
+      0.953
+     ]
+    },
+    {
+     "label": "Ecualizador",
+     "sub": "presets y refuerzo de graves",
+     "at": [
+      0.67,
+      0.953
+     ]
+    }
+   ]
+  },
+  {
+   "headline": "Letras sincronizadas",
+   "image": {
+    "file": "lyrics_synced.png",
+    "crop": [
+     0.1,
+     0.7
+    ],
+    "width": 0.36,
+    "edge_callouts": true
+   },
+   "callouts": [
+    {
+     "label": "Línea actual",
+     "sub": "toca una línea para saltar",
+     "at": [
+      0.3,
+      0.36
+     ]
+    },
+    {
+     "label": "Compartir",
+     "sub": "mantén presionada una línea",
+     "at": [
+      0.4,
+      0.555
+     ]
+    },
+    {
+     "label": "De dónde salen",
+     "sub": "archivo .lrc, incrustadas o LRCLIB",
+     "at": [
+      0.3,
+      0.12
+     ]
+    }
+   ]
+  },
+  {
+   "headline": "Una terminal para tu música",
+   "image": {
+    "file": "terminal.png",
+    "crop": [
+     0.0,
+     0.5
+    ],
+    "width": 0.36,
+    "edge_callouts": true
+   },
+   "callouts": [
+    {
+     "label": "play soda stereo",
+     "sub": "artista, álbum o canción",
+     "at": [
+      0.4,
+      0.17
+     ]
+    },
+    {
+     "label": "now",
+     "sub": "progreso y línea de la letra",
+     "at": [
+      0.4,
+      0.31
+     ]
+    },
+    {
+     "label": "share lyric",
+     "sub": "comparte una letra",
+     "at": [
+      0.4,
+      0.405
+     ]
+    }
+   ]
+  },
+  {
+   "headline": "Monitor web, cifrado de punta a punta",
+   "image": {
+    "file": "monitor.png",
+    "crop": [
+     0.0,
+     1.0
+    ],
+    "width": 0.56,
+    "edge_callouts": false
+   },
+   "callouts": [
+    {
+     "label": "Vinculado",
+     "sub": "con el código del teléfono",
+     "at": [
+      0.17,
+      0.147
+     ]
+    },
+    {
+     "label": "Volumen",
+     "sub": "el del teléfono",
+     "at": [
+      0.45,
+      0.57
+     ]
+    },
+    {
+     "label": "Cola",
+     "sub": "y búsqueda en tu biblioteca",
+     "at": [
+      0.67,
+      0.22
+     ]
+    }
+   ]
+  },
+  {
+   "headline": "Compártelo en tus historias",
+   "pair": {
+    "images": [
+     {
+      "file": "share_song.png",
+      "cx": 0.38,
+      "scale": 0.19,
+      "in": "pop",
+      "out": "zoom"
+     },
+     {
+      "file": "share_lyrics.png",
+      "cx": 0.62,
+      "scale": 0.19,
+      "in": "pop",
+      "out": "zoom"
+     }
+    ],
+    "callouts": [
+     {
+      "label": "Tarjetas 9:16",
+      "sub": "para Instagram, Snapchat, WhatsApp…",
+      "at": [
+       0.33,
+       0.4
+      ]
+     },
+     {
+      "label": "Carátula o letra",
+      "sub": "elige hasta 4 líneas",
+      "at": [
+       0.67,
+       0.4
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

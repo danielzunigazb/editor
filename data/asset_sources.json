@@ -1,0 +1,1021 @@
+{
+ "user_agent": "Mozilla/5.0 (X11; Linux x86_64) mlt-poc-asset-curator",
+ "incompetech": {
+  "pieces": "https://incompetech.com/music/royalty-free/pieces.json",
+  "mp3_base": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/",
+  "author": "Kevin MacLeod",
+  "source": "incompetech.com",
+  "license": "CC-BY-4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+  "attribution": "\"{title}\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+  "length_s": [
+   100,
+   240
+  ]
+ },
+ "opengameart": {
+  "base": "https://opengameart.org",
+  "search": "https://opengameart.org/art-search-advanced?keys={kw}&field_art_type_tid%5B%5D=12&field_art_licenses_tid%5B%5D=4&sort_by=count&sort_order=DESC",
+  "license": "CC0-1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "queries": [
+   [
+    "luxury",
+    "orchestral"
+   ],
+   [
+    "academic",
+    "piano"
+   ],
+   [
+    "tech",
+    "electronic"
+   ],
+   [
+    "playful",
+    "happy"
+   ],
+   [
+    "sketch",
+    "ukulele"
+   ],
+   [
+    "corporate",
+    "upbeat"
+   ],
+   [
+    "minimal",
+    "ambient"
+   ],
+   [
+    "luxury",
+    "cinematic"
+   ],
+   [
+    "playful",
+    "bouncy"
+   ]
+  ]
+ },
+ "kenney": {
+  "packs": {
+   "ui-audio": "https://kenney.nl/assets/ui-audio",
+   "interface-sounds": "https://kenney.nl/assets/interface-sounds",
+   "digital-audio": "https://kenney.nl/assets/digital-audio",
+   "rpg-audio": "https://kenney.nl/assets/rpg-audio",
+   "music-jingles": "https://kenney.nl/assets/music-jingles"
+  },
+  "impact_page": "https://kenney.nl/assets/impact-sounds",
+  "author": "Kenney (kenney.nl)",
+  "license": "CC0-1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "sfx": [
+   [
+    "ui-audio",
+    "click1",
+    [
+     "click"
+    ],
+    [
+     "corporate",
+     "minimal",
+     "tech"
+    ]
+   ],
+   [
+    "ui-audio",
+    "click3",
+    [
+     "click"
+    ],
+    [
+     "corporate",
+     "minimal"
+    ]
+   ],
+   [
+    "ui-audio",
+    "rollover2",
+    [
+     "tick",
+     "hover"
+    ],
+    [
+     "minimal",
+     "corporate"
+    ]
+   ],
+   [
+    "ui-audio",
+    "switch13",
+    [
+     "tick"
+    ],
+    [
+     "minimal",
+     "tech"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "confirmation_001",
+    [
+     "ding",
+     "chime"
+    ],
+    [
+     "corporate",
+     "luxury",
+     "academic"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "confirmation_003",
+    [
+     "ding",
+     "chime"
+    ],
+    [
+     "luxury",
+     "academic"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "select_001",
+    [
+     "click"
+    ],
+    [
+     "corporate",
+     "minimal"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "select_005",
+    [
+     "click",
+     "pop"
+    ],
+    [
+     "playful",
+     "sketch"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "tick_001",
+    [
+     "tick"
+    ],
+    [
+     "minimal",
+     "academic"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "tick_002",
+    [
+     "tick"
+    ],
+    [
+     "minimal",
+     "tech"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "toggle_001",
+    [
+     "click"
+    ],
+    [
+     "corporate",
+     "tech"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "open_001",
+    [
+     "whoosh",
+     "swoosh"
+    ],
+    [
+     "corporate",
+     "minimal"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "close_001",
+    [
+     "whoosh",
+     "swoosh"
+    ],
+    [
+     "corporate",
+     "minimal"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "maximize_003",
+    [
+     "whoosh",
+     "swoosh"
+    ],
+    [
+     "minimal",
+     "luxury"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "minimize_003",
+    [
+     "whoosh",
+     "swoosh"
+    ],
+    [
+     "minimal",
+     "luxury"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "glass_001",
+    [
+     "chime",
+     "bell"
+    ],
+    [
+     "luxury",
+     "academic"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "glass_004",
+    [
+     "chime",
+     "bell"
+    ],
+    [
+     "luxury",
+     "academic"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "bong_001",
+    [
+     "bell",
+     "chime"
+    ],
+    [
+     "academic",
+     "luxury"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "pluck_001",
+    [
+     "pop",
+     "pluck"
+    ],
+    [
+     "sketch",
+     "playful"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "drop_001",
+    [
+     "pop"
+    ],
+    [
+     "playful",
+     "sketch"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "scratch_001",
+    [
+     "pencil",
+     "scratch"
+    ],
+    [
+     "sketch"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "scratch_003",
+    [
+     "pencil",
+     "scratch"
+    ],
+    [
+     "sketch"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "scroll_001",
+    [
+     "paper",
+     "swoosh"
+    ],
+    [
+     "sketch",
+     "academic"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "glitch_001",
+    [
+     "glitch"
+    ],
+    [
+     "tech"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "glitch_003",
+    [
+     "glitch"
+    ],
+    [
+     "tech"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "question_002",
+    [
+     "bleep"
+    ],
+    [
+     "tech",
+     "playful"
+    ]
+   ],
+   [
+    "interface-sounds",
+    "error_001",
+    [
+     "buzz"
+    ],
+    [
+     "tech"
+    ]
+   ],
+   [
+    "digital-audio",
+    "powerUp1",
+    [
+     "power-up"
+    ],
+    [
+     "tech",
+     "playful"
+    ]
+   ],
+   [
+    "digital-audio",
+    "powerUp5",
+    [
+     "power-up"
+    ],
+    [
+     "tech",
+     "playful"
+    ]
+   ],
+   [
+    "digital-audio",
+    "powerUp9",
+    [
+     "power-up"
+    ],
+    [
+     "tech",
+     "playful"
+    ]
+   ],
+   [
+    "digital-audio",
+    "phaserUp1",
+    [
+     "whoosh",
+     "power-up"
+    ],
+    [
+     "tech"
+    ]
+   ],
+   [
+    "digital-audio",
+    "phaserDown1",
+    [
+     "whoosh"
+    ],
+    [
+     "tech"
+    ]
+   ],
+   [
+    "digital-audio",
+    "laser1",
+    [
+     "bleep",
+     "laser"
+    ],
+    [
+     "tech"
+    ]
+   ],
+   [
+    "digital-audio",
+    "highUp",
+    [
+     "bleep"
+    ],
+    [
+     "tech",
+     "playful"
+    ]
+   ],
+   [
+    "digital-audio",
+    "lowDown",
+    [
+     "bleep"
+    ],
+    [
+     "tech"
+    ]
+   ],
+   [
+    "digital-audio",
+    "pepSound1",
+    [
+     "boing",
+     "pop"
+    ],
+    [
+     "playful"
+    ]
+   ],
+   [
+    "digital-audio",
+    "pepSound3",
+    [
+     "boing",
+     "pop"
+    ],
+    [
+     "playful"
+    ]
+   ],
+   [
+    "digital-audio",
+    "threeTone1",
+    [
+     "ding",
+     "chime"
+    ],
+    [
+     "playful",
+     "tech"
+    ]
+   ],
+   [
+    "digital-audio",
+    "zap1",
+    [
+     "bleep",
+     "zap"
+    ],
+    [
+     "tech"
+    ]
+   ],
+   [
+    "rpg-audio",
+    "bookFlip1",
+    [
+     "page-turn",
+     "paper"
+    ],
+    [
+     "academic",
+     "sketch"
+    ]
+   ],
+   [
+    "rpg-audio",
+    "bookFlip2",
+    [
+     "page-turn",
+     "paper"
+    ],
+    [
+     "academic",
+     "sketch"
+    ]
+   ],
+   [
+    "rpg-audio",
+    "bookOpen",
+    [
+     "page-turn",
+     "paper"
+    ],
+    [
+     "academic"
+    ]
+   ],
+   [
+    "rpg-audio",
+    "bookClose",
+    [
+     "page-turn",
+     "paper"
+    ],
+    [
+     "academic"
+    ]
+   ],
+   [
+    "rpg-audio",
+    "cloth1",
+    [
+     "swoosh"
+    ],
+    [
+     "luxury",
+     "minimal"
+    ]
+   ],
+   [
+    "rpg-audio",
+    "metalClick",
+    [
+     "click"
+    ],
+    [
+     "luxury",
+     "corporate"
+    ]
+   ],
+   [
+    "rpg-audio",
+    "handleCoins",
+    [
+     "coins",
+     "chime"
+    ],
+    [
+     "luxury",
+     "corporate"
+    ]
+   ]
+  ],
+  "impact_picks": [
+   "impactBell_heavy_000",
+   "impactMetal_heavy_000",
+   "impactPunch_heavy_000",
+   "impactPlate_heavy_000",
+   "impactSoft_heavy_000"
+  ]
+ },
+ "picks": {
+  "luxury": {
+   "feels": [
+    "Calming",
+    "Epic",
+    "Somber"
+   ],
+   "instruments": [
+    "piano",
+    "strings",
+    "cello",
+    "violin"
+   ],
+   "refuse": [
+    "drum",
+    "percussion",
+    "guitar",
+    "synth",
+    "banjo",
+    "fiddle",
+    "tuba",
+    "accordion",
+    "harmonica",
+    "mandolin",
+    "bagpipe",
+    "polka"
+   ],
+   "genres": null,
+   "count": 3
+  },
+  "corporate": {
+   "feels": [
+    "Bright",
+    "Driving",
+    "Uplifting"
+   ],
+   "instruments": [
+    "guitar",
+    "piano",
+    "synth"
+   ],
+   "refuse": [
+    "horn",
+    "choir",
+    "orchestra",
+    "banjo",
+    "fiddle",
+    "tuba",
+    "accordion",
+    "harmonica",
+    "mandolin",
+    "bagpipe",
+    "polka"
+   ],
+   "genres": [
+    "13",
+    "5"
+   ],
+   "count": 3
+  },
+  "academic": {
+   "feels": [
+    "Calming",
+    "Relaxed"
+   ],
+   "instruments": [
+    "piano",
+    "harp",
+    "flute",
+    "cello"
+   ],
+   "refuse": [
+    "drum",
+    "percussion",
+    "guitar",
+    "synth",
+    "bass",
+    "banjo",
+    "fiddle",
+    "tuba",
+    "accordion",
+    "harmonica",
+    "mandolin",
+    "bagpipe",
+    "polka"
+   ],
+   "genres": null,
+   "count": 2
+  },
+  "sketch": {
+   "feels": [
+    "Bouncy",
+    "Humorous",
+    "Relaxed"
+   ],
+   "instruments": [
+    "ukulele",
+    "whistle",
+    "pizzicato",
+    "xylophone",
+    "banjo",
+    "glockenspiel"
+   ],
+   "refuse": [
+    "synth"
+   ],
+   "genres": null,
+   "count": 2
+  },
+  "tech": {
+   "feels": [
+    "Bright",
+    "Driving",
+    "Grooving",
+    "Intense"
+   ],
+   "instruments": [
+    "synth"
+   ],
+   "refuse": [
+    "orchestra",
+    "choir",
+    "strings",
+    "horn",
+    "banjo",
+    "fiddle",
+    "tuba",
+    "accordion",
+    "harmonica",
+    "mandolin",
+    "bagpipe",
+    "polka"
+   ],
+   "genres": [
+    "13",
+    "7"
+   ],
+   "count": 3
+  },
+  "minimal": {
+   "feels": [
+    "Calming",
+    "Relaxed"
+   ],
+   "instruments": [
+    "piano",
+    "synth"
+   ],
+   "refuse": [
+    "drum",
+    "percussion",
+    "guitar",
+    "choir",
+    "banjo",
+    "fiddle",
+    "tuba",
+    "accordion",
+    "harmonica",
+    "mandolin",
+    "bagpipe",
+    "polka"
+   ],
+   "genres": null,
+   "count": 2
+  },
+  "playful": {
+   "feels": [
+    "Bouncy",
+    "Bright",
+    "Humorous",
+    "Uplifting"
+   ],
+   "instruments": [
+    "xylophone",
+    "ukulele",
+    "glockenspiel",
+    "marimba",
+    "whistle"
+   ],
+   "refuse": [
+    "choir"
+   ],
+   "genres": null,
+   "count": 3
+  }
+ },
+ "bad_feels": {
+  "luxury": [
+   "Aggressive",
+   "Dark",
+   "Eerie",
+   "Suspenseful",
+   "Unnerving"
+  ],
+  "corporate": [
+   "Aggressive",
+   "Dark",
+   "Eerie",
+   "Mysterious",
+   "Suspenseful",
+   "Unnerving"
+  ],
+  "academic": [
+   "Aggressive",
+   "Dark",
+   "Eerie",
+   "Mysterious",
+   "Suspenseful",
+   "Unnerving"
+  ],
+  "sketch": [
+   "Aggressive",
+   "Dark",
+   "Eerie",
+   "Unnerving"
+  ],
+  "tech": [
+   "Aggressive",
+   "Dark",
+   "Eerie",
+   "Somber",
+   "Unnerving"
+  ],
+  "minimal": [
+   "Dark",
+   "Eerie",
+   "Mysterious",
+   "Somber",
+   "Suspenseful",
+   "Unnerving"
+  ],
+  "playful": [
+   "Aggressive",
+   "Dark",
+   "Eerie",
+   "Somber",
+   "Suspenseful",
+   "Unnerving"
+  ]
+ },
+ "bad_words": {
+  "corporate": [
+   "folk",
+   "country",
+   "vampire",
+   "horror"
+  ],
+  "luxury": [
+   "folk",
+   "vampire",
+   "horror"
+  ],
+  "academic": [
+   "folk",
+   "vampire",
+   "horror"
+  ],
+  "minimal": [
+   "folk",
+   "vampire",
+   "horror"
+  ],
+  "tech": [
+   "vampire",
+   "horror",
+   "folk"
+  ]
+ },
+ "folk_instruments": [
+  "banjo",
+  "fiddle",
+  "tuba",
+  "accordion",
+  "harmonica",
+  "mandolin",
+  "bagpipe",
+  "polka"
+ ],
+ "extra_music": {
+  "Undaunted": [
+   "cinema"
+  ],
+  "Rynos Theme": [
+   "cinema"
+  ],
+  "Americana": [
+   "cinema"
+  ],
+  "Bit Quest": [
+   "arcade"
+  ],
+  "Pixelland": [
+   "arcade"
+  ],
+  "Cyborg Ninja": [
+   "arcade"
+  ],
+  "Morning": [
+   "terracotta"
+  ],
+  "Evening": [
+   "terracotta"
+  ],
+  "Funin and Sunin": [
+   "riso"
+  ],
+  "Pleasant Porridge": [
+   "riso",
+   "saas"
+  ],
+  "Shaving Mirror": [
+   "neobrutalism"
+  ],
+  "Voxel Revolution": [
+   "neobrutalism",
+   "terminal"
+  ],
+  "Exit the Premises": [
+   "terminal"
+  ],
+  "Floating Cities": [
+   "glass",
+   "saas"
+  ]
+ },
+ "tag_themes": {
+  "click": [
+   "neobrutalism",
+   "terminal",
+   "saas",
+   "riso"
+  ],
+  "pop": [
+   "neobrutalism",
+   "riso",
+   "arcade"
+  ],
+  "whoosh": [
+   "neobrutalism",
+   "cinema",
+   "saas",
+   "glass"
+  ],
+  "swoosh": [
+   "glass",
+   "cinema"
+  ],
+  "ding": [
+   "saas",
+   "glass"
+  ],
+  "chime": [
+   "glass",
+   "terracotta",
+   "saas"
+  ],
+  "bell": [
+   "terracotta"
+  ],
+  "pluck": [
+   "terracotta",
+   "riso"
+  ],
+  "page-turn": [
+   "terracotta"
+  ],
+  "paper": [
+   "terracotta"
+  ],
+  "bleep": [
+   "terminal",
+   "arcade"
+  ],
+  "glitch": [
+   "terminal"
+  ],
+  "power-up": [
+   "arcade",
+   "terminal"
+  ],
+  "coins": [
+   "arcade"
+  ],
+  "tick": [
+   "saas",
+   "terminal",
+   "glass"
+  ],
+  "boing": [
+   "arcade",
+   "neobrutalism"
+  ],
+  "hit": [
+   "cinema"
+  ]
+ },
+ "music_themes": {
+  "tech": [
+   "terminal",
+   "saas",
+   "arcade"
+  ],
+  "corporate": [
+   "saas"
+  ],
+  "minimal": [
+   "glass",
+   "saas"
+  ],
+  "playful": [
+   "neobrutalism",
+   "riso"
+  ],
+  "sketch": [
+   "riso",
+   "terracotta"
+  ]
+ }
+}

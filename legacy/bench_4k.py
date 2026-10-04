@@ -6,7 +6,7 @@ import asyncio, base64, json, os, tempfile, threading, time
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # repo root (this script lives in legacy/)
 import argparse
 ap = argparse.ArgumentParser(); ap.add_argument("--res", default="3840x2160"); ap.add_argument("--media", default="media_4k")
 ap.add_argument("--prefix", default="cam_{codec}_4k"); ap.add_argument("--out", default="4k"); ARGS = ap.parse_args()
