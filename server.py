@@ -169,15 +169,15 @@ def _b_set_fades(fade_in_s=0.0, fade_out_s=0.0):
     return {"op": "fade", "in": fade_in_s, "out": fade_out_s}
 
 
-def _b_add_pip(source, start_s, dur_s, position="top-right", scale=0.3, opacity=1.0, source_in_s=0.0):
+def _b_add_pip(source, start_s, dur_s, position="top-right", scale=0.3, opacity=1.0, source_in_s=0.0, anim=None):
     return {"op": "pip", "src": source, "start": start_s, "dur": dur_s, "pos": position, "scale": scale,
-            "opacity": opacity, "in": source_in_s}
+            "opacity": opacity, "in": source_in_s, "anim": anim or None}
 
 
 def _b_add_text(text, start_s, dur_s, position="bottom", size=0.06, style="auto", color="", box=None,
-                uppercase=None, ornament="", fade_s=0.15):
+                uppercase=None, ornament="", fade_s=0.15, anim=None):
     return {"op": "text", "text": text, "start": start_s, "dur": dur_s, "pos": position, "size": size, "style": style,
-            "color": color or None, "box": box, "uppercase": uppercase, "ornament": ornament or None, "fade": fade_s}
+            "color": color or None, "box": box, "uppercase": uppercase, "ornament": ornament or None, "fade": fade_s, "anim": anim or None}
 
 
 def _b_add_subtitles(srt_path="", cues=None, offset_s=0.0, position="bottom", size=0.05, style="auto", color="",
@@ -205,14 +205,14 @@ def _b_add_graphic(kind, start_s, dur_s, amount=None, opacity=1.0, fade_s=0.5, t
             "fade": fade_s, "theme": _theme_arg(theme)}
 
 
-def _b_add_lower_third(title, subtitle="", start_s=0.0, dur_s=4.0, align="left", fade_s=0.4, theme="auto"):
+def _b_add_lower_third(title, subtitle="", start_s=0.0, dur_s=4.0, align="left", fade_s=0.4, theme="auto", anim=None):
     return {"op": "lower_third", "title": title, "subtitle": subtitle, "start": start_s, "dur": dur_s, "align": align,
-            "fade": fade_s, "theme": _theme_arg(theme)}
+            "fade": fade_s, "theme": _theme_arg(theme), "anim": anim or None}
 
 
-def _b_add_image(start_s, dur_s, path="", position="center", scale=0.3, opacity=1.0, icon="", color="", at=None, plate=None, theme="auto"):
+def _b_add_image(start_s, dur_s, path="", position="center", scale=0.3, opacity=1.0, icon="", color="", at=None, plate=None, theme="auto", anim=None):
     op = {"op": "image", "path": _safe_path(path, "add_image") if path else "", "start": start_s, "dur": dur_s,
-          "pos": position, "scale": scale, "opacity": opacity, "icon": icon or "", "color": color or None, "at": at, "theme": _theme_arg(theme)}
+          "pos": position, "scale": scale, "opacity": opacity, "icon": icon or "", "color": color or None, "at": at, "theme": _theme_arg(theme), "anim": anim or None}
     if plate is not None:
         op["plate"] = plate
     return op
@@ -440,12 +440,12 @@ def set_fades(fade_in_s: float = 0.0, fade_out_s: float = 0.0) -> dict:
 
 @mcp.tool()
 def add_pip(source: str, start_s: float, dur_s: float, position: str = "top-right",
-            scale: float = 0.3, opacity: float = 1.0, source_in_s: float = 0.0) -> dict:
+            scale: float = 0.3, opacity: float = 1.0, source_in_s: float = 0.0, anim: dict | None = None) -> dict:
     """Overlay a picture-in-picture video on its own layer from start_s for dur_s (TIMELINE time).
     position: top-right | top-left | bottom-right | bottom-left. scale: fraction of frame width (0-1].
     opacity 0-1 (fades in/out at the edges). Calls accumulate (several PiPs are allowed, up to 6 overlays
     at the same moment). Overlays are placed in timeline seconds and do NOT move if you later edit earlier clips."""
-    return commit(_b_add_pip(source, start_s, dur_s, position, scale, opacity, source_in_s))
+    return commit(_b_add_pip(source, start_s, dur_s, position, scale, opacity, source_in_s, anim))
 
 
 @mcp.tool()
@@ -527,9 +527,40 @@ def add_card(layout: str, title: str = "", subtitle: str = "", items: list[str] 
 
 
 @mcp.tool()
+def animate(index: int, anim: dict | None = None) -> dict:
+    """Animate an existing text, image/icon, picture-in-picture, lower third or graphic: `index` is its edit number (get_timeline; -1 = the last
+    edit). anim=null removes the animation. The same `anim` object is accepted by add_text/add_image/add_lower_third/add_pip.
+    anim = {"in": preset, "out": preset, "in_s": 0.5, "out_s": 0.4, "ease_in": e, "ease_out": e, "keys": [...], "keys_ease": e, "rotate": deg, "scale": k}
+    presets: none | fade | slide-left | slide-right | slide-top | slide-bottom (the SIDE of the screen: in = comes from it, out = leaves toward it) | pop (grows with a bounce) | zoom | spin | drop (falls from the top and bounces).
+    e: linear | in | out | inout | back | bounce. keys = free motion between entrance and exit, each {"t": seconds from the item's start,
+    "x": 0-1, "y": 0-1 (centre of the item in the frame), "scale": 1 = normal, "rotate": degrees clockwise, "opacity": 0-1}; omitted fields hold.
+    rotate/scale = constant tilt / size multiplier. Examples: {"in": "slide-left", "out": "fade"}; {"in": "pop", "rotate": -6};
+    {"keys": [{"t": 0, "x": 0.2, "y": 0.5}, {"t": 2, "x": 0.8, "y": 0.5}]} (glide across). Not for callouts (they follow their own track)."""
+    with locked():
+        st = load()
+        n = len(st["ops"])
+        i = index + n if index < 0 else index
+        if not 0 <= i < n:
+            raise ValueError(f"no op {index} (have {n})")
+        op = st["ops"][i]
+        if op.get("op") not in ("text", "image", "pip", "graphic", "lower_third"):
+            raise ValueError(f"op {i} is a '{op.get('op')}': only text, image, pip, graphic and lower_third can be animated")
+        new = dict(op)
+        if anim:
+            new["anim"] = anim
+        else:
+            new.pop("anim", None)
+        bind(st)
+        live.layout(st["ops"][:i] + [new] + st["ops"][i + 1:])      # raises, with a message naming the op, if the animation is not valid there
+        st["ops"][i] = new
+        save(st)
+        return {"animated": i, **summary(st)}
+
+
+@mcp.tool()
 def add_text(text: str, start_s: float, dur_s: float, position: str = "bottom", size: float = 0.06,
              style: str = "auto", color: str = "", box: bool | None = None, uppercase: bool | None = None,
-             ornament: str = "", fade_s: float = 0.15) -> dict:
+             ornament: str = "", fade_s: float = 0.15, anim: dict | None = None) -> dict:
     """Show a title/caption from start_s for dur_s (TIMELINE time). Latin text with accents, ñ, ¿¡ is
     supported; use \\n for a line break. Long text is wrapped and shrunk to fit (max 4 lines, 200 chars);
     text that cannot fit, or characters the font lacks (CJK, newer emoji), are rejected with a message.
@@ -539,7 +570,7 @@ def add_text(text: str, start_s: float, dur_s: float, position: str = "bottom", 
     color: optional #RRGGBB; leave empty to keep the style's own colour (gold gradient for luxury).
     box: panel behind the text (default: the style decides). uppercase: force/forbid capitals (default per style).
     ornament: none | line | diamond (thin gold rule; default per style). All styles add a soft shadow for readability."""
-    return commit(_b_add_text(text, start_s, dur_s, position, size, style, color, box, uppercase, ornament, fade_s))
+    return commit(_b_add_text(text, start_s, dur_s, position, size, style, color, box, uppercase, ornament, fade_s, anim))
 
 
 @mcp.tool()
@@ -566,11 +597,11 @@ def add_graphic(kind: str, start_s: float, dur_s: float, amount: float | None = 
 
 @mcp.tool()
 def add_lower_third(title: str, subtitle: str = "", start_s: float = 0.0, dur_s: float = 4.0,
-                    align: str = "left", fade_s: float = 0.4, theme: str = "auto") -> dict:
+                    align: str = "left", fade_s: float = 0.4, theme: str = "auto", anim: dict | None = None) -> dict:
     """Name/role caption panel at the bottom: gold side bar, title in metallic gold, subtitle in tracked ivory
     capitals (e.g. title "Señor Muñoz", subtitle "Director de Proyecto"). Single lines only (title max 60 chars,
     subtitle max 80). align: left | right. Shown from start_s for dur_s (TIMELINE time)."""
-    return commit(_b_add_lower_third(title, subtitle, start_s, dur_s, align, fade_s, theme))
+    return commit(_b_add_lower_third(title, subtitle, start_s, dur_s, align, fade_s, theme, anim))
 
 
 @mcp.tool()
@@ -593,14 +624,14 @@ def add_audio(start_s: float = 0.0, dur_s: float | None = None, path: str = "", 
 @mcp.tool()
 def add_image(start_s: float, dur_s: float, path: str = "", position: str = "center", scale: float = 0.3,
               opacity: float = 1.0, icon: str = "", color: str = "", at: list[float] | None = None,
-              plate: bool | None = None, theme: str = "auto") -> dict:
+              plate: bool | None = None, theme: str = "auto", anim: dict | None = None) -> dict:
     """Show a picture from start_s for dur_s (TIMELINE time). Give EITHER `icon` (a name from list_assets(kind='icon'): about 100
     line icons plus hand-drawn doodle-arrow/star/circle/underline/burst/check/cross/heart) OR `path` (PNG/JPG/WebP with
     transparency kept, or a plain .svg; max 25 MB / 8000 px). position: center | top-right | top-left | bottom-right | bottom-left,
     or at=[x, y] to centre it on an exact point of the frame (fractions 0-1, 0,0 = top-left). scale: fraction of frame width (0-1].
     Icons are tinted with the template's colour (color=#RRGGBB to override) and sit on a round plate that keeps them legible
     (plate=false for the bare glyph). Pair an icon with add_callout/add_text to label things."""
-    return commit(_b_add_image(start_s, dur_s, path, position, scale, opacity, icon, color, at, plate, theme))
+    return commit(_b_add_image(start_s, dur_s, path, position, scale, opacity, icon, color, at, plate, theme, anim))
 
 
 @mcp.tool()

@@ -46,7 +46,7 @@ async def main():
             tools = {t.name for t in (await s.list_tools()).tools}
             want = {"new_project", "import_clip", "list_sources", "add_clip", "cut_clip", "crossfade", "set_fades",
                     "add_pip", "get_timeline", "undo", "remove_op", "get_still", "get_contact_sheet",
-                    "render_preview", "export", "apply_ops", "list_styles", "add_text", "add_subtitles", "add_graphic", "add_lower_third", "add_image", "add_callout", "set_template", "add_card", "list_assets", "add_audio"}
+                    "render_preview", "export", "apply_ops", "list_styles", "add_text", "add_subtitles", "add_graphic", "add_lower_third", "add_image", "add_callout", "set_template", "add_card", "list_assets", "add_audio", "animate"}
             check("tools listed", want <= tools, f"missing {want - tools}")
 
             _, err = await call("add_clip", source="A")
@@ -724,6 +724,41 @@ async def main():
                 await call("add_audio", path=music, start_s=0.5, dur_s=1.0)
             _, err = await call("add_audio", path=music, start_s=0.5, dur_s=1.0)
             check("a ninth audio item is rejected", err is not None and "at most" in err, err)
+
+            # ---- animation
+            await clean_project()
+            await call("set_template", name="luxury")
+            await call("add_clip", source="A", end_s=4.0)
+            plain_early, plain_rest = await still_gray(0.7, 480, 270, True), await still_gray(2.0, 480, 270, True)   # the test footage moves: one background per instant
+            res, err = await call("add_lower_third", title="Señor Muñoz", subtitle="Director", start_s=0.5, dur_s=3.0, anim={"in": "slide-left", "in_s": 0.8, "ease_in": "linear", "out": "fade"})
+            check("add_lower_third accepts an anim object", err is None and res, err)
+            early = await still_gray(0.5 + 0.2, 480, 270, True)
+            rest = await still_gray(2.0, 480, 270, True)
+            def col_span(a_, b_, thr=25):
+                xs_ = [x for y in range(int(270 * 0.55), 270) for x in range(480) if abs(a_[y * 480 + x] - b_[y * 480 + x]) > thr]
+                return (min(xs_), max(xs_)) if xs_ else None
+            sp_early, sp_rest = col_span(plain_early, early), col_span(plain_rest, rest)
+            check("the lower third slides in: early in the entrance it is further left than at rest", sp_rest is not None and (sp_early is None or sp_early[1] < sp_rest[1] - 15), (sp_early, sp_rest))
+            res, err = await call("animate", index=-1, anim=None)
+            check("animate(anim=null) removes the animation", err is None and res and res["animated"] == 1, err or res)
+            tl_an, _ = await call("get_timeline")
+            check("...and the op list no longer carries it", tl_an and "anim" not in (tl_an["ops"][-1] or {}) or not tl_an["ops"][-1].get("anim"), tl_an and tl_an["ops"][-1])
+            res, err = await call("animate", index=-1, anim={"in": "pop", "rotate": -6})
+            check("animate sets an animation on an existing op (negative index counts from the end)", err is None and res and res["animated"] == 1, err or res)
+            tl_an, _ = await call("get_timeline")
+            check("the op list shows the animation", tl_an and tl_an["ops"][-1].get("anim") and tl_an["ops"][-1]["anim"].get("in") == "pop", tl_an and tl_an["ops"][-1])
+            for label, kw, needle in [("an unknown preset", dict(index=-1, anim={"in": "explode"}), "anim.in"), ("an op that cannot be animated (add_clip)", dict(index=0, anim={"in": "pop"}), "only text"),
+                                      ("an op number that does not exist", dict(index=40, anim={"in": "pop"}), "no op"), ("keys going back in time", dict(index=-1, anim={"keys": [{"t": 2}, {"t": 1}]}), "increase"),
+                                      ("an animation longer than the item", dict(index=-1, anim={"in_s": 2.5, "out_s": 2.5}), "longer than the item")]:
+                _, err = await call("animate", **kw)
+                check(f"animate rejects {label}", err is not None and needle in err, err)
+            _, err = await call("add_text", text="Hola", start_s=0.5, dur_s=2.0, anim={"in": "teleport"})
+            check("add_text rejects an invalid anim and saves nothing", err is not None and "anim.in" in err and (await call("get_timeline"))[0]["op_count"] == 2, err)
+            res, err = await call("apply_ops", ops=[{"tool": "add_text", "text": "Hola mundo", "start_s": 0.5, "dur_s": 2.0, "position": "center", "anim": {"in": "zoom", "out": "slide-bottom"}},
+                                                    {"tool": "add_image", "icon": "rocket", "start_s": 0.5, "dur_s": 3.0, "at": [0.5, 0.2], "scale": 0.1, "anim": {"keys": [{"t": 0, "x": 0.2, "y": 0.2}, {"t": 2.5, "x": 0.8, "y": 0.2, "rotate": 360}]}}])
+            check("apply_ops takes animated items in a batch", err is None and res and res["applied"] == 2, err or res)
+            ex_an, err = await call("export", output_path=os.path.join(TMP, "animated.mp4"), quality="draft")
+            check("a project with animations (zoom, slide, glide + full rotation) exports", err is None and ex_an and abs(ex_an["duration_s"] - 4.0) < 0.05, err or ex_an)
             await call("set_template", name="luxury")
             await call("add_clip", source="A")
 

@@ -386,6 +386,66 @@ except ValueError as ex: e_ = str(ex)
 chk("audio: more than the maximum number of audio ops is rejected", e_ is not None and "at most" in e_, e_)
 two = level_of(SIL + [AU(volume_db=-6.0), AU(volume_db=-6.0, start=2.0)], [(2.4, 5.6)])
 chk("audio: two overlapping audio ops are summed (louder than one, ~+6 dB for identical tones)", 4.0 <= two[0] - lvm6[0] <= 7.5, (two, lvm6))
+# ---- animation on real frames (native 1280x720: pixel diffs are exact)
+live.W, live.H = 1280, 720
+live.CACHE = tempfile.mkdtemp(prefix="eng_anim_")
+IMG = {"op": "image", "path": png, "start": 0.5, "dur": 3.0, "scale": 0.2, "pos": "center"}
+A = lambda **a: {**IMG, "anim": a}
+steady = _bbox(BASE[:1] + [IMG], 2.0)
+sw_, sh_ = steady[2] - steady[0], steady[3] - steady[1]
+ctr = lambda bb: ((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2)
+bb_ = _bbox(BASE[:1] + [A(**{"in": "slide-left", "in_s": 0.6, "out": "none"})], 0.54)
+chk("slide-left: just after the start the item is off-screen to the left", bb_ is None or bb_[2] <= steady[0], (bb_, steady))
+bb_m = _bbox(BASE[:1] + [A(**{"in": "slide-left", "in_s": 0.6, "ease_in": "linear", "out": "none"})], 0.8)
+chk("slide-left: halfway through the entrance it is between off-screen and its place", bb_m is not None and bb_m[0] < steady[0] - 20 and bb_m[2] > 0, (bb_m, steady))
+bb_r = _bbox(BASE[:1] + [A(**{"in": "slide-left", "in_s": 0.6, "out": "none"})], 1.6)
+chk("slide-left: afterwards it sits exactly where the static item sits (+-3 px)", bb_r is not None and all(abs(a_ - b_) <= 3 for a_, b_ in zip(bb_r, steady)), (bb_r, steady))
+bb_o = _bbox(BASE[:1] + [A(**{"in": "none", "out": "slide-right", "out_s": 0.6})], 3.46)
+chk("slide-right exit: in the last frames the item has left to the right", bb_o is None or bb_o[0] >= steady[2], (bb_o, steady))
+bb_rot = _bbox(BASE[:1] + [A(**{"in": "none", "out": "none", "rotate": 45})], 2.0)
+chk("constant rotate=45: a 2:1 picture's box grows (rotation really reaches MLT) and stays centred (+-4 px)",
+    bb_rot is not None and (bb_rot[3] - bb_rot[1]) > 1.6 * sh_ and abs(ctr(bb_rot)[0] - ctr(steady)[0]) <= 4 and abs(ctr(bb_rot)[1] - ctr(steady)[1]) <= 4, (bb_rot, steady))
+sizes_ = []
+for k_ in range(1, 16):
+    bb_p = _bbox(BASE[:1] + [A(**{"in": "pop", "in_s": 0.5, "out": "none"})], 0.5 + k_ * 0.04)
+    sizes_.append(0 if bb_p is None else (bb_p[2] - bb_p[0]) / sw_)
+chk("pop: starts smaller than rest, overshoots it, and settles (measured on 15 frames)", min(s_ for s_ in sizes_ if s_) < 0.92 and max(sizes_) > 1.015, sizes_)
+chk_png = os.path.join(live.CACHE, "checker.png")                       # black/white checkerboard: contrasts with ANY background (a red box vanished against reddish footage)
+_ck = Image.new("RGBA", (120, 60), (255, 255, 255, 255))
+for _i in range(0, 120, 10):
+    for _j in range(0, 60, 10):
+        if (_i // 10 + _j // 10) % 2: _ck.paste((0, 0, 0, 255), (_i, _j, _i + 10, _j + 10))
+_ck.save(chk_png)
+KEYS = {**IMG, "path": chk_png, "anim": {"in": "none", "out": "none", "keys": [{"t": 0, "x": 0.2, "y": 0.5}, {"t": 2, "x": 0.8, "y": 0.5}], "keys_ease": "inout"}}
+import anim as _anim
+_a_norm = live.layout(BASE + [KEYS])["layers"][-1]["anim"]
+for t_ in (0.5, 1.0, 1.5, 2.0, 3.0):                                     # frame-exact expectation: the item's own frame -> the easing
+    f_rel_ = int(round(t_ * 25)) - int(round(0.5 * 25))
+    exp_x = _anim.transform_at(_a_norm, f_rel_, 75, 25, (512, 296, 256, 128), 1280, 720, 0.2)[0]
+    bb_k = _bbox(BASE[:1] + [KEYS], t_)
+    chk(f"free keys: at t={t_:g}s the item's centre is where the easing puts it (+-8 px)", bb_k is not None and abs(ctr(bb_k)[0] - (exp_x[0] + exp_x[2] / 2)) <= 8, (bb_k, exp_x))
+two = [{**IMG, "start": 0.5, "dur": 1.0, "anim": {"in": "none", "out": "none", "rotate": 45}}, {**IMG, "start": 1.6, "dur": 1.0}]
+bb_two = _bbox(BASE[:1] + two, 2.0)
+chk("a rotated item does not leak its rotation into the next item on the same track (that one stays upright)", bb_two is not None and abs((bb_two[3] - bb_two[1]) - sh_) <= 3, (bb_two, sh_))
+lt_ = {"op": "lower_third", "title": "Señor Muñoz", "subtitle": "Director", "start": 0.5, "dur": 3.0}
+lt_steady = _bbox(BASE[:1] + [lt_], 2.0)
+lt_a = _bbox(BASE[:1] + [{**lt_, "anim": {"in": "slide-left", "in_s": 0.6, "ease_in": "linear", "out": "none"}}], 0.8)
+chk("a lower third can slide in from the left (halfway: left of its place)", lt_a is not None and lt_a[0] < lt_steady[0] - 20, (lt_a, lt_steady))
+lt_b = _bbox(BASE[:1] + [{**lt_, "anim": {"in": "slide-left", "in_s": 0.6, "out": "none"}}], 1.6)
+chk("...and rests exactly where the static one does (+-3 px)", lt_b is not None and all(abs(a_ - b_) <= 3 for a_, b_ in zip(lt_b, lt_steady)), (lt_b, lt_steady))
+tx_ = {"op": "text", "text": "Hola mundo", "start": 0.5, "dur": 3.0, "pos": "center", "size": 0.08, "fade": 0.0}
+tx_s = _bbox(BASE[:1] + [tx_], 2.0)
+tx_p = _bbox(BASE[:1] + [{**tx_, "anim": {"in": "zoom", "in_s": 0.6, "ease_in": "linear", "out": "none"}}], 0.8)
+chk("a text can zoom in (halfway it is bigger than at rest)", tx_p is not None and (tx_p[2] - tx_p[0]) > (tx_s[2] - tx_s[0]) * 1.2, (tx_p, tx_s))
+static_ = live.layout(BASE + [tx_])["layers"][0]
+chk("a layer without anim keeps exactly the old fade path (anim is None)", static_["anim"] is None)
+for label_, op_, needle_ in [("an animation on a callout", {"op": "callout", "title": "x", "path": [[1.0, 0.5, 0.5]], "start": 0.5, "dur": 2.0, "anim": {"in": "pop"}}, "not supported"),
+                             ("an animation on subtitles", {"op": "subtitles", "cues": [{"start": 1.0, "end": 2.0, "text": "x"}], "anim": {"in": "pop"}}, "not supported"),
+                             ("an unknown preset", A(**{"in": "explode"}), "anim.in"), ("keys going back in time", A(keys=[{"t": 2.0}, {"t": 1.0}]), "increase"),
+                             ("entrance+exit longer than the item", {**IMG, "dur": 1.0, "anim": {"in_s": 0.8, "out_s": 0.8}}, "longer than the item")]:
+    try: live.layout(BASE + [op_]); e_ = None
+    except ValueError as ex: e_ = str(ex)
+    chk(f"layout rejects {label_}", e_ is not None and needle_ in e_, e_)
 live.W, live.H = _W, _H
 
 

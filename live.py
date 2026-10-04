@@ -17,6 +17,7 @@ Needs X11 for the qtblend transition: run under xvfb-run.
 """
 import base64, html, json, os, subprocess, sys, time
 
+import anim as animmod
 import graphics
 import icons
 import textrender
@@ -88,7 +89,7 @@ def _merge_decor(layers):
     are drawn by ONE qtblend: their PNGs are pre-composited. Returns the list of layers to build."""
     groups, order = {}, []
     for L in layers:
-        if L["kind"] == "graphic" and L["gk"] in graphics.KINDS:
+        if L["kind"] == "graphic" and L["gk"] in graphics.KINDS and not L.get("anim"):
             key = (round(L["start"], 4), round(L["dur"], 4), L["opacity"], L["fade"])
             if key not in groups:
                 groups[key] = []; order.append(key)
@@ -133,6 +134,7 @@ def _check_finite(v, where):
             _check_finite(x, where)
 
 
+ANIMATABLE = ("text", "image", "pip", "graphic", "lower_third")
 MAX_AUDIOS = 8                          # simultaneous/total audio ops (each one is an MLT track)
 DUCK_RAMP_S = 0.3                       # how fast the music dips/recovers around speech
 MAX_LAYERS = 1000                       # overlays in one project (a 300-cue subtitle file counts 300)
@@ -186,6 +188,8 @@ def layout(ops):
     for n, o in enumerate(ops):
         k = o.get("op")
         where = f"op {n} ({k})"
+        if o.get("anim") and k not in ANIMATABLE:
+            raise ValueError(f"{where}: anim is not supported on '{k}' (use it on {', '.join(ANIMATABLE)}); a silently ignored animation would be worse")
         if k == "add":
             src = o.get("src")
             if src not in CLIP_LEN:
@@ -235,13 +239,13 @@ def layout(ops):
                 raise ValueError(f"{where}: needs start>=0, dur>0 and in+dur <= source length {CLIP_LEN[src]:g}s")
             layers.append({"kind": "pip", "op": n, "start": float(o["start"]), "dur": float(o["dur"]), "src": src,
                            "in": float(o.get("in", 0.0)), "pos": o.get("pos", "top-right"),
-                           "scale": float(o.get("scale", 0.3)), "opacity": float(o.get("opacity", 1.0))})
+                           "scale": float(o.get("scale", 0.3)), "opacity": float(o.get("opacity", 1.0)), "anim": _anim(o, where)})
         elif k == "text":
             style = _text_style(o, where)
             if not (o.get("start", -1) >= 0 and 0 < o.get("dur", 0) <= 3600):
                 raise ValueError(f"{where}: needs start>=0 and 0 < dur <= 3600")
             layers.append({"kind": "text", "op": n, "start": float(o["start"]), "dur": float(o["dur"]), **style,
-                           "text": _clean(o.get("text"), where, style["style"])})
+                           "text": _clean(o.get("text"), where, style["style"]), "anim": _anim(o, where)})
         elif k == "subtitles":
             cues = o.get("cues")
             if not isinstance(cues, list) or not 1 <= len(cues) <= 300:
@@ -292,7 +296,7 @@ def layout(ops):
             if color is not None and not textrender.COLOR_RE.match(str(color)):
                 raise ValueError(f"{where}: color must look like #RRGGBB")
             base = {"kind": "image", "op": n, "start": float(o["start"]), "dur": float(o["dur"]), "pos": o.get("pos", "center"), "xy": xy,
-                    "scale": float(o.get("scale", 0.3)), "opacity": float(o.get("opacity", 1.0))}
+                    "scale": float(o.get("scale", 0.3)), "opacity": float(o.get("opacity", 1.0)), "anim": _anim(o, where)}
             if icon or path.lower().endswith(".svg"):
                 try:
                     if icon:
@@ -494,7 +498,7 @@ def _gfx_layer(n, o, gk, params, where):
     if not 0 <= o.get("opacity", 1.0) <= 1 or o.get("fade", 0.4) < 0:
         raise ValueError(f"{where}: opacity must be in [0,1] and fade >= 0")
     return {"kind": "graphic", "op": n, "start": float(o["start"]), "dur": float(o["dur"]), "gk": gk, "params": params,
-            "opacity": float(o.get("opacity", 1.0)), "fade": float(o.get("fade", 0.4))}
+            "opacity": float(o.get("opacity", 1.0)), "fade": float(o.get("fade", 0.4)), "anim": _anim(o, where)}
 
 
 def _label(L):
@@ -512,6 +516,11 @@ def _clean(text, where, style="classic"):
         return textrender.clean(text, style)
     except ValueError as e:
         raise ValueError(f"{where}: {e}")
+
+
+def _anim(o, where):
+    """Normalised animation spec of an op (None = static: the original fade ramps)."""
+    return animmod.validate(o.get("anim"), where, o.get("dur") if isinstance(o.get("dur"), (int, float)) else None)
 
 
 def _theme_key(o, where):
@@ -695,7 +704,7 @@ def build(ops):
             cursor = s0 + n
         if not plan:
             continue
-        cursor, kfs, has_pip = 0, [], False
+        cursor, kfs, has_pip, rkf, any_rot = 0, [], False, [], False
         t0 = plan[0][1]                                  # keyframe positions are relative to the transition's `in`
         for L, s0, n in plan:
             if L["kind"] == "text":
@@ -742,7 +751,13 @@ def build(ops):
                 if L.get("xy"):                                   # centred on an exact point of the frame (kept inside it)
                     x, y = min(max(W * L["xy"][0] - w / 2, 0), W - w), min(max(H * L["xy"][1] - h / 2, 0), H - h)
                 op, ramp = L["opacity"], min(6, (n - 1) // 2)
-            if L["kind"] != "callout":
+            rots = None
+            if L.get("anim") and L["kind"] != "callout":      # animated: per-frame samples (position, size, opacity, rotation)
+                smp = animmod.sample(L["anim"], (x, y, w, h), W, H, n, FPS, min(L.get("fade", 0.24), n / FPS / 2), op)
+                pts = [(s0 + f_, "{:.2f} {:.2f} {:.2f} {:.2f} {:.3f}".format(*r_, o_)) for f_, r_, o_, _ in smp]
+                rots = [(s0 + f_, round(rt_, 3)) for f_, _, _, rt_ in smp]
+                any_rot = any_rot or any(v_ for _, v_ in rots)
+            elif L["kind"] != "callout":
                 rect = lambda a: f"{x:.0f} {y:.0f} {w:.0f} {h:.0f} {a}"
                 pts = [(s0, rect(0 if ramp else op)), (s0 + ramp, rect(op)), (s0 + n - 1 - ramp, rect(op)),
                        (s0 + n - 1, rect(0 if ramp else op))]
@@ -753,10 +768,15 @@ def build(ops):
                 seen.add(pos)
                 last = k == len(pts) - 1
                 kfs.append(f"{pos - t0}{'|' if last else ''}={val}")   # `|=` = discrete: hold until the next layer's first key
+            rots = rots or [(s0, 0.0)]                       # a layer without rotation holds 0 until the next layer's first key
+            for k, (pos, val) in enumerate(rots):
+                rkf.append(f"{pos - t0}{'|' if k == len(rots) - 1 else ''}={val}")
         end = cursor - 1
         c = mlt7.Transition(p, "qtblend")   # composite/affine ignore opacity; qtblend honours it (needs X11)
         assert c.is_valid(), "qtblend unavailable: run under xvfb-run / with DISPLAY"
         c.set("rect", ";".join(kfs))
+        if any_rot:                                                    # rotation keyframes only when some layer on this track rotates
+            c.set("rotation", ";".join(rkf))
         c.set_in_and_out(t0, end)
         tr.plant_transition(c, 0, ti)    # ONE qtblend per overlay track, covering all of its layers (per-layer keyframes)
         if has_pip:                                      # only video clips carry audio; text/image tracks are silent
