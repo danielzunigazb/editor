@@ -39,6 +39,12 @@ SPEC = {
     "proxy_wait_s":     (("MLT_PROXY_WAIT_S",), 15.0, "float"),                           # a still/sheet waits up to this long for a PENDING proxy, so what you see does not depend on timing
     "proxy_workers":    (("MLT_PROXY_WORKERS",), 2, "int"),                               # proxies made at the same time in the background
     "proxy_cache_mb":   (("MLT_PROXY_CACHE_MB",), 4000, "int"),                           # the proxy folder is pruned (least recently used first) above this size
+    "viewer_page":      (("MLT_VIEWER_PAGE",), os.path.join(PKG, "viewer", "page.html"), "path"),           # the live viewer's page
+    "vendor_dir":       (("MLT_VENDOR_DIR",), "assets/vendor", "path"),                                    # third-party browser code served locally (hls.js, Apache-2.0)
+    "viewer_segment_s": (("MLT_VIEWER_SEGMENT_S",), 2.0, "float"),                       # length of a live-viewer segment (the unit that is re-rendered when an edit touches it)
+    "viewer_height":    (("MLT_VIEWER_HEIGHT",), 540, "int"),                              # picture height of the live viewer (smaller projects play at their own size)
+    "viewer_port":      (("MLT_VIEWER_PORT",), 0, "int"),                                  # 0 = any free port on 127.0.0.1
+    "viewer_prefetch":  (("MLT_VIEWER_PREFETCH",), 3, "int"),                              # segments rendered ahead of the one being played
     "max_ops":          (("MLT_MAX_OPS",), 500, "int"),
     "max_sources":      (("MLT_MAX_SOURCES",), 50, "int"),
     "max_layer_tracks": (("MLT_MAX_LAYER_TRACKS",), 6, "int"),
@@ -112,6 +118,8 @@ def get(name):
         return {k: os.path.abspath(_abs(v, root)) for k, v in m.items()}
     if kind == "int":
         return int(raw)
+    if kind == "float":
+        return float(raw)
     if kind == "bool":
         return raw if isinstance(raw, bool) else str(raw).strip().lower() in ("1", "true", "yes", "on")
     if kind == "json":

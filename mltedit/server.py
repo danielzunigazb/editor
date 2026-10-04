@@ -47,6 +47,7 @@ _ensure_display()
 from . import engine as live  # noqa: E402  (engine: layout/build/render)
 from . import themes  # noqa: E402
 from . import ops as O  # noqa: E402
+from . import binding  # noqa: E402
 from . import project as P  # noqa: E402
 from .media import proxy as proxies  # noqa: E402
 from .errors import EditError, as_edit_error  # noqa: E402
@@ -180,14 +181,7 @@ def _file_warnings(st):
 
 def bind(st, scale=1.0):
     """Point the engine at this project's sources/resolution. scale<1 => proxy-resolution preview."""
-    live.CLIPS = proxies.media_for_preview(HOME, st["sources"], scale)     # previews (scale < 1) read the small intra-only proxies where they are ready
-    live.CLIP_LEN = {k: v["duration_s"] for k, v in st["sources"].items()}
-    live.W = max(2, int(st["width"] * scale) // 2 * 2)
-    live.H = max(2, int(st["height"] * scale) // 2 * 2)
-    live.FPS = st["fps"]
-    live.CACHE = os.path.join(HOME, "cache")
-    live.THEME = themes.get(st.get("theme"))              # projects saved before templates existed have no theme: luxury, as always
-    live.MOTION = bool(st.get("motion"))                  # opt-in: projects saved before it existed behave exactly as they did
+    binding.bind(st, HOME, scale)
 
 
 def _validate(st, op):

@@ -4,12 +4,14 @@ import os, subprocess
 from ..config import S
 
 
-def render(p, tr, out, preset="ultrafast", crf="30", abr="64k", master=""):
+def render(p, tr, out, preset="ultrafast", crf="30", abr="64k", master="", encode=None, mlt_props=None):
     """MLT composes -> NUT over a FIFO -> ffmpeg CLI encodes. Raises RuntimeError (with ffmpeg's message) if the encode
     fails, and never leaves a FIFO, a stray ffmpeg or a half-written output behind.
     A built timeline can be rendered ONCE (a second render of the same tractor emits no frames, verified); build a new
     one per render, as the server does. A fresh build after a failed render works.
-    master="loudnorm": the audio goes through ffmpeg's loudnorm (-16 LUFS integrated, -1.5 dB true peak) on its way into the file."""
+    master="loudnorm": the audio goes through ffmpeg's loudnorm (-16 LUFS integrated, -1.5 dB true peak) on its way into the file.
+    encode: ffmpeg output arguments to use INSTEAD of the standard H.264/AAC mp4 ones (the live viewer asks for MPEG-TS video or HLS audio);
+    mlt_props: extra consumer properties (e.g. {"an": "1"} for no audio, {"vn": "1"} for no video)."""
     import mlt7, shutil, tempfile
     if master not in ("", "loudnorm"):
         raise ValueError("master must be '' or 'loudnorm'")
@@ -19,14 +21,15 @@ def render(p, tr, out, preset="ultrafast", crf="30", abr="64k", master=""):
     errlog = tempfile.TemporaryFile()
     ff = None
     try:
-        ff = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-i", fifo, "-c:v", "libx264", "-preset", preset,
-                               "-crf", str(crf), "-pix_fmt", "yuv420p", *(["-af", "loudnorm=I=-16:TP=-1.5:LRA=11"] if master else []),
-                               "-c:a", "aac", "-b:a", abr, "-movflags", "+faststart", out], stderr=errlog, stdin=subprocess.DEVNULL)
+        out_args = encode if encode is not None else ["-c:v", "libx264", "-preset", preset, "-crf", str(crf), "-pix_fmt", "yuv420p",
+                                                      *(["-af", "loudnorm=I=-16:TP=-1.5:LRA=11"] if master else []),
+                                                      "-c:a", "aac", "-b:a", abr, "-movflags", "+faststart"]
+        ff = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-i", fifo, *out_args, out], stderr=errlog, stdin=subprocess.DEVNULL)
         c = mlt7.Consumer(p, "avformat", fifo)
         # real_time=-N renders N frames in parallel (no frame dropping). Measured at 4K with 5 overlay layers: 65 s -> 35.6 s
         # (N=2) with bit-identical luma on all 312 frames; N=4 only reached 33.7 s but used 4.1 GB instead of 2.9 GB.
         threads = S.render_threads
-        for k, v in dict(f="nut", vcodec="rawvideo", acodec="pcm_s16le", real_time=str(-threads) if threads > 1 else "0").items():
+        for k, v in dict(f="nut", vcodec="rawvideo", acodec="pcm_s16le", real_time=str(-threads) if threads > 1 else "0", **(mlt_props or {})).items():
             c.set(k, v)
         c.connect(tr); c.run(); c.stop()
         try:

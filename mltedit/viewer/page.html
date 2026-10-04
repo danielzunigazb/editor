@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visor del editor</title>
+<style>
+  :root { --bg:#0e0f12; --panel:#171920; --ink:#e8e6e1; --muted:#8b8f99; --accent:#d9b25a; --line:#2a2d37; --ok:#6bcb77; --warn:#f0a35e; }
+  @media (prefers-color-scheme: light) { :root { --bg:#f4f2ee; --panel:#fff; --ink:#1b1c20; --muted:#6a6e78; --accent:#a9791c; --line:#ddd9d0; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui, sans-serif; }
+  header { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--line); }
+  header h1 { font-size:15px; margin:0; font-weight:600; }
+  .pill { font-size:12px; padding:2px 8px; border-radius:99px; border:1px solid var(--line); color:var(--muted); }
+  .pill.live { color:var(--ok); border-color:var(--ok); }
+  main { display:grid; grid-template-columns: minmax(0,1fr) 340px; gap:16px; padding:16px; align-items:start; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; }
+  video { width:100%; background:#000; border-radius:8px; display:block; }
+  #svg { overflow-x:auto; margin-top:12px; }
+  #svg svg { width:100%; height:auto; min-width:560px; }
+  ol { list-style:none; margin:0; padding:0; max-height:70vh; overflow:auto; }
+  li { padding:7px 4px; border-bottom:1px solid var(--line); }
+  li .t { display:block; }
+  li code { color:var(--muted); font-size:12px; }
+  li .id { float:right; color:var(--accent); font:12px ui-monospace, monospace; }
+  #warn { color:var(--warn); font-size:13px; margin-top:8px; }
+  #msg { color:var(--muted); padding:40px 0; text-align:center; }
+  .grid line.grid { stroke:var(--line); } text { fill:var(--muted); font-size:10px; }
+</style>
+</head>
+<body>
+<header><h1>Visor del editor</h1><span class="pill" id="rev">revisión –</span><span class="pill" id="state">esperando…</span></header>
+<main>
+  <section>
+    <div class="card"><video id="v" controls playsinline></video><div id="msg" hidden>Todavía no hay nada en el timeline: añade un clip.</div><div id="warn"></div><div id="svg"></div></div>
+  </section>
+  <aside class="card"><strong>Ediciones</strong><ol id="ops"></ol></aside>
+</main>
+<script src="vendor/hls.min.js"></script>
+<script>
+const base = "/@@TOKEN@@/";
+const v = document.getElementById("v"), $ = id => document.getElementById(id);
+let hls = null, current = null, rev = -1;
+function load(master, t, wasPlaying) {
+  if (hls) { hls.destroy(); hls = null; }
+  const seek = () => { if (t > 0) v.currentTime = t; if (wasPlaying) v.play().catch(() => {}); };
+  if (window.Hls && Hls.isSupported()) {
+    hls = new Hls({ maxBufferLength: 8, backBufferLength: 30 });
+    hls.on(Hls.Events.MANIFEST_PARSED, seek);
+    hls.on(Hls.Events.ERROR, (e, d) => { if (d.fatal) $("state").textContent = "error de reproducción: " + d.details; });
+    hls.loadSource(master); hls.attachMedia(v);
+  } else { v.src = master; v.addEventListener("loadedmetadata", seek, { once: true }); }
+}
+function show(p) {
+  $("rev").textContent = "revisión " + p.revision;
+  if (p.empty) { v.hidden = true; $("msg").hidden = false; $("ops").innerHTML = ""; $("svg").innerHTML = ""; $("state").textContent = "vacío"; return; }
+  v.hidden = false; $("msg").hidden = true;
+  $("ops").innerHTML = p.ops.map(o => `<li><span class="id">${o.id}</span><span class="t">${o.index + 1}. ${o.title}</span><code>${o.code}</code></li>`).join("");
+  $("svg").innerHTML = p.svg;
+  $("warn").textContent = (p.warnings || []).join("  ·  ");
+  if (p.hash !== current) {
+    const t = v.currentTime || 0, playing = !v.paused && !v.ended;
+    current = p.hash; load(p.master, t, playing);
+  }
+  $("state").textContent = "en vivo · " + p.segments + " segmentos de " + p.duration.toFixed(1) + " s"; $("state").className = "pill live";
+}
+async function follow() {
+  for (;;) {
+    try {
+      const r = await fetch(base + "plan.json?since=" + rev, { cache: "no-store" });
+      const p = await r.json();
+      rev = p.revision; show(p);
+    } catch (e) { $("state").textContent = "sin conexión con el editor"; $("state").className = "pill"; await new Promise(r => setTimeout(r, 2000)); }
+  }
+}
+follow();
+</script>
+</body>
+</html>
