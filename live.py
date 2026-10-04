@@ -138,9 +138,23 @@ def _check_finite(v, where):
 
 ANIMATABLE = ("text", "image", "pip", "graphic", "lower_third", "callout")
 CALLOUT_PRESETS = ("none", "fade", "pop", "zoom", "draw")
-MAX_AUDIOS = 8                          # simultaneous/total audio ops (each one is an MLT track)
+MAX_AUDIOS = 32                         # audio ops in a project
+MAX_AUDIO_TRACKS = 8                    # clips playing at the same time (each overlapping layer is an MLT track; clips that never overlap share one)
 DUCK_RAMP_S = 0.3                       # how fast the music dips/recovers around speech
 MAX_LAYERS = 1000                       # overlays in one project (a 300-cue subtitle file counts 300)
+
+
+def pack_audio(audios):
+    """Audio clips -> the fewest MLT tracks with no two clips of a track overlapping (first fit by start frame). Clips need start_f and n_f."""
+    tracks = []
+    for a in sorted(audios, key=lambda a: (a["start_f"], a["op"])):
+        for t in tracks:
+            if t[-1]["start_f"] + t[-1]["n_f"] <= a["start_f"]:
+                t.append(a)
+                break
+        else:
+            tracks.append([a])
+    return tracks
 
 
 def gain_curve(a):
@@ -447,6 +461,8 @@ def layout(ops):
         a["n_f"] = min(a["n_f"], total_f - a["start_f"])
         heard.append(a)
     heard.sort(key=lambda a: (a["start"], a["op"]))
+    if len(pack_audio(heard)) > MAX_AUDIO_TRACKS:
+        raise ValueError(f"more than {MAX_AUDIO_TRACKS} audio clips play at the same time; stagger them or remove some (clips that do not overlap share a track)")
     kept.sort(key=lambda L: (L["start"], L["op"], L.get("sub", 0)))
     warnings.extend(_collisions(kept))
     first_pip = next((L for L in kept if L["kind"] == "pip"), None)
@@ -840,32 +856,40 @@ def build(ops):
             tr.plant_transition(mix, 0, ti)
 
     ti_audio = len(by_track) + 1                       # audio tracks follow the visual ones with CONTIGUOUS numbers (a gap segfaults MLT)
-    for a in m.get("audios", []):
+    for track in pack_audio(m.get("audios", [])):      # clips that never overlap share one track (one playlist, blanks between them)
         lay = mlt7.Playlist(p)
         mt.connect(lay, ti_audio)
-        prod = mlt7.Producer(p, a["path"])
-        if not prod.is_valid():
-            raise RuntimeError(f"cannot open audio {a['path']}")
-        length = prod.get_length()
-        if a["start_f"] > 0:
-            lay.blank(a["start_f"] - 1)                  # Playlist.blank(out) takes the OUT POINT: it creates out+1 frames
-        left, first = a["n_f"], min(a["in_f"], max(0, length - 1))
-        while left > 0:                                  # a looped track repeats the source (first pass from `in`, then from its start)
-            span = min(left, length - first)
-            if span < 1:
-                break
-            lay.append(prod, first, first + span - 1)
-            left -= span
-            first = 0
-            if not a["loop"]:
-                break
-        keys = gain_curve(a)
+        at, vkeys = 0, []
+        for a in track:
+            prod = mlt7.Producer(p, a["path"])
+            if not prod.is_valid():
+                raise RuntimeError(f"cannot open audio {a['path']}")
+            length = prod.get_length()
+            if a["start_f"] > at:
+                lay.blank(a["start_f"] - at - 1)         # Playlist.blank(out) takes the OUT POINT: it creates out+1 frames
+            left, first, used = a["n_f"], min(a["in_f"], max(0, length - 1)), 0
+            while left > 0:                              # a looped clip repeats the source (first pass from `in`, then from its start)
+                span = min(left, length - first)
+                if span < 1:
+                    break
+                lay.append(prod, first, first + span - 1)
+                left -= span
+                used += span
+                first = 0
+                if not a["loop"]:
+                    break
+            at = a["start_f"] + used
+            vkeys += gain_curve(a) or [(a["start_f"], a["vol"]), (a["start_f"] + max(0, used - 1), a["vol"])]
+        seen_f, ordered = set(), []
+        for f_, v_ in sorted(vkeys):                     # volume.level is dB; keyframes are absolute timeline frames; one curve per track (clips do not overlap)
+            if f_ not in seen_f:
+                seen_f.add(f_); ordered.append((f_, v_))
         vf = mlt7.Filter(p, "volume")
-        vf.set("level", ";".join(f"{f_}={v_}" for f_, v_ in keys) if keys else str(a["vol"]))   # volume.level is dB; keyframes are absolute timeline frames
+        vf.set("level", ";".join(f"{f_}={v_}" for f_, v_ in ordered) if len(ordered) > 1 else str(ordered[0][1]))
         vf.set_in_and_out(0, total - 1)
         lay.attach(vf)
         mix = mlt7.Transition(p, "mix"); mix.set("sum", 1)
-        mix.set_in_and_out(a["start_f"], a["start_f"] + a["n_f"] - 1)
+        mix.set_in_and_out(track[0]["start_f"], at - 1)
         tr.plant_transition(mix, 0, ti_audio)
         ti_audio += 1
 
@@ -886,12 +910,15 @@ def build(ops):
     return p, tr, m, total
 
 
-def render(p, tr, out, preset="ultrafast", crf="30", abr="64k"):
+def render(p, tr, out, preset="ultrafast", crf="30", abr="64k", master=""):
     """MLT composes -> NUT over a FIFO -> ffmpeg CLI encodes. Raises RuntimeError (with ffmpeg's message) if the encode
     fails, and never leaves a FIFO, a stray ffmpeg or a half-written output behind.
     A built timeline can be rendered ONCE (a second render of the same tractor emits no frames, verified); build a new
-    one per render, as the server does. A fresh build after a failed render works."""
+    one per render, as the server does. A fresh build after a failed render works.
+    master="loudnorm": the audio goes through ffmpeg's loudnorm (-16 LUFS integrated, -1.5 dB true peak) on its way into the file."""
     import mlt7, shutil, tempfile
+    if master not in ("", "loudnorm"):
+        raise ValueError("master must be '' or 'loudnorm'")
     fifo_dir = tempfile.mkdtemp(prefix="mltfifo_")           # private (0700) dir: no predictable name next to `out`
     fifo = os.path.join(fifo_dir, "pipe.nut")                # for another user/process to pre-create or race on
     os.mkfifo(fifo, 0o600)
@@ -899,8 +926,8 @@ def render(p, tr, out, preset="ultrafast", crf="30", abr="64k"):
     ff = None
     try:
         ff = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-i", fifo, "-c:v", "libx264", "-preset", preset,
-                               "-crf", str(crf), "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", abr,
-                               "-movflags", "+faststart", out], stderr=errlog, stdin=subprocess.DEVNULL)
+                               "-crf", str(crf), "-pix_fmt", "yuv420p", *(["-af", "loudnorm=I=-16:TP=-1.5:LRA=11"] if master else []),
+                               "-c:a", "aac", "-b:a", abr, "-movflags", "+faststart", out], stderr=errlog, stdin=subprocess.DEVNULL)
         c = mlt7.Consumer(p, "avformat", fifo)
         # real_time=-N renders N frames in parallel (no frame dropping). Measured at 4K with 5 overlay layers: 65 s -> 35.6 s
         # (N=2) with bit-identical luma on all 312 frames; N=4 only reached 33.7 s but used 4.1 GB instead of 2.9 GB.

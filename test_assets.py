@@ -120,9 +120,26 @@ async def e2e():
             check("export writes <video>.credits.txt with the CC-BY text", err is None and os.path.isfile(credit) and ccby["attribution"] in open(credit, encoding="utf-8").read() and res.get("credits_file") == credit, err or res)
             a = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_name", "-of", "csv=p=0", out], capture_output=True, text=True).stdout.strip()
             check("exported video has an audio stream", a != "", a)
+            check("export reports the loudness measured on the file", res.get("loudness_lufs") is not None and -60 < res["loudness_lufs"] < 0, res)
+            res_n, err = await call("export", output_path=os.path.join(TMP, "o", "norm.mp4"), quality="draft", master="loudnorm")
+            check("export(master=loudnorm) lands within 2 LU of -16 LUFS", err is None and res_n and res_n.get("loudness_lufs") is not None and abs(res_n["loudness_lufs"] + 16.0) <= 2.0, err or res_n)
+            _, err = await call("export", output_path=os.path.join(TMP, "o", "bad.mp4"), master="loud")
+            check("export rejects an unknown master", err is not None and "master" in err, err)
             await call("undo"); await call("undo")                       # drop both audio ops again
             res2, err = await call("export", output_path=out, quality="draft", overwrite=True)
             check("re-export without CC-BY removes the stale credits file", err is None and not os.path.exists(credit) and "credits_required" not in res2, err or res2)
+            wh_ = sorted(i["id"] for mood in ("whoosh", "swoosh") for i in assets_lib.listing("sfx", theme="tech", mood=mood, limit=200)[0])[0]
+            seed(assets_lib.by_id()[wh_])                                # the effect crossfade(sfx="auto") will pick for the tech template
+            await call("new_project", width=1280, height=720, fps=25)
+            await call("import_clip", path=clip, id="A"); await call("add_clip", source="A", end_s=3.0); await call("add_clip", source="A", start_s=1.0, end_s=4.0)
+            await call("set_template", name="tech")
+            res, err = await call("crossfade", first_index=0, dur_s=1.0, style="blinds-v", sfx="auto")
+            au_ = res and res.get("audio")
+            check("crossfade(sfx='auto') adds the template's whoosh where the transition starts (2.0 s)", err is None and au_ and abs(au_[0]["start_s"] - 2.0) < 0.05 and not res.get("credits_required"), err or res)
+            _, err = await call("crossfade", first_index=0, dur_s=1.0, style="wipe-left", sfx="m-nope")
+            check("crossfade rejects an unknown sfx id and changes nothing", err is not None and "unknown asset" in err, err)
+            tl_, _ = await call("get_timeline")
+            check("a rejected crossfade+sfx left the project as it was (still one crossfade and one audio item)", tl_ and len(tl_["audio"]) == 1 and len(tl_["crossfades"]) == 1, tl_)
 
 unit()
 asyncio.run(e2e())

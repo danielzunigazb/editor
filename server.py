@@ -455,12 +455,33 @@ def cut_clip(index: int, at_s: float) -> dict:
 
 
 @mcp.tool()
-def crossfade(first_index: int, dur_s: float = 1.0, style: str = "dissolve") -> dict:
+def crossfade(first_index: int, dur_s: float = 1.0, style: str = "dissolve", sfx: str = "") -> dict:
     """Transition (video) and crossfade (audio) between entry `first_index` and the next one. The two entries overlap by dur_s, so the
     timeline gets shorter by dur_s. style: dissolve | wipe-right|left|up|down | iris-out|in | blinds-v|h | diagonal | clock |
     slide-left|right|up|down (the new clip travels over the old one) | auto (the template's own, only when the project's motion is on).
-    Anything but dissolve needs dur_s >= 0.2."""
-    return commit(_b_crossfade(first_index, dur_s, style))
+    Anything but dissolve needs dur_s >= 0.2. sfx: also put a sound effect where the transition starts: an asset id from list_assets(kind='sfx'),
+    or "auto" = the template's own whoosh (CC0; needs R2 access the first time). Both edits are added together or neither."""
+    op = _b_crossfade(first_index, dur_s, style)
+    if not sfx:
+        return commit(op)
+    with locked():
+        st = load()
+        if len(st["ops"]) + 2 > MAX_OPS:
+            raise ValueError(f"the project already has {len(st['ops'])} edits (the limit is {MAX_OPS}); this needs room for two")
+        _validate(st, op)
+        st["ops"].append(op)
+        bind(st)
+        t = live.layout(st["ops"])["entries"][first_index + 1]["start"]        # the new clip starts coming in here
+        if sfx == "auto":
+            pool = [i for mood in ("whoosh", "swoosh") for i in assets_lib.listing("sfx", theme=live.THEME.name, mood=mood, limit=200)[0]]
+            if not pool:
+                raise ValueError(f"no whoosh effect is tagged for the '{live.THEME.name}' template; name one with sfx=<asset id> (list_assets(kind='sfx'))")
+            sfx = sorted(i["id"] for i in pool)[0]
+        aop = _b_add_audio(start_s=t, dur_s=None, asset=sfx, volume_db=-10.0)
+        _validate(st, aop)
+        st["ops"].append(aop)
+        save(st)
+        return summary(st)
 
 
 @mcp.tool()
@@ -648,14 +669,18 @@ def add_lower_third(title: str, subtitle: str = "", start_s: float = 0.0, dur_s:
 @mcp.tool()
 def add_audio(start_s: float = 0.0, dur_s: float | None = None, path: str = "", source_in_s: float = 0.0, volume_db: float = -14.0,
               fade_in_s: float | None = None, fade_out_s: float | None = None, loop: bool = False, duck_under: list[list[float]] | None = None,
-              duck_auto: bool = False, duck_db: float = -12.0, asset: str = "") -> dict:
+              duck_auto: bool | None = None, duck_db: float = -12.0, asset: str = "") -> dict:
     """Add music or a sound effect (TIMELINE time) mixed under the video's own audio. path: an audio file (mp3/wav/ogg/m4a...) or a
     video with an audio track. start_s: when it begins. dur_s: how long (default: the whole file, or until the timeline ends).
     source_in_s: start inside the file. volume_db: -60..+6 (default -14, a music bed under speech; use -6..0 for effects).
     fade_in_s/fade_out_s: ramps at its ends (default 1 s in / 2 s out, shorter for short sounds; asking for more than fits is an error). loop=true repeats a short file to fill dur_s. Ducking (music dips while someone talks):
     duck_under=[[start_s, end_s], ...] in timeline seconds, or duck_auto=true to find the speech in the clips' own audio now
-    (re-add the audio after changing the cut); duck_db is how much quieter (default -12). Up to 8 audio items."""
+    (re-add the audio after changing the cut); duck_db is how much quieter (default -12). duck_auto defaults to ON for music (an asset of kind music, or any
+    clip of 20 s or more) when the project's motion is on, off otherwise; pass false to stop it. Up to 32 audio items, at most 8 playing at the same time (clips that never overlap share a track)."""
     spec = _b_add_audio(start_s, dur_s, path, source_in_s, volume_db, fade_in_s, fade_out_s, loop, duck_under, duck_db, asset)
+    if duck_auto is None:                                   # motion on: music (a library piece of kind music, or anything 20 s+) dips under speech by itself
+        long_ = (spec.get("dur") or spec["src_dur"] - spec["in"]) >= 20
+        duck_auto = bool(load().get("motion") and (long_ or (asset and assets_lib.find(asset)["kind"] == "music")))
     if duck_auto:
         with locked():
             spec["duck"] = [list(iv) for iv in _speech_intervals(load())] + [list(iv) for iv in (duck_under or [])]
@@ -895,11 +920,15 @@ def render_preview() -> dict:
 
 
 @mcp.tool()
-def export(output_path: str, quality: str = "high", overwrite: bool = False) -> dict:
+def export(output_path: str, quality: str = "high", overwrite: bool = False, master: str = "") -> dict:
     """Export the final video: MLT composes the timeline at full project resolution and the ffmpeg CLI
     does the H.264/AAC encode. output_path must end in .mp4 or .mov. An existing file is NOT replaced unless
     overwrite=true. quality: 'high' (CRF 20, preset medium) or 'draft' (CRF 28, ultrafast).
+    master: '' (default) or 'loudnorm' = normalise the sound to -16 LUFS integrated / -1.5 dB true peak. The result reports the loudness measured on the
+    exported file (loudness_lufs, true_peak_db).
     Blocking; can take about as long as the video itself at 1080p."""
+    if master not in ("", "loudnorm"):
+        raise ValueError("master must be '' or 'loudnorm'")
     if quality not in ("high", "draft"):
         raise ValueError("quality must be 'high' or 'draft'")
     st = load()
@@ -916,10 +945,10 @@ def export(output_path: str, quality: str = "high", overwrite: bool = False) -> 
     bind(st, 1.0)
     p, tr, m, total = live.build(st["ops"])
     t0 = time.perf_counter()
-    live.render(p, tr, out, *(("medium", 20, "160k") if quality == "high" else ("ultrafast", 28, "96k")))
+    live.render(p, tr, out, *(("medium", 20, "160k") if quality == "high" else ("ultrafast", 28, "96k")), master=master)
     info = _probe(out)
     res = {"path": out, "duration_s": info["duration_s"], "resolution": f"{info['width']}x{info['height']}",
-           "size_kb": os.path.getsize(out) // 1024, "render_s": round(time.perf_counter() - t0, 2)}
+           "size_kb": os.path.getsize(out) // 1024, "render_s": round(time.perf_counter() - t0, 2), **_loudness(out)}
     credits = assets_lib.credit_lines([o.get("asset") for o in st["ops"] if o.get("op") == "audio" and o.get("asset")])
     credit_path = os.path.splitext(out)[0] + ".credits.txt"
     if credits:                                              # CC-BY pieces must be credited: write the text next to the video
@@ -929,6 +958,16 @@ def export(output_path: str, quality: str = "high", overwrite: bool = False) -> 
     elif os.path.exists(credit_path):                        # a stale file from an earlier export of this name would lie
         os.remove(credit_path)
     return res
+
+
+def _loudness(path):
+    """{'loudness_lufs', 'true_peak_db'} measured on an exported file with ebur128 ({} if it has no audible audio)."""
+    r = subprocess.run(["ffmpeg", "-nostats", "-i", path, "-vn", "-af", "ebur128=peak=true", "-f", "null", "-"], capture_output=True, text=True, timeout=120)
+    tail = r.stderr.rsplit("Summary:", 1)[-1]
+    i, pk = re.search(r"I:\s+(-?[\d.]+) LUFS", tail), re.search(r"Peak:\s+(-?[\d.]+) dBFS", tail)
+    if not i or float(i.group(1)) < -69:                       # ebur128 floors silence at about -70 LUFS
+        return {}
+    return {"loudness_lufs": round(float(i.group(1)), 1), **({"true_peak_db": round(float(pk.group(1)), 1)} if pk else {})}
 
 
 def prune_cache(max_mb=500, max_age_days=14):

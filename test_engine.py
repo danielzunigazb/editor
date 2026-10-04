@@ -460,6 +460,20 @@ for label_, op_, needle_ in [
     try: live.layout(BASE + [op_]); e_ = None
     except ValueError as ex: e_ = str(ex)
     chk(f"layout rejects {label_}", e_ is not None and needle_ in e_, e_)
+# ---- audio clips that never overlap share one MLT track (many effects, few tracks)
+def _au(s_, d_, v_=0.0, **k_): return AU(start=s_, dur=d_, volume_db=v_, fade_in=0.0, fade_out=0.0, **k_)
+many_ = SIL + [_au(0.4 + i * 0.36, 0.25) for i in range(20)]            # the silent test clip is 8 s long
+lay_ = live.layout(many_)
+chk("20 short sounds in a row are accepted (the old cap was 8 tracks) and share ONE track", len(live.pack_audio(lay_["audios"])) == 1, len(live.pack_audio(lay_["audios"])))
+wins_ = [(0.4 + i * 0.36 + 0.04, 0.4 + i * 0.36 + 0.2) for i in (0, 7, 19)] + [(0.4 + i * 0.36 + 0.28, 0.4 + i * 0.36 + 0.34) for i in (0, 7, 18)]
+lv_ = level_of(many_, wins_)
+chk("each of the 20 sounds is heard where it was put and the gaps between are silent", all(v_ > -35 for v_ in lv_[:3]) and all(v_ < -60 for v_ in lv_[3:]), lv_)
+two_ = level_of(SIL + [_au(1.0, 1.0, -6.0), _au(3.0, 1.0, -20.0)], [(1.2, 1.8), (3.2, 3.8), (2.2, 2.8)])
+chk("clips on a shared track keep their own level (-6 dB vs -20 dB differ by 14 dB +-2) and the gap is silent", abs((two_[0] - two_[1]) - 14.0) <= 2.0 and two_[2] < -60, two_)
+chk("clips that overlap in time get separate tracks", len(live.pack_audio(live.layout(SIL + [_au(1.0, 3.0), _au(2.0, 3.0)])["audios"])) == 2)
+try: live.layout(SIL + [_au(1.0, 3.0) for _ in range(live.MAX_AUDIO_TRACKS + 1)]); e_ = None
+except ValueError as ex: e_ = str(ex)
+chk(f"more than {live.MAX_AUDIO_TRACKS} clips playing at once is rejected with a clear message", e_ is not None and "at the same time" in e_, e_)
 TXT_ = {"op": "text", "text": "Hola mundo", "start": 0.5, "dur": 3.0, "pos": "center", "size": 0.08}
 # ---- callouts: size, and animations about the ring (draw / pop / zoom / fade)
 live.THEME = themes.get(None)

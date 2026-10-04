@@ -768,6 +768,19 @@ async def main():
             check("...and the clip's audio is untouched outside the music's range (+-0.3 dB)", abs(mus_out - base_out) <= 0.3, (base_out, mus_out))
             res, err = await call("add_audio", path=music, start_s=0.0, volume_db=-20.0, duck_auto=True)
             check("duck_auto finds the speech in the clips' audio and stores the ducking intervals", err is None and res and any(a_["ducked"] >= 1 for a_ in res["audio"]), err or res)
+            n_before = len(res["audio"])
+            res, err = await call("add_audio", path=music, start_s=0.0, dur_s=30.0, loop=True, volume_db=-20.0)
+            check("motion off: a long music is NOT ducked unless asked (duck_auto defaults to off)", err is None and res and max(res["audio"], key=lambda a_: a_["op"])["ducked"] == 0 and len(res["audio"]) == n_before + 1, err or res)
+            await call("set_template", name="luxury", motion=True)
+            res, err = await call("add_audio", path=music, start_s=0.0, dur_s=30.0, loop=True, volume_db=-20.0)
+            check("motion on: a long music (30 s) ducks under the speech by itself", err is None and res and max(res["audio"], key=lambda a_: a_["op"])["ducked"] >= 1, err or res)
+            res, err = await call("add_audio", path=music, start_s=0.0, dur_s=2.0, volume_db=-20.0)
+            check("motion on: a short sound is not ducked", err is None and res and max(res["audio"], key=lambda a_: a_["op"])["ducked"] == 0, err or res)
+            res, err = await call("add_audio", path=music, start_s=0.0, dur_s=30.0, loop=True, volume_db=-20.0, duck_auto=False)
+            check("motion on: duck_auto=false still turns it off", err is None and res and max(res["audio"], key=lambda a_: a_["op"])["ducked"] == 0, err or res)
+            await call("set_template", name="luxury", motion=False)
+            for _ in range(4):                                         # remove the four items added here so the next checks see the project as before
+                await call("undo")
             await call("undo"); await call("undo")
             tl_a, _ = await call("get_timeline")
             check("undo removes the audio items", tl_a and tl_a["audio"] == [], tl_a and tl_a["audio"])
@@ -781,7 +794,9 @@ async def main():
             for _ in range(6):
                 await call("add_audio", path=music, start_s=0.5, dur_s=1.0)
             _, err = await call("add_audio", path=music, start_s=0.5, dur_s=1.0)
-            check("a ninth audio item is rejected", err is not None and "at most" in err, err)
+            check("eight clips playing at once are accepted", err is None, err)
+            _, err = await call("add_audio", path=music, start_s=0.5, dur_s=1.0)
+            check("a ninth clip at the same moment is rejected (clips that do not overlap would share a track)", err is not None and "at the same time" in err, err)
 
             # ---- animation
             await clean_project()
