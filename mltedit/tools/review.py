@@ -1,9 +1,10 @@
 """Seeing and exporting: stills, contact sheet, preview, export."""
-import json, os, re, subprocess, time
+import hashlib, json, os, re, subprocess, time
 
 from .. import assets as assets_lib
 from .. import engine as live
 from .. import ops as O
+from .. import project as P
 from .. import server as sv
 from ..config import S
 from . import tool
@@ -17,14 +18,37 @@ _TRACTOR_SLOTS = 2      # stills (0.5x) and contact sheets (0.25x) alternate; mo
 
 
 def _state_key(st, scale):
-    """Everything a built timeline depends on: the edit list, the format, and the files behind it (path+mtime+size)."""
+    """Everything a rendered picture depends on: the project (layout_hash: ops, format, template, sources), the files as they are on disk now
+    (path+mtime+size), the preview scale, and which sources are read from their proxy."""
     files = []
     for p in sorted({v["path"] for v in st["sources"].values()} | set(O.project_files(st["ops"]))):
         try:
             stt = os.stat(p); files.append((p, stt.st_mtime_ns, stt.st_size))
         except OSError:
             files.append((p, None, None))
-    return json.dumps([st["ops"], st["width"], st["height"], st["fps"], scale, files, st.get("theme"), bool(st.get("motion"))], sort_keys=True)
+    used = sv.proxies.media_for_preview(sv.HOME, st["sources"], scale)
+    return json.dumps([P.layout_hash(st), scale, files, sorted(k for k, v in used.items() if v != st["sources"][k]["path"])], sort_keys=True)
+
+
+def _cached(st, scale, what):
+    """Path of the cached PNG for this picture (what = the frame or the sheet description); a hit means no MLT at all."""
+    key = hashlib.sha1((_state_key(st, scale) + f"|{what}|v1").encode()).hexdigest()[:20]
+    return os.path.join(sv.HOME, "cache", f"still_{key}.png")
+
+
+def _serve(path, make):
+    """The cached PNG at `path`, made by make() (bytes) on a miss, written atomically."""
+    if os.path.exists(path):
+        os.utime(path)                                      # most recently used: survives pruning longest
+        with open(path, "rb") as f:
+            return f.read()
+    data = make()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "wb") as f:
+        f.write(data)
+    os.replace(tmp, path)
+    return data
 
 
 def _built(st, scale):
@@ -84,7 +108,14 @@ def get_still(time_s: float, full_res: bool = False) -> Image:
     the result. Half resolution by default (faster); full_res=True renders at export size."""
     st = sv.load()
     sv.require_fresh(st)
-    return Image(data=_png(_frames(st, [time_s], 1.0 if full_res else 0.5)), format="png")
+    sv.ensure_proxies(st, wait=True)
+    scale = 1.0 if full_res else 0.5
+    sv.bind(st)
+    t_f = live.CTX.fr(time_s) if isinstance(time_s, (int, float)) and time_s == time_s and abs(time_s) < 1e7 else None
+    path = _cached(st, scale, f"still|{t_f}") if t_f is not None else None
+    if path is None:
+        return Image(data=_png(_frames(st, [time_s], scale)), format="png")
+    return Image(data=_serve(path, lambda: _png(_frames(st, [time_s], scale))), format="png")
 
 
 @tool
@@ -95,6 +126,7 @@ def get_contact_sheet(count: int = 6) -> Image:
         raise ValueError("count must be between 2 and 12")
     st = sv.load()
     sv.require_fresh(st)
+    sv.ensure_proxies(st, wait=True)
     sv.bind(st)
     total = live.layout(st["ops"])["total"] if st["ops"] else 0
     if total <= 0:
@@ -102,9 +134,12 @@ def get_contact_sheet(count: int = 6) -> Image:
     times = [round(i * (total - 1 / st["fps"]) / (count - 1), 3) for i in range(count)]
     cols = 3 if count % 3 == 0 or count > 4 else 2
     rows = -(-count // cols)
-    frames = _frames(st, times, 0.25)
-    frames += [(frames[0][0], frames[0][1], bytes(len(frames[0][2])))] * (cols * rows - count)   # black padding
-    return Image(data=_png(frames, (cols, rows)), format="png")
+
+    def make():
+        frames = _frames(st, times, 0.25)
+        frames += [(frames[0][0], frames[0][1], bytes(len(frames[0][2])))] * (cols * rows - count)   # black padding
+        return _png(frames, (cols, rows))
+    return Image(data=_serve(_cached(st, 0.25, f"sheet|{count}"), make), format="png")
 
 
 @tool

@@ -1,0 +1,29 @@
+{
+ "meta": {
+  "cpus": 4,
+  "note": "median of runs; cold = first still after an edit, hot = other times of the same edit"
+ },
+ "results": {
+  "720p": {
+   "resolution": "1280x720@25",
+   "still_cold_s": 0.108,
+   "still_hot_s": 0.059,
+   "contact_sheet_s": 0.204,
+   "render_preview_s": 0.93
+  },
+  "1080p": {
+   "resolution": "1920x1080@30",
+   "still_cold_s": 0.246,
+   "still_hot_s": 0.094,
+   "contact_sheet_s": 0.571,
+   "render_preview_s": 1.4
+  },
+  "4k": {
+   "resolution": "3840x2160@30",
+   "still_cold_s": 0.368,
+   "still_hot_s": 0.134,
+   "contact_sheet_s": 0.665,
+   "render_preview_s": 3.75
+  }
+ }
+}

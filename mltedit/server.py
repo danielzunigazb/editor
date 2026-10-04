@@ -48,6 +48,7 @@ from . import engine as live  # noqa: E402  (engine: layout/build/render)
 from . import themes  # noqa: E402
 from . import ops as O  # noqa: E402
 from . import project as P  # noqa: E402
+from .media import proxy as proxies  # noqa: E402
 from .errors import EditError, as_edit_error  # noqa: E402
 from . import assets as assets_lib  # noqa: E402
 from mcp.server.fastmcp import FastMCP  # noqa: E402
@@ -179,7 +180,7 @@ def _file_warnings(st):
 
 def bind(st, scale=1.0):
     """Point the engine at this project's sources/resolution. scale<1 => proxy-resolution preview."""
-    live.CLIPS = {k: v["path"] for k, v in st["sources"].items()}
+    live.CLIPS = proxies.media_for_preview(HOME, st["sources"], scale)     # previews (scale < 1) read the small intra-only proxies where they are ready
     live.CLIP_LEN = {k: v["duration_s"] for k, v in st["sources"].items()}
     live.W = max(2, int(st["width"] * scale) // 2 * 2)
     live.H = max(2, int(st["height"] * scale) // 2 * 2)
@@ -309,6 +310,15 @@ def _probe(path):
             "codec": v["codec_name"], "has_audio": any(s["codec_type"] == "audio" for s in info["streams"])}
 
 
+def ensure_proxies(st, wait=False):
+    """Start (in the background) the proxies of the project's sources that are wanted and missing. wait=True: then wait up to proxy_wait_s for the pending
+    ones, so a picture is made from the same media whether the proxy was ready a moment ago or not (past that wait it falls back to the original)."""
+    for src in st["sources"].values():
+        proxies.ensure(HOME, src)
+    if wait:
+        proxies.wait(HOME, st["sources"], float(S.proxy_wait_s))
+
+
 def prune_cache(max_mb=500, max_age_days=14):
     """The rendered-PNG cache (text, graphics, cropped overlays) only grows. Drop what is old, then the oldest until
     the folder fits max_mb; everything in it is regenerated on demand. Returns the number of files removed."""
@@ -336,6 +346,11 @@ def prune_cache(max_mb=500, max_age_days=14):
 
 def main():
     prune_cache()
+    proxies.prune(HOME, S.proxy_cache_mb)
+    try:
+        ensure_proxies(load())                                 # after a restart: finish what was pending
+    except RuntimeError:
+        pass
     mcp.run()
 
 

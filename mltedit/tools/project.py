@@ -12,6 +12,7 @@ from .. import server as sv
 from ..render import text as textrender
 from .. import ops as O
 from .. import project as P
+from ..media import proxy as proxies
 from ..errors import EditError, as_edit_error
 from . import edit_tool, tool
 
@@ -55,7 +56,8 @@ def import_clip(path: str, id: str = "") -> dict:
             raise ValueError(f"the project already has {sv.MAX_SOURCES} sources (the limit)")
         st["sources"][sid] = {"path": path, "sig": P.file_sig(path), **info}
         rev = sv.save(st, {"kind": "import", "source": sid})
-    return {"id": sid, "revision": rev, **info}
+        proxy = proxies.ensure(sv.HOME, st["sources"][sid])            # in the background: the edit does not wait for it
+    return {"id": sid, "revision": rev, **({"proxy": proxy} if proxy != "none" else {}), **info}
 
 
 @tool
@@ -83,13 +85,24 @@ def refresh_source(id: str) -> dict:
         live.layout(st["ops"])                                  # raises if an edit no longer fits the new file: nothing is saved
         sv.push_undo(st, {"k": "set", "fields": {"sources": old}})
         sv.save(st, {"kind": "refresh_source", "source": id})
+        proxies.ensure(sv.HOME, st["sources"][id])
         return {"refreshed": id, **sv.summary(st)}
 
 
 @tool
 def list_sources() -> dict:
-    """List imported sources with duration, resolution and whether they have audio."""
-    return sv.load()["sources"]
+    """List imported sources with duration, resolution, whether they have audio, and the state of their preview proxy (none | pending | ready | failed):
+    stills, contact sheets and the preview mp4 read the proxy of a big source once it is ready, and the original until then."""
+    return {k: {**v, "proxy": proxies.state(sv.HOME, v)} for k, v in sv.load()["sources"].items()}
+
+
+@tool
+def wait_for_proxies(timeout_s: float = 60.0) -> dict:
+    """Wait (up to timeout_s) until the preview proxies of the imported sources are made. Without waiting, get_still and get_contact_sheet still work
+    (from the originals, slower) while a proxy is pending. Returns the state of each source."""
+    st = sv.load()
+    sv.ensure_proxies(st)
+    return {"states": proxies.wait(sv.HOME, st["sources"], max(0.0, min(float(timeout_s), 600.0)))}
 
 
 @tool

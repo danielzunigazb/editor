@@ -33,6 +33,12 @@ SPEC = {
     "opt_merge":        (("MLT_OPT_MERGE",), True, "bool"),
     "tractor_cache":    (("MLT_TRACTOR_CACHE",), True, "bool"),
     "subprocess_timeout": (("MLT_SUBPROCESS_TIMEOUT",), 60, "int"),
+    "proxy_enabled":    (("MLT_PROXY",), True, "bool"),                                  # intra-only small copies of big sources for previews (stills, contact sheet, preview mp4)
+    "proxy_height":     (("MLT_PROXY_HEIGHT",), 540, "int"),                              # sources taller than this get a proxy of this height
+    "proxy_crf":        (("MLT_PROXY_CRF",), 23, "int"),
+    "proxy_wait_s":     (("MLT_PROXY_WAIT_S",), 15.0, "float"),                           # a still/sheet waits up to this long for a PENDING proxy, so what you see does not depend on timing
+    "proxy_workers":    (("MLT_PROXY_WORKERS",), 2, "int"),                               # proxies made at the same time in the background
+    "proxy_cache_mb":   (("MLT_PROXY_CACHE_MB",), 4000, "int"),                           # the proxy folder is pruned (least recently used first) above this size
     "max_ops":          (("MLT_MAX_OPS",), 500, "int"),
     "max_sources":      (("MLT_MAX_SOURCES",), 50, "int"),
     "max_layer_tracks": (("MLT_MAX_LAYER_TRACKS",), 6, "int"),
