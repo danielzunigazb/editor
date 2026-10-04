@@ -643,7 +643,7 @@ async def main():
             ex_card, err = await call("export", output_path=os.path.join(TMP, "card_clip.mp4"), quality="draft")
             check("card + crossfade + clip exports with video and audio", err is None and ex_card and abs(ex_card["duration_s"] - 5.5) < 0.1, err or ex_card)
             for layout_, kw_ in [("section", dict(title="Avance", number="02")), ("quote", dict(title="Una frase corta", author="Autor")), ("list", dict(title="Lista", items=["uno", "dos", "tres"])),
-                                 ("stat", dict(title="Edificios", number="14", subtitle="en obra")), ("outro", dict(title="Gracias", subtitle="web.com"))]:
+                                 ("stat", dict(title="Edificios", number="14", subtitle="en obra")), ("bento", dict(title="Resultados", items=["18 %|crecimiento", "4 M|usuarios"])), ("outro", dict(title="Gracias", subtitle="web.com"))]:
                 res, err = await call("add_card", layout=layout_, dur_s=1.0, **kw_)
                 check(f"add_card layout {layout_}", err is None and res and res["card"].startswith("CARD"), err)
             await clean_project()

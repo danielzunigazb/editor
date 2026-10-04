@@ -502,7 +502,7 @@ def add_card(layout: str, title: str = "", subtitle: str = "", items: list[str] 
              author: str = "", dur_s: float = 4.0, push: bool = False, append: bool = True, theme: str = "auto") -> dict:
     """Make a full-screen card in the project's template and (append=true) add it to the END of the main track.
     layout: title (title+subtitle) | section (number+title) | quote (title = the quote, author) | list (title + items, up to 5) |
-    stat (number = the figure, title/subtitle = its label) | outro (title+subtitle). dur_s 0.5-30. push=true adds a slow zoom-in.
+    stat (number = the figure, title/subtitle = its label) | outro (title+subtitle) | bento (title + 1-4 items 'figure|label', e.g. '18 %|growth'). dur_s 0.5-30. push=true adds a slow zoom-in.
     The card also becomes a source (CARD1, CARD2...) usable with add_clip/crossfade. It is appended like any clip, so add an INTRO
     card before the clips and an OUTRO after them; dissolve into it with crossfade. Not available inside apply_ops."""
     if not 0.5 <= dur_s <= 30:

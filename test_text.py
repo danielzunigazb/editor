@@ -136,13 +136,14 @@ check("sketch strokes are seeded by content: a different text gets different pen
       graphics.callout(TW, TH, "Uno", "", "ne", theme="sketch")[0].tobytes() != graphics.callout(TW, TH, "Dos", "", "ne", theme="sketch")[0].tobytes())
 check("letterbox takes the theme's accent for its hairline (and gold for luxury, unchanged)",
       graphics.letterbox(TW, TH, 0.1, (0, 229, 255)).tobytes() != graphics.letterbox(TW, TH, 0.1).tobytes())
-# ---- cards (title / section / quote / list / stat / outro) in every template
+# ---- cards (title / section / quote / list / stat / outro / bento) in every template
 import cards
 CW, CH = 640, 360
 KW = {"title": dict(title="Gran Inauguración", subtitle="Nuevo complejo residencial · 2026"), "section": dict(title="Avance de las obras", number="02", subtitle="Octubre"),
       "quote": dict(title="La arquitectura es música congelada y también un buen lugar donde vivir", author="Goethe"),
       "list": dict(title="Lo que viene", items=["Fase 1: estructura", "Fase 2: acabados", "Fase 3: paisajismo", "Entrega: diciembre"]),
-      "stat": dict(title="Edificios", number="14", subtitle="en construcción"), "outro": dict(title="Gracias", subtitle="www.ejemplo.com")}
+      "stat": dict(title="Edificios", number="14", subtitle="en construcción"),
+      "bento": dict(title="Resultados", items=["18 %|crecimiento anual", "4,2 M|usuarios activos", "98 %|satisfacción", "12|países"]), "outro": dict(title="Gracias", subtitle="www.ejemplo.com")}
 errs_ = []
 for n_ in themes.NAMES:
     for lay_ in cards.LAYOUTS:
@@ -152,7 +153,7 @@ for n_ in themes.NAMES:
                 errs_.append((n_, lay_, "size/alpha"))
         except Exception as e_:
             errs_.append((n_, lay_, str(e_)))
-check("all 15 templates x 6 card layouts render full-frame and opaque", not errs_, errs_[:3])
+check("all 15 templates x 7 card layouts render full-frame and opaque", not errs_, errs_[:3])
 check("a card is deterministic (same pixels twice), incl. the random-looking backgrounds",
       all(cards.render_card("title", CW, CH, themes.get(n_), **KW["title"]).tobytes() == cards.render_card("title", CW, CH, themes.get(n_), **KW["title"]).tobytes() for n_ in themes.NAMES))
 check("the same title looks different in each template", len({cards.render_card("title", CW, CH, themes.get(n_), **KW["title"]).tobytes() for n_ in themes.NAMES}) == len(themes.NAMES))

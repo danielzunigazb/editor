@@ -12,7 +12,7 @@ import textrender as T
 import themed
 import themes
 
-LAYOUTS = ("title", "section", "quote", "list", "stat", "outro")
+LAYOUTS = ("title", "section", "quote", "list", "stat", "outro", "bento")
 MAX_ITEMS, MAX_ITEM_CHARS = 5, 60
 LEFT = {"corporate", "tech", "minimal", "terminal", "saas"}                    # templates whose cards are left-aligned; the others centre everything
 c_ = themed._c
@@ -340,6 +340,27 @@ def _decor_rule(canvas, th, x, y, w, align, H):
     canvas.alpha_composite(ov)
 
 
+def _tile(canvas, rect, th, H, key):
+    """Paint one bento tile in the template's panel style -> (title colour, sub colour, effects) for its text (themed._panel's contract).
+    Painted on its own transparent layer and composited: ImageDraw on the opaque card would REPLACE the alpha of translucent fills."""
+    layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    if th.shape == "glass":                                                        # luxury: dark glass with a gold edge
+        d.rounded_rectangle(rect, radius=0.012 * H, fill=(8, 8, 11, 215), outline=c_(th.accent, 200), width=max(2, int(0.0025 * H)))
+        res = (c_(th.accent), c_("#cdbb94"), False)
+    elif th.name == "minimal":                                                     # minimal: a hairline box on white
+        d.rectangle(rect, outline=c_(th.ink, 90), width=max(1, int(0.0016 * H)))
+        res = (c_(th.ink), c_(th.muted), False)
+    else:
+        if th.shape == "cinema":                                                   # cinema: a faint plate (the panel itself is only an accent bar)
+            d.rectangle(rect, fill=(255, 255, 255, 14))
+        res = themed._panel(layer, rect, th, H, key)
+        if th.shape == "sketch":
+            res = (c_(th.ink), c_(th.muted), False)
+    canvas.alpha_composite(layer)
+    return res
+
+
 # ------------------------------------------------------------------------------------------------ the layouts
 def render_card(layout, W, H, th, title="", subtitle="", items=(), number="", author="", strict=True):
     """Full-frame card as an RGBA PIL image. Raises ValueError (with a message to show verbatim) if text does not fit."""
@@ -416,6 +437,48 @@ def render_card(layout, W, H, th, title="", subtitle="", items=(), number="", au
             d.ellipse([left, y + hh * 0.5 - rr, left + 2 * rr, y + hh * 0.5 + rr], fill=acc)
             _line(canvas, th, (left + 0.045 * H + 2 * rr, y), ln, ss, f, tr, "sub" if th.name not in ("luxury", "corporate") else "title" if th.name == "corporate" else "sub", "left", W)
             y += hh * 1.1 + gap
+    elif layout == "bento":                                                        # up to 4 tiles "figure | label" in the template's own panel style
+        its = [T.clean(i, th.caption_style) for i in items]
+        if not 1 <= len(its) <= 4 or any(not i or len(i) > 50 for i in its):
+            raise ValueError("a bento card needs 1-4 items of the form 'figure | label' (at most 50 characters each; the figure up to 10)")
+        tiles = []
+        for i in its:
+            fig_, _, lab_ = (p_.strip() for p_ in i.partition("|")) if "|" in i else ("", "", i)
+            if len(fig_) > 10:
+                raise ValueError(f"bento figure '{fig_}' is longer than 10 characters")
+            tiles.append((fig_, lab_))
+        tf, ttr, tl = _block(title, ts, 0.075 * H, maxw, 1, strict)
+        put(tl, tf, ttr, {"cinema": 0.145, "arcade": 0.09, "terminal": 0.085}.get(th.name, 0.07) * H, "title", ts)
+        gx0, gx1, gy0, gy1, gap = 0.08 * W, 0.92 * W, (0.31 if th.name == "cinema" else 0.28) * H, (0.86 if th.name == "cinema" else 0.90) * H, 0.025 * H
+        gw, gh = gx1 - gx0, gy1 - gy0
+        n_ = len(tiles)
+        if n_ == 1:
+            rects = [(gx0, gy0, gx1, gy1)]
+        elif n_ == 2:
+            rects = [(gx0, gy0, gx0 + (gw - gap) / 2, gy1), (gx0 + (gw + gap) / 2, gy0, gx1, gy1)]
+        elif n_ == 3:
+            rects = [(gx0, gy0, gx0 + (gw - gap) / 2, gy1), (gx0 + (gw + gap) / 2, gy0, gx1, gy0 + (gh - gap) / 2), (gx0 + (gw + gap) / 2, gy0 + (gh + gap) / 2, gx1, gy1)]
+        else:
+            cw_, ch_ = (gw - gap) / 2, (gh - gap) / 2
+            rects = [(gx0 + i * (cw_ + gap), gy0 + j * (ch_ + gap), gx0 + i * (cw_ + gap) + cw_, gy0 + j * (ch_ + gap) + ch_) for j in range(2) for i in range(2)]
+        for k, ((fig_, lab_), rect) in enumerate(zip(tiles, rects)):
+            tcol, scol, eff = _tile(canvas, rect, th, H, f"bento|{k}|{fig_}|{lab_}")
+            pad = 0.03 * H
+            iw, ih = rect[2] - rect[0] - 2 * pad, rect[3] - rect[1] - 2 * pad
+            fpx, lpx = min(0.2 * H, ih * 0.55), min(0.05 * H, ih * 0.3)
+            for _ in range(6):                                                     # shrink until the figure and the label fit the tile's height
+                ff, ftr, fl = _block(fig_, ts, fpx, iw, 1, strict) if fig_ else (None, 0, [])
+                lf, ltr, ll = _block(lab_, ss, lpx, iw, 2, strict)
+                if (sum(ff.getmetrics()) * 1.05 if fig_ else 0) + sum(lf.getmetrics()) * 1.1 * len(ll) <= ih:
+                    break
+                fpx, lpx = fpx * 0.88, lpx * 0.88
+            y = rect[1] + pad
+            if fig_:
+                canvas.alpha_composite(themed._text_layer(canvas.size, (rect[0] + pad, y), fl[0], ts, ff, ftr, tcol, eff))
+                y += sum(ff.getmetrics()) * 1.05
+            for ln in ll:
+                canvas.alpha_composite(themed._text_layer(canvas.size, (rect[0] + pad, y), ln, ss, lf, ltr, scol, eff))
+                y += sum(lf.getmetrics()) * 1.1
     else:                                                                          # stat: a big figure and its label
         fig = T.clean(number if number else title, th.title_style)
         label = subtitle if subtitle else (title if number else "")
