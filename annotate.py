@@ -168,6 +168,8 @@ def main():
     ap.add_argument("spec"); ap.add_argument("out")
     ap.add_argument("--src-in", type=float, default=0.0); ap.add_argument("--src-out", type=float, default=1e9)
     ap.add_argument("--max-concurrent", type=int, default=3)
+    ap.add_argument("--min-dx", type=float, default=0.16, help="two labels on screen together must differ by at least this much in x (fraction of the frame) OR ...")
+    ap.add_argument("--min-dy", type=float, default=0.07, help="... this much in y; otherwise the lower-scored one is dropped")
     ap.add_argument("--video", default="", help="lock tracks to the structure with optical flow (needs the detector venv)")
     a = ap.parse_args()
     spec = json.load(open(a.spec))
@@ -208,10 +210,31 @@ def main():
         cands.append((score, pts[0][0], pts[0][0] + op["dur_s"], op))
     for s in stats:
         print(f"lock {s[0]:18s} anchor inside the detector box in {s[2]}/{s[1]} samples; detector span {s[3]:.1f}-{s[4]:.1f}s -> locked {s[5]:.1f}-{s[6]:.1f}s", file=sys.stderr)
-    kept = []                                                  # cap how many labels are on screen at once (best first)
+    kept = []                                                  # best first; drop a label that would crowd one already kept
+    def anchor(op, t):                                         # anchor (x, y) of a candidate at timeline time t (linear, as the editor does)
+        p = op["track"]
+        if t <= p[0][0]:
+            return p[0][1], p[0][2]
+        for (t0, x0, y0), (t1, x1, y1) in zip(p, p[1:]):
+            if t <= t1:
+                u = (t - t0) / (t1 - t0); return x0 + (x1 - x0) * u, y0 + (y1 - y0) * u
+        return p[-1][1], p[-1][2]
+    def crowds(c, k):
+        t0, t1 = max(k[1], c[1]), min(k[2], c[2])
+        if t1 - t0 < 0.3:
+            return False
+        n = max(2, int((t1 - t0) / 0.5))
+        for i in range(n + 1):
+            t = t0 + (t1 - t0) * i / n
+            (x0, y0), (x1, y1) = anchor(c[3], t), anchor(k[3], t)
+            if abs(x0 - x1) < a.min_dx and abs(y0 - y1) < a.min_dy:      # flags are wide and short: near in x AND y means they collide
+                return True
+        return False
     for c in sorted(cands, key=lambda c: -c[0]):
-        overlap = [k for k in kept if min(k[2], c[2]) - max(k[1], c[1]) > 0.3]
-        if all(sum(1 for k2 in kept if k2[1] < t < k2[2]) < a.max_concurrent for t in {c[1], c[2] - 0.01, *(k[1] for k in overlap)} if c[1] <= t < c[2]):
+        if any(crowds(c, k) for k in kept):
+            continue
+        times = {c[1], c[2] - 0.01, *(k[1] for k in kept if k[1] > c[1] and k[1] < c[2])}
+        if all(sum(1 for k2 in kept if k2[1] <= t < k2[2]) < a.max_concurrent for t in times):
             kept.append(c)
     ops, seen = [], {}
     for c in sorted(kept, key=lambda c: c[1]):                  # number repeated names in order of appearance, not of rank

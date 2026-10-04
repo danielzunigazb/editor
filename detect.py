@@ -20,35 +20,63 @@ def init(threads):
     _M["model"] = Owlv2ForObjectDetection.from_pretrained("google/owlv2-base-patch16-ensemble").eval()
 
 
+def _iou(a, b):
+    ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0])); iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+    inter = ix * iy
+    return inter / ((a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter + 1e-9)
+
+
 def work(job):
     """Detect on a list of times. Returns {label: [[t, cx, cy, w, h, score], ...]}."""
     import cv2, torch
     from PIL import Image
-    video, times, labels, queries, thr = job
+    video, times, labels, queries, thr, tiles = job
     proc, model = _M["proc"], _M["model"]
     cap = cv2.VideoCapture(video)
     vfps = cap.get(cv2.CAP_PROP_FPS)
     W, H = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    S = max(W, H)
     tracks = {l: [] for l in labels}
+    def regions():
+        """Whole frame first; with --tiles N also an NxN grid (15% overlap): OWLv2 sees ~960 px per image, so small, distant
+        buildings are only resolved when each tile is looked at on its own."""
+        yield 0, 0, W, H
+        if tiles > 1:
+            tw, th = W / tiles, H / tiles
+            for r in range(tiles):
+                for c in range(tiles):
+                    yield (int(max(0, c * tw - 0.15 * tw)), int(max(0, r * th - 0.15 * th)),
+                           int(min(W, (c + 1) * tw + 0.15 * tw)), int(min(H, (r + 1) * th + 0.15 * th)))
     for t in times:
         cap.set(cv2.CAP_PROP_POS_FRAMES, int(round(t * vfps)))
         ok, bgr = cap.read()
         if not ok:
             continue
-        img = Image.fromarray(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
-        inp = proc(text=[[f"a photo of a {l}" for l in labels]], images=img, return_tensors="pt")
-        with torch.no_grad():
-            out = model(**inp)
-        res = proc.post_process_grounded_object_detection(out, threshold=thr, target_sizes=torch.tensor([[S, S]]), text_labels=[labels])[0]   # OWLv2 pads to a square
-        for li, l in enumerate(labels):
-            m = (res["labels"] == li)
-            sc, bx = res["scores"][m], res["boxes"][m]
-            for j in sc.argsort(descending=True)[: queries[l]]:
-                x0, y0, x1, y1 = [float(v) for v in bx[j]]
-                x0, x1, y0, y1 = max(0, x0), min(W, x1), max(0, y0), min(H, y1)
-                if x1 > x0 and y1 > y0:
-                    tracks[l].append([t, round((x0 + x1) / 2 / W, 4), round((y0 + y1) / 2 / H, 4), round((x1 - x0) / W, 4), round((y1 - y0) / H, 4), round(float(sc[j]), 3)])
+        found = {l: [] for l in labels}                         # label -> [(score, x0, y0, x1, y1)] in full-frame pixels
+        for rx0, ry0, rx1, ry1 in regions():
+            crop = bgr[ry0:ry1, rx0:rx1]
+            cw, ch = rx1 - rx0, ry1 - ry0
+            img = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB))
+            inp = proc(text=[[f"a photo of a {l}" for l in labels]], images=img, return_tensors="pt")
+            with torch.no_grad():
+                out = model(**inp)
+            res = proc.post_process_grounded_object_detection(out, threshold=thr, target_sizes=torch.tensor([[max(cw, ch)] * 2]), text_labels=[labels])[0]   # OWLv2 pads to a square
+            for li, l in enumerate(labels):
+                m = (res["labels"] == li)
+                for s_, b_ in zip(res["scores"][m], res["boxes"][m]):
+                    x0, y0, x1, y1 = [float(v) for v in b_]
+                    x0, x1, y0, y1 = max(0, x0), min(cw, x1), max(0, y0), min(ch, y1)
+                    if x1 > x0 and y1 > y0:
+                        found[l].append((float(s_), x0 + rx0, y0 + ry0, x1 + rx0, y1 + ry0))
+        for l in labels:
+            boxes = sorted(found[l], reverse=True)
+            kept = []
+            for b in boxes:                                     # NMS across tiles: the same object seen twice keeps its best box
+                if all(_iou(b[1:], k[1:]) < 0.45 for k in kept):
+                    kept.append(b)
+                if len(kept) >= queries[l]:
+                    break
+            for s_, x0, y0, x1, y1 in kept:
+                tracks[l].append([t, round((x0 + x1) / 2 / W, 4), round((y0 + y1) / 2 / H, 4), round((x1 - x0) / W, 4), round((y1 - y0) / H, 4), round(s_, 3)])
     return tracks
 
 
@@ -60,6 +88,7 @@ def main():
     ap.add_argument("--queries", default="", help="comma list; each may be 'label:topk'")
     ap.add_argument("--thr", type=float, default=0.15)
     ap.add_argument("--start", type=float, default=0.0); ap.add_argument("--end", type=float, default=1e9)
+    ap.add_argument("--tiles", type=int, default=1, help="N>1: also look at an NxN grid of tiles (N*N+1 passes per frame; finds small, distant objects)")
     ap.add_argument("--workers", type=int, default=1, help="processes (each loads the model, ~0.6 GB RAM); threads per process = cores/workers")
     a = ap.parse_args()
     queries = dict(DEFAULT)
@@ -75,7 +104,7 @@ def main():
     times = [round(float(t), 3) for t in np.arange(a.start, min(a.end, dur - 0.05), 1 / a.fps)]
     n = max(1, min(a.workers, len(times), os.cpu_count() or 1))
     chunks = [times[k::n] for k in range(n)]                    # interleaved: every worker gets the same mix of easy/hard frames
-    jobs = [(a.video, c, labels, queries, a.thr) for c in chunks]
+    jobs = [(a.video, c, labels, queries, a.thr, a.tiles) for c in chunks]
     t0 = time.time()
     with mp.get_context("spawn").Pool(n, initializer=init, initargs=(max(1, (os.cpu_count() or 1) // n),)) as pool:
         parts = pool.map(work, jobs, chunksize=1)
