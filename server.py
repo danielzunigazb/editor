@@ -119,7 +119,7 @@ def bind(st, scale=1.0):
     live.THEME = themes.get(st.get("theme"))              # projects saved before templates existed have no theme: luxury, as always
 
 
-OVERLAYS = ("pip", "text", "subtitles", "image", "graphic", "lower_third", "callout")
+OVERLAYS = ("pip", "text", "subtitles", "image", "graphic", "lower_third", "callout", "audio")
 
 
 def _validate(st, op):
@@ -230,6 +230,71 @@ def _b_add_callout(title, track, subtitle="", start_s=None, dur_s=None, side="au
             "dur": dur, "side": side, "fade": fade_s, "theme": _theme_arg(theme)}
 
 
+def _probe_audio(path):
+    """Duration (s) of the audio in `path` (an audio file, or a video with an audio track). ValueError if it has none."""
+    try:
+        r = subprocess.run(["ffprobe", "-v", "error", "-print_format", "json", "-show_format", "-show_streams", path], capture_output=True, text=True, timeout=SUBPROCESS_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        raise ValueError(f"ffprobe timed out reading '{path}'")
+    if r.returncode:
+        raise ValueError(f"ffprobe could not read '{path}': {r.stderr.strip() or 'unknown error'}")
+    info = json.loads(r.stdout)
+    if not any(s_.get("codec_type") == "audio" for s_ in info.get("streams", [])):
+        raise ValueError(f"'{path}' has no audio stream")
+    try:
+        dur = float(info["format"]["duration"])
+    except (KeyError, TypeError, ValueError):
+        raise ValueError(f"'{path}' has no readable duration")
+    if dur < 0.1:
+        raise ValueError(f"'{path}' is too short to use as audio ({dur:g}s)")
+    return dur
+
+
+def _b_add_audio(start_s=0.0, dur_s=None, path="", source_in_s=0.0, volume_db=-14.0, fade_in_s=None, fade_out_s=None, loop=False,
+                 duck_under=None, duck_db=-12.0):
+    if not path:
+        raise ValueError("give path (an audio file, or a video with an audio track)")
+    p = _safe_path(path, "add_audio")
+    return {"op": "audio", "path": p, "src_dur": _probe_audio(p), "start": start_s, "in": source_in_s, "dur": dur_s, "volume_db": volume_db,
+            "fade_in": fade_in_s, "fade_out": fade_out_s, "loop": loop, "duck": duck_under or [], "duck_db": duck_db, "name": os.path.basename(p)}
+
+
+def _speech_intervals(st):
+    """Timeline intervals [(start_s, end_s)] where the main track's own audio is not silent (speech), found with ffmpeg silencedetect on each
+    entry. Used to duck music under dialogue. Sources without audio contribute nothing."""
+    bind(st)
+    m = live.layout(st["ops"])
+    out = []
+    for e in m["entries"]:
+        path = st["sources"][e["src"]]["path"]
+        if not st["sources"][e["src"]].get("has_audio"):
+            continue
+        r = subprocess.run(["ffmpeg", "-v", "info", "-ss", f"{e['in']:.3f}", "-t", f"{e['dur']:.3f}", "-i", path, "-vn", "-af", "silencedetect=noise=-35dB:d=0.5", "-f", "null", "-"],
+                           capture_output=True, text=True, timeout=SUBPROCESS_TIMEOUT)
+        sil, cur = [], None
+        for ln in r.stderr.splitlines():
+            a = re.search(r"silence_start: (-?[\d.]+)", ln)
+            b = re.search(r"silence_end: (-?[\d.]+)", ln)
+            if a:
+                cur = max(0.0, float(a.group(1)))
+            elif b and cur is not None:
+                sil.append((cur, float(b.group(1)))); cur = None
+        if cur is not None:
+            sil.append((cur, e["dur"]))
+        pos = 0.0
+        for a, b in sil + [(e["dur"], e["dur"])]:
+            if a - pos > 0.05:
+                out.append((e["start"] + pos, e["start"] + min(a, e["dur"])))
+            pos = max(pos, b)
+    merged = []
+    for a, b in sorted(out):                                    # join pauses shorter than 0.5 s, drop blips shorter than 0.4 s
+        if merged and a - merged[-1][1] < 0.5:
+            merged[-1][1] = max(merged[-1][1], b)
+        else:
+            merged.append([a, b])
+    return [(round(a, 3), round(b, 3)) for a, b in merged if b - a >= 0.4]
+
+
 BUILDERS = {n[3:]: f for n, f in list(globals().items()) if n.startswith("_b_")}
 
 
@@ -269,6 +334,8 @@ def summary(st, full=False):
         "crossfades": [{"between": [a, a + 1], "dur_s": d} for a, d in sorted(m["xfades"].items())],
         "fade": m["fade"],
         "overlays": layers,
+        "audio": [{"op": a["op"], "name": a["name"], "start_s": round(a["start"], 3), "end_s": round(a["start"] + a["dur_eff"], 3), "volume_db": a["vol"],
+                   "loop": a["loop"], "ducked": len(a["duck"])} for a in m["audios"]],
         "warnings": m["warnings"],
         "op_count": len(st["ops"]),
     }
@@ -507,6 +574,23 @@ def add_lower_third(title: str, subtitle: str = "", start_s: float = 0.0, dur_s:
 
 
 @mcp.tool()
+def add_audio(start_s: float = 0.0, dur_s: float | None = None, path: str = "", source_in_s: float = 0.0, volume_db: float = -14.0,
+              fade_in_s: float | None = None, fade_out_s: float | None = None, loop: bool = False, duck_under: list[list[float]] | None = None,
+              duck_auto: bool = False, duck_db: float = -12.0) -> dict:
+    """Add music or a sound effect (TIMELINE time) mixed under the video's own audio. path: an audio file (mp3/wav/ogg/m4a...) or a
+    video with an audio track. start_s: when it begins. dur_s: how long (default: the whole file, or until the timeline ends).
+    source_in_s: start inside the file. volume_db: -60..+6 (default -14, a music bed under speech; use -6..0 for effects).
+    fade_in_s/fade_out_s: ramps at its ends (default 1 s in / 2 s out, shorter for short sounds; asking for more than fits is an error). loop=true repeats a short file to fill dur_s. Ducking (music dips while someone talks):
+    duck_under=[[start_s, end_s], ...] in timeline seconds, or duck_auto=true to find the speech in the clips' own audio now
+    (re-add the audio after changing the cut); duck_db is how much quieter (default -12). Up to 8 audio items."""
+    spec = _b_add_audio(start_s, dur_s, path, source_in_s, volume_db, fade_in_s, fade_out_s, loop, duck_under, duck_db)
+    if duck_auto:
+        with locked():
+            spec["duck"] = [list(iv) for iv in _speech_intervals(load())] + [list(iv) for iv in (duck_under or [])]
+    return commit(spec)
+
+
+@mcp.tool()
 def add_image(start_s: float, dur_s: float, path: str = "", position: str = "center", scale: float = 0.3,
               opacity: float = 1.0, icon: str = "", color: str = "", at: list[float] | None = None,
               plate: bool | None = None, theme: str = "auto") -> dict:
@@ -547,7 +631,7 @@ def apply_ops(ops: list[dict]) -> dict:
     arguments}, e.g. [{"tool":"add_clip","source":"A","end_s":3}, {"tool":"add_clip","source":"B"},
     {"tool":"crossfade","first_index":0,"dur_s":0.5}, {"tool":"add_text","text":"Hola","start_s":0.5,"dur_s":2}].
     Allowed tools: add_clip, cut_clip, crossfade, set_fades, add_pip, add_text, add_subtitles, add_graphic,
-    add_lower_third, add_image, add_callout (import_clip, new_project and add_card are separate calls). Items are validated in order against
+    add_lower_third, add_image, add_callout, add_audio (import_clip, new_project, add_card and duck_auto are separate calls). Items are validated in order against
     the timeline as the previous items leave it; if ANY item is invalid nothing is applied and the error names the
     item. Up to 50 items. Returns the final timeline (check `warnings`: it flags overlays that may overlap on screen).
     Prefer this to many single calls: it is the same result with far fewer round trips."""
@@ -627,7 +711,7 @@ _TRACTOR_SLOTS = 2      # stills (0.5x) and contact sheets (0.25x) alternate; mo
 def _state_key(st, scale):
     """Everything a built timeline depends on: the edit list, the format, and the files behind it (path+mtime+size)."""
     files = []
-    for p in sorted({v["path"] for v in st["sources"].values()} | {o["path"] for o in st["ops"] if o.get("op") == "image" and o.get("path")}):
+    for p in sorted({v["path"] for v in st["sources"].values()} | {o["path"] for o in st["ops"] if o.get("op") in ("image", "audio") and o.get("path")}):
         try:
             stt = os.stat(p); files.append((p, stt.st_mtime_ns, stt.st_size))
         except OSError:

@@ -46,7 +46,7 @@ async def main():
             tools = {t.name for t in (await s.list_tools()).tools}
             want = {"new_project", "import_clip", "list_sources", "add_clip", "cut_clip", "crossfade", "set_fades",
                     "add_pip", "get_timeline", "undo", "remove_op", "get_still", "get_contact_sheet",
-                    "render_preview", "export", "apply_ops", "list_styles", "add_text", "add_subtitles", "add_graphic", "add_lower_third", "add_image", "add_callout", "set_template", "add_card", "list_assets"}
+                    "render_preview", "export", "apply_ops", "list_styles", "add_text", "add_subtitles", "add_graphic", "add_lower_third", "add_image", "add_callout", "set_template", "add_card", "list_assets", "add_audio"}
             check("tools listed", want <= tools, f"missing {want - tools}")
 
             _, err = await call("add_clip", source="A")
@@ -690,6 +690,40 @@ async def main():
             check("apply_ops takes icon images (plated and bare doodle) in one batch", err is None and res and res["applied"] == 2, err)
             ex_i, err = await call("export", output_path=os.path.join(TMP, "icons.mp4"), quality="draft")
             check("a project with icons and an SVG exports", err is None and ex_i and abs(ex_i["duration_s"] - 4.0) < 0.05, err or ex_i)
+
+            # ---- audio
+            await clean_project()
+            await call("add_clip", source="A", end_s=6.0)
+            music = os.path.join(TMP, "music.wav")
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=10:sample_rate=48000", "-c:a", "pcm_s16le", music], check=True)
+            def level(path_, a_, b_):
+                r_ = subprocess.run(["ffmpeg", "-v", "info", "-ss", str(a_), "-t", str(b_ - a_), "-i", path_, "-vn", "-af", "volumedetect", "-f", "null", "-"], capture_output=True, text=True)
+                import re as _re2
+                return float(_re2.search(r"mean_volume: (-?[\d.]+) dB", r_.stderr).group(1))
+            ex0, err = await call("export", output_path=os.path.join(TMP, "no_music.mp4"), quality="draft")
+            res, err = await call("add_audio", path=music, start_s=1.0, dur_s=3.0, volume_db=-6.0, fade_in_s=0.0, fade_out_s=0.0)
+            check("add_audio adds music and reports it in the timeline (name, times, volume)", err is None and res and res["audio"] and res["audio"][0]["name"] == "music.wav" and res["audio"][0]["start_s"] == 1.0 and res["audio"][0]["end_s"] == 4.0 and res["audio"][0]["volume_db"] == -6.0, err or res)
+            ex1, err = await call("export", output_path=os.path.join(TMP, "with_music.mp4"), quality="draft")
+            base_in, mus_in = level(os.path.join(TMP, "no_music.mp4"), 1.5, 3.5), level(os.path.join(TMP, "with_music.mp4"), 1.5, 3.5)
+            base_out, mus_out = level(os.path.join(TMP, "no_music.mp4"), 4.6, 5.6), level(os.path.join(TMP, "with_music.mp4"), 4.6, 5.6)
+            check("the music is mixed UNDER the clip's own audio while it plays (louder by a measurable amount)", err is None and 0.4 <= mus_in - base_in <= 4.0, (base_in, mus_in))
+            check("...and the clip's audio is untouched outside the music's range (+-0.3 dB)", abs(mus_out - base_out) <= 0.3, (base_out, mus_out))
+            res, err = await call("add_audio", path=music, start_s=0.0, volume_db=-20.0, duck_auto=True)
+            check("duck_auto finds the speech in the clips' audio and stores the ducking intervals", err is None and res and any(a_["ducked"] >= 1 for a_ in res["audio"]), err or res)
+            await call("undo"); await call("undo")
+            tl_a, _ = await call("get_timeline")
+            check("undo removes the audio items", tl_a and tl_a["audio"] == [], tl_a and tl_a["audio"])
+            for label, kw, needle in [("no file", dict(), "path"), ("a picture (no audio stream)", dict(path=img_path), "no audio stream"), ("a missing file", dict(path="/no/such.wav"), "not found"),
+                                      ("a volume above +6 dB", dict(path=music, volume_db=20.0), "volume_db"), ("fades longer than the audio", dict(path=music, dur_s=2.0, fade_in_s=3.0, fade_out_s=3.0), "fade in+out"),
+                                      ("a start after the end of the timeline", dict(path=music, start_s=60.0), "only"), ("a negative start", dict(path=music, start_s=-2.0), ">= 0")]:
+                _, err = await call("add_audio", **kw)
+                check(f"add_audio rejects {label}", err is not None and needle in err, err)
+            res, err = await call("apply_ops", ops=[{"tool": "add_audio", "path": music, "start_s": 0.5, "dur_s": 2.0, "volume_db": -12.0}, {"tool": "add_audio", "path": music, "start_s": 3.0, "dur_s": 2.0, "loop": True, "duck_under": [[3.5, 4.5]]}])
+            check("apply_ops takes audio items in a batch", err is None and res and res["applied"] == 2 and len(res["audio"]) == 2, err or res)
+            for _ in range(6):
+                await call("add_audio", path=music, start_s=0.5, dur_s=1.0)
+            _, err = await call("add_audio", path=music, start_s=0.5, dur_s=1.0)
+            check("a ninth audio item is rejected", err is not None and "at most" in err, err)
             await call("set_template", name="luxury")
             await call("add_clip", source="A")
 

@@ -133,7 +133,44 @@ def _check_finite(v, where):
             _check_finite(x, where)
 
 
+MAX_AUDIOS = 8                          # simultaneous/total audio ops (each one is an MLT track)
+DUCK_RAMP_S = 0.3                       # how fast the music dips/recovers around speech
 MAX_LAYERS = 1000                       # overlays in one project (a 300-cue subtitle file counts 300)
+
+
+def gain_curve(a):
+    """Keyframes [(frame, dB)] for an audio op (absolute timeline frames): fade in, fade out and speech ducking, as ONE piecewise-linear
+    curve in dB (linear in dB = a smooth, natural-sounding ramp). `a` has start_f, n_f, vol, fi_f, fo_f, duck_f (frame intervals),
+    duck_db, ramp_f. Returns [] when the level is constant (the caller then sets a plain level)."""
+    s, e = a["start_f"], a["start_f"] + a["n_f"] - 1
+    vol, lo, fi, fo, ramp = a["vol"], -60.0, a["fi_f"], a["fo_f"], max(1, a["ramp_f"])
+    base_pts = [(s, lo if fi else vol)] + ([(s + fi, vol)] if fi else []) + ([(e - fo, vol)] if fo else []) + [(e, lo if fo else vol)]
+    iv = []
+    for d0, d1 in sorted(a["duck_f"]):                            # clip to the audio, merge gaps shorter than two ramps (no crossing curves)
+        d0, d1 = max(d0, s), min(d1, e)
+        if d1 <= d0:
+            continue
+        if iv and d0 - iv[-1][1] < 2 * ramp:
+            iv[-1][1] = max(iv[-1][1], d1)
+        else:
+            iv.append([d0, d1])
+    if not iv and fi == 0 and fo == 0:
+        return []
+    def interp(pts, f):
+        if f <= pts[0][0]:
+            return pts[0][1]
+        for (f0, v0), (f1, v1) in zip(pts, pts[1:]):
+            if f <= f1:
+                return v0 if f1 == f0 else v0 + (v1 - v0) * (f - f0) / (f1 - f0)
+        return pts[-1][1]
+    dips = []
+    for d0, d1 in iv:
+        dips.append([(d0 - ramp, 0.0), (d0, a["duck_db"]), (d1, a["duck_db"]), (d1 + ramp, 0.0)])
+    def dip(f):
+        return min([interp(p, f) for p in dips if p[0][0] <= f <= p[-1][0]] + [0.0])
+    frames = sorted({f for f, _ in base_pts} | {min(max(f, s), e) for p in dips for f, _ in p})
+    keys = [(f, round(interp(base_pts, f) + dip(f), 3)) for f in frames]          # every breakpoint is needed: dropping 'equal' ones would bend the ramps
+    return keys
 
 
 def layout(ops):
@@ -145,7 +182,7 @@ def layout(ops):
     # seconds drifted (40 entries of 0.1 s: layout said 100 frames, MLT built 80) and overlays landed on the wrong frame.
     fps = FPS
     fr = lambda s_: int(round(s_ * fps))
-    entries, xfades, fade, layers = [], {}, None, []
+    entries, xfades, fade, layers, audios = [], {}, None, [], []
     for n, o in enumerate(ops):
         k = o.get("op")
         where = f"op {n} ({k})"
@@ -276,6 +313,34 @@ def layout(ops):
                 layers.append({**base, "icon": icon or None, "svg": svg, "path": path or "", "aspect": aspect, "color": color or default_color, "plate": plate, "theme": tk})
             else:
                 layers.append({**base, "path": path, "aspect": _image_aspect(path, where)})
+        elif k == "audio":
+            if not isinstance(o.get("loop", False), bool):
+                raise ValueError(f"{where}: loop must be true or false")
+            nums = {"start": o.get("start"), "in": o.get("in", 0.0), "src_dur": o.get("src_dur"), "volume_db": o.get("volume_db", -14.0),
+                    "fade_in": o.get("fade_in") if o.get("fade_in") is not None else 0.0, "fade_out": o.get("fade_out") if o.get("fade_out") is not None else 0.0,
+                    "duck_db": o.get("duck_db", -12.0)}
+            for nk, nv in nums.items():
+                if not isinstance(nv, (int, float)) or isinstance(nv, bool):
+                    raise ValueError(f"{where}: {nk} must be a number")
+            if o.get("dur") is not None and (not isinstance(o["dur"], (int, float)) or isinstance(o["dur"], bool) or not 0 < o["dur"] <= 3600):
+                raise ValueError(f"{where}: dur must be between 0 and 3600 seconds (or omitted: as long as the audio / the timeline)")
+            if nums["start"] < 0 or nums["in"] < 0 or nums["fade_in"] < 0 or nums["fade_out"] < 0:
+                raise ValueError(f"{where}: start, in and the fades must be >= 0")
+            if nums["src_dur"] <= 0 or nums["in"] >= nums["src_dur"]:
+                raise ValueError(f"{where}: 'in' ({nums['in']:g}s) is past the end of the audio ({nums['src_dur']:g}s)")
+            if not -60 <= nums["volume_db"] <= 6:
+                raise ValueError(f"{where}: volume_db must be between -60 and 6")
+            if not -40 <= nums["duck_db"] <= 0:
+                raise ValueError(f"{where}: duck_db must be between -40 and 0 (how much quieter during speech)")
+            duck = o.get("duck") or []
+            if not isinstance(duck, list) or len(duck) > 400 or not all(isinstance(iv, (list, tuple)) and len(iv) == 2 and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in iv) and 0 <= iv[0] < iv[1] for iv in duck):
+                raise ValueError(f"{where}: duck must be a list of up to 400 [start_s, end_s] pairs (timeline seconds, start < end)")
+            if len(audios) >= MAX_AUDIOS:
+                raise ValueError(f"{where}: at most {MAX_AUDIOS} audio ops")
+            audios.append({"op": n, "path": o.get("path"), "start": float(nums["start"]), "in": float(nums["in"]), "src_dur": float(nums["src_dur"]), "dur": o.get("dur"),
+                           "vol": float(nums["volume_db"]), "fade_in": None if o.get("fade_in") is None else float(nums["fade_in"]),
+                           "fade_out": None if o.get("fade_out") is None else float(nums["fade_out"]), "loop": bool(o.get("loop", False)),
+                           "duck": [(float(a_), float(b_)) for a_, b_ in duck], "duck_db": float(nums["duck_db"]), "name": o.get("name") or os.path.basename(str(o.get("path")))})
         elif k == "callout":
             if o.get("side", "auto") not in graphics.CALLOUT_SIDES:
                 raise ValueError(f"{where}: side must be one of {graphics.CALLOUT_SIDES}")
@@ -338,10 +403,35 @@ def layout(ops):
                 raise ValueError(f"more than {MAX_LAYER_TRACKS} overlays at the same time ({_label(L)} at {L['start']:g}s); "
                                  f"stagger them or remove some")
             ends.append(L["start"] + L["dur"]); L["track"] = len(ends)
+    heard = []                                                   # audio ops: clip to the timeline, resolve frames
+    for a in audios:
+        if a["start"] >= total - 1e-6:
+            warnings.append(f"audio {a['name']!r} starts at {a['start']:g}s, after the timeline end ({total:g}s): not heard")
+            continue
+        room = total - a["start"]
+        have = float("inf") if a["loop"] else a["src_dur"] - a["in"]
+        want = a["dur"] if a["dur"] is not None else min(have, room)
+        if a["dur"] is not None and not a["loop"] and a["dur"] > have + 1e-6:
+            warnings.append(f"audio {a['name']!r} is only {have:g}s long from {a['in']:g}s but {a['dur']:g}s were asked: it ends early (use loop=true to repeat it)")
+            want = have
+        if want > room + 1e-6:
+            warnings.append(f"audio {a['name']!r} runs past the timeline end ({total:g}s): trimmed")
+            want = room
+        if a["fade_in"] is None:                                  # not asked for: the usual 1 s / 2 s, shortened for short sounds
+            a["fade_in"] = min(1.0, want * 0.25)
+        if a["fade_out"] is None:
+            a["fade_out"] = min(2.0, want * 0.35)
+        if a["fade_in"] + a["fade_out"] > want + 1e-6:
+            raise ValueError(f"op {a['op']} (audio): fade in+out ({a['fade_in'] + a['fade_out']:g}s) is longer than the audio on the timeline ({want:g}s)")
+        a.update(dur_eff=want, start_f=fr(a["start"]), in_f=fr(a["in"]), n_f=max(1, fr(want)), fi_f=fr(a["fade_in"]), fo_f=fr(a["fade_out"]),
+                 duck_f=[(fr(x), fr(y)) for x, y in a["duck"]], ramp_f=fr(DUCK_RAMP_S))
+        a["n_f"] = min(a["n_f"], total_f - a["start_f"])
+        heard.append(a)
+    heard.sort(key=lambda a: (a["start"], a["op"]))
     kept.sort(key=lambda L: (L["start"], L["op"], L.get("sub", 0)))
     warnings.extend(_collisions(kept))
     first_pip = next((L for L in kept if L["kind"] == "pip"), None)
-    return {"entries": entries, "xfades": xfades, "xfades_f": xfades_f, "fade": fade, "layers": kept, "pip": first_pip,
+    return {"entries": entries, "xfades": xfades, "xfades_f": xfades_f, "fade": fade, "layers": kept, "pip": first_pip, "audios": heard,
             "warnings": warnings, "total": total, "total_f": total_f}
 
 
@@ -673,6 +763,36 @@ def build(ops):
             mix = mlt7.Transition(p, "mix"); mix.set("sum", 1)
             mix.set_in_and_out(t0, end)
             tr.plant_transition(mix, 0, ti)
+
+    ti_audio = len(by_track) + 1                       # audio tracks follow the visual ones with CONTIGUOUS numbers (a gap segfaults MLT)
+    for a in m.get("audios", []):
+        lay = mlt7.Playlist(p)
+        mt.connect(lay, ti_audio)
+        prod = mlt7.Producer(p, a["path"])
+        if not prod.is_valid():
+            raise RuntimeError(f"cannot open audio {a['path']}")
+        length = prod.get_length()
+        if a["start_f"] > 0:
+            lay.blank(a["start_f"] - 1)                  # Playlist.blank(out) takes the OUT POINT: it creates out+1 frames
+        left, first = a["n_f"], min(a["in_f"], max(0, length - 1))
+        while left > 0:                                  # a looped track repeats the source (first pass from `in`, then from its start)
+            span = min(left, length - first)
+            if span < 1:
+                break
+            lay.append(prod, first, first + span - 1)
+            left -= span
+            first = 0
+            if not a["loop"]:
+                break
+        keys = gain_curve(a)
+        vf = mlt7.Filter(p, "volume")
+        vf.set("level", ";".join(f"{f_}={v_}" for f_, v_ in keys) if keys else str(a["vol"]))   # volume.level is dB; keyframes are absolute timeline frames
+        vf.set_in_and_out(0, total - 1)
+        lay.attach(vf)
+        mix = mlt7.Transition(p, "mix"); mix.set("sum", 1)
+        mix.set_in_and_out(a["start_f"], a["start_f"] + a["n_f"] - 1)
+        tr.plant_transition(mix, 0, ti_audio)
+        ti_audio += 1
 
     if m["fade"]:
         fi, fo = fr(m["fade"]["in"]), fr(m["fade"]["out"])

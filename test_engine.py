@@ -312,6 +312,81 @@ for label_, patch_, needle_ in [("both icon and path", {"icon": "star", "path": 
     try: live.layout(BASE + [{"op": "image", "start": 0.5, "dur": 1.0, **patch_}]); e_ = None
     except ValueError as ex: e_ = str(ex)
     chk(f"an image op rejects {label_}", e_ is not None and needle_ in e_, e_)
+# ---- gain_curve (pure): the keyframes that shape fades and ducking
+_A = dict(start_f=50, n_f=250, vol=-14.0, fi_f=25, fo_f=50, duck_f=[(100, 150), (160, 170), (240, 260)], duck_db=-12.0, ramp_f=8)
+_k = dict(live.gain_curve(_A))
+chk("gain_curve: constant level (no fades, no ducking) needs no keyframes", live.gain_curve(dict(_A, fi_f=0, fo_f=0, duck_f=[])) == [])
+chk("gain_curve: fade-in starts at -60 dB and reaches the level after the fade", _k[50] == -60.0 and _k[75] == -14.0, _k)
+chk("gain_curve: ducking dips by duck_db inside the interval and starts its ramp BEFORE the speech (breakpoint kept)", _k[92] == -14.0 and _k[100] == -26.0 and _k[170] == -26.0, _k)
+chk("gain_curve: close intervals (gap < 2 ramps) merge into one dip (no bounce back up between them)", 130 not in _k and all(v == -26.0 for f, v in _k.items() if 100 <= f <= 170), _k)
+chk("gain_curve: the level recovers a ramp after the speech ends", _k[178] == -14.0, _k)
+chk("gain_curve: fade-out ends at -60 dB on the last frame", _k[299] == -60.0, _k)
+chk("gain_curve: a ducked interval outside the audio is ignored", live.gain_curve(dict(_A, fi_f=0, fo_f=0, duck_f=[(900, 950)])) == [])
+_ks = live.gain_curve(_A); chk("gain_curve: frames are strictly increasing", all(a_[0] < b_[0] for a_, b_ in zip(_ks, _ks[1:])), _ks)
+
+# ---- audio op: levels measured on a real render (1 kHz tone over a silent video)
+import subprocess, re as _re
+live.W, live.H = 320, 180
+live.CACHE = tempfile.mkdtemp(prefix="eng_audio_")
+adir = tempfile.mkdtemp(prefix="eng_audio_files_")
+silent_v = os.path.join(adir, "silent.mp4")
+subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=gray:s=320x180:r=25:d=8", "-pix_fmt", "yuv420p", silent_v], check=True)
+tone = os.path.join(adir, "tone10.wav"); tone1 = os.path.join(adir, "tone1.wav")
+subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=1000:duration=10:sample_rate=48000", "-c:a", "pcm_s16le", tone], check=True)
+subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=1000:duration=1:sample_rate=48000", "-c:a", "pcm_s16le", tone1], check=True)
+live.CLIPS["S"], live.CLIP_LEN["S"] = silent_v, 8.0
+SIL = [{"op": "add", "src": "S"}]
+AU = lambda **k: {"op": "audio", "path": tone, "src_dur": 10.0, "start": 2.0, "dur": 4.0, "volume_db": -14.0, "fade_in": 0.0, "fade_out": 0.0, **k}
+_n = [0]
+def level_of(ops_, windows):
+    """Render ops_ and return the mean volume (dB) of each (t0, t1) window of the exported audio."""
+    _n[0] += 1
+    out_ = os.path.join(adir, f"r{_n[0]}.mp4")
+    p_, tr_, m_, tot_ = live.build(ops_); live.render(p_, tr_, out_, "ultrafast", 30, "128k")
+    res_ = []
+    for a_, b_ in windows:
+        r_ = subprocess.run(["ffmpeg", "-v", "info", "-ss", str(a_), "-t", str(b_ - a_), "-i", out_, "-vn", "-af", "volumedetect", "-f", "null", "-"], capture_output=True, text=True)
+        mm_ = _re.search(r"mean_volume: (-?[\d.]+|-inf) dB", r_.stderr)
+        res_.append(-120.0 if not mm_ or mm_.group(1) == "-inf" else float(mm_.group(1)))
+    return res_
+W3 = [(0.2, 1.8), (2.4, 5.6), (6.4, 7.8)]
+ref0 = level_of(SIL + [AU(volume_db=0.0)], W3)
+lv14 = level_of(SIL + [AU()], W3)
+chk("audio: nothing is heard before it starts or after it ends (< -60 dB)", ref0[0] < -60 and ref0[2] < -60 and lv14[0] < -60 and lv14[2] < -60, (ref0, lv14))
+chk("audio: the tone is audible while it plays", ref0[1] > -35, ref0)
+chk("audio: volume_db=-14 is 14 dB below 0 dB (+-1 dB)", abs((lv14[1] - ref0[1]) - (-14.0)) <= 1.0, (lv14[1], ref0[1]))
+lvm6 = level_of(SIL + [AU(volume_db=-6.0)], [(2.4, 5.6)])
+chk("audio: volume_db=-6 is 6 dB below 0 dB (+-1 dB)", abs((lvm6[0] - ref0[1]) - (-6.0)) <= 1.0, (lvm6, ref0[1]))
+fd = level_of(SIL + [AU(volume_db=0.0, fade_in=1.0, fade_out=1.0)], [(2.0, 2.3), (3.5, 4.5), (5.7, 6.0)])
+chk("audio: fade in starts quiet and reaches full level (first 0.3 s >= 12 dB below the middle)", fd[0] < fd[1] - 12, fd)
+chk("audio: fade out ends quiet (last 0.3 s >= 12 dB below the middle)", fd[2] < fd[1] - 12, fd)
+dk = level_of(SIL + [AU(volume_db=0.0, duck=[(3.5, 4.5)], duck_db=-12.0)], [(2.3, 3.0), (3.7, 4.3), (5.0, 5.6)])
+chk("audio: ducking lowers the level by the requested amount inside the interval (-12 dB +-2)", abs((dk[1] - dk[0]) - (-12.0)) <= 2.0, dk)
+chk("audio: the level recovers after the ducked interval", abs(dk[2] - dk[0]) <= 1.5, dk)
+lp = level_of(SIL + [AU(path=tone1, src_dur=1.0, volume_db=0.0, dur=3.0, loop=True)], [(2.2, 2.8), (3.2, 3.8), (4.2, 4.8), (5.2, 5.8)])
+chk("audio: a 1 s file with loop=true keeps playing for the 3 s asked", lp[0] > -35 and lp[1] > -35 and lp[2] > -35 and lp[3] < -60, lp)
+nl = level_of(SIL + [AU(path=tone1, src_dur=1.0, volume_db=0.0, dur=3.0)], [(2.2, 2.8), (3.5, 4.5)])
+chk("audio: without loop a 1 s file stops after 1 s", nl[0] > -35 and nl[1] < -60, nl)
+lay_a = live.layout(SIL + [AU(start=1.0, dur=20.0)])
+chk("audio: default fades are shortened for a short sound instead of failing (1 s file -> 0.25 s in, 0.35 s out)", (lambda a_: abs(a_["fade_in"] - 0.25) < 1e-6 and abs(a_["fade_out"] - 0.35) < 1e-6)(live.layout(SIL + [{"op": "audio", "path": tone1, "src_dur": 1.0, "start": 1.0}])["audios"][0]))
+chk("audio: a request longer than the timeline is trimmed with a warning", abs(lay_a["audios"][0]["dur_eff"] - 7.0) < 1e-6 and any("runs past" in w_ for w_ in lay_a["warnings"]), lay_a["warnings"])
+lay_b = live.layout(SIL + [AU(path=tone1, src_dur=1.0, dur=3.0)])
+chk("audio: asking for more than the file has (without loop) ends early with a warning", abs(lay_b["audios"][0]["dur_eff"] - 1.0) < 1e-6 and any("ends early" in w_ for w_ in lay_b["warnings"]), lay_b["warnings"])
+lay_c = live.layout(SIL + [AU(start=9.0)])
+chk("audio: one that starts after the timeline end is not built and warns", lay_c["audios"] == [] and any("after the timeline end" in w_ for w_ in lay_c["warnings"]), lay_c["warnings"])
+for label_, patch_, needle_ in [("a volume above +6 dB", {"volume_db": 12.0}, "volume_db"), ("a negative start", {"start": -1.0}, ">= 0"), ("a start that is not a number", {"start": "x"}, "number"),
+                                ("fades longer than the audio", {"fade_in": 3.0, "fade_out": 3.0}, "fade in+out"), ("'in' past the end of the file", {"in": 11.0}, "past the end"),
+                                ("an unordered duck pair", {"duck": [[4.0, 3.0]]}, "duck"), ("a duck depth of +3 dB", {"duck_db": 3.0}, "duck_db"), ("loop as a string", {"loop": "yes"}, "loop"),
+                                ("NaN volume", {"volume_db": float("nan")}, "finite")]:
+    try: live.layout(SIL + [AU(**patch_)]); e_ = None
+    except ValueError as ex: e_ = str(ex)
+    chk(f"audio rejects {label_}", e_ is not None and needle_ in e_, e_)
+try: live.layout(SIL + [AU() for _ in range(live.MAX_AUDIOS + 1)]); e_ = None
+except ValueError as ex: e_ = str(ex)
+chk("audio: more than the maximum number of audio ops is rejected", e_ is not None and "at most" in e_, e_)
+two = level_of(SIL + [AU(volume_db=-6.0), AU(volume_db=-6.0, start=2.0)], [(2.4, 5.6)])
+chk("audio: two overlapping audio ops are summed (louder than one, ~+6 dB for identical tones)", 4.0 <= two[0] - lvm6[0] <= 7.5, (two, lvm6))
 live.W, live.H = _W, _H
+
 
 print(f"\n{len(SCENARIOS)+1+extra-bad} passed, {bad} failed"); sys.exit(1 if bad else 0)
