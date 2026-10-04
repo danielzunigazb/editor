@@ -30,7 +30,7 @@ def seed(it):
 
 def unit():
     items = assets_lib.manifest()["assets"]
-    check("manifest has music and sfx", {i["kind"] for i in items} == {"music", "sfx"} and len(items) >= 60, len(items))
+    check("manifest has music and sfx", {i["kind"] for i in items} == {"music", "sfx"} and len(items) >= 80, len(items))
     check("ids unique", len({i["id"] for i in items}) == len(items))
     need = ("id", "kind", "title", "author", "source_url", "license", "license_url", "license_evidence", "sha256", "bytes", "duration_s", "file", "r2_key", "themes", "moods")
     check("every asset has licence, evidence, sha256 and an r2 key", all(all(i.get(k) not in (None, "", []) or k == "moods" for k in need) for i in items))
@@ -39,7 +39,8 @@ def unit():
     check("only CC0 / CC-BY-4.0", {i["license"] for i in items} <= {"CC0-1.0", "CC-BY-4.0"}, {i["license"] for i in items})
     check("CC-BY always carries attribution text, CC0 never needs it", all(bool(i.get("attribution")) == i["license"].startswith("CC-BY") for i in items))
     check("r2 key follows kind/file", all(i["r2_key"] == f"assets/{i['kind']}/{i['file']}" for i in items))
-    check("every template has music", all(assets_lib.listing("music", theme=t)[1] >= 2 for t in ("luxury", "corporate", "academic", "sketch", "tech", "minimal", "playful")))
+    import themes
+    check("every template (all 15) has at least 2 pieces of music and 3 effects", all(assets_lib.listing("music", theme=t)[1] >= 2 and assets_lib.listing("sfx", theme=t)[1] >= 3 for t in themes.NAMES), [t for t in themes.NAMES if assets_lib.listing("music", theme=t)[1] < 2 or assets_lib.listing("sfx", theme=t)[1] < 3])
     check("staged files match the manifest hash", all(hashlib.sha256(open(os.path.join(STAGE, i["file"]), "rb").read()).hexdigest() == i["sha256"] for i in items if os.path.isfile(os.path.join(STAGE, i["file"]))))
 
     rows, total = assets_lib.listing("music", license="CC-BY")

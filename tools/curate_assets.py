@@ -7,7 +7,7 @@ Sources (all verified reachable; licences are read from each source's own pages/
   kenney.nl        CC0 sound packs (each pack page states "License Creative Commons CC0")
   opengameart.org  only items whose page lists CC0 as the licence
 Dropped: FreePD (closed permanently in 2025: its home page says so), Pixabay/Mixkit (no public API, terms against bulk download).
-Usage: python3 tools/curate_assets.py music|oga|sfx|all        (writes assets_stage/raw, assets_stage/out, assets/stage_*.json)"""
+Usage: python3 tools/curate_assets.py music|oga|sfx|batch2|all (batch2 extends assets/manifest.json; `all` does not run it)        (writes assets_stage/raw, assets_stage/out, assets/stage_*.json)"""
 import hashlib, html, json, os, re, subprocess, sys, time, urllib.parse, urllib.request, zipfile
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -219,9 +219,93 @@ def curate_sfx():
     return items
 
 
+# ------------------------------------------------------------------------------------------------ batch 2: audio for the second set of templates
+EXTRA_MUSIC = {   # incompetech title (as in pieces.json) -> templates it suits. Chosen from the catalogue's feel/instruments/description; NOT auditioned.
+    "Undaunted": ["cinema"], "Rynos Theme": ["cinema"], "Americana": ["cinema"], "Bit Quest": ["arcade"], "Pixelland": ["arcade"], "Cyborg Ninja": ["arcade"],
+    "Morning": ["terracotta"], "Evening": ["terracotta"], "Funin and Sunin": ["riso"], "Pleasant Porridge": ["riso", "saas"],
+    "Shaving Mirror": ["neobrutalism"], "Voxel Revolution": ["neobrutalism", "terminal"], "Exit the Premises": ["terminal"], "Floating Cities": ["glass", "saas"]}
+IMPACT_PICKS = ["impactBell_heavy_000", "impactMetal_heavy_000", "impactPunch_heavy_000", "impactPlate_heavy_000", "impactSoft_heavy_000"]
+TAG_THEMES = {   # sound-effect tag -> templates that also use it
+    "click": ["neobrutalism", "terminal", "saas", "riso"], "pop": ["neobrutalism", "riso", "arcade"], "whoosh": ["neobrutalism", "cinema", "saas", "glass"],
+    "swoosh": ["glass", "cinema"], "ding": ["saas", "glass"], "chime": ["glass", "terracotta", "saas"], "bell": ["terracotta"], "pluck": ["terracotta", "riso"],
+    "page-turn": ["terracotta"], "paper": ["terracotta"], "bleep": ["terminal", "arcade"], "glitch": ["terminal"], "power-up": ["arcade", "terminal"],
+    "coins": ["arcade"], "tick": ["saas", "terminal", "glass"], "boing": ["arcade", "neobrutalism"], "hit": ["cinema"]}
+MUSIC_THEMES = {"tech": ["terminal", "saas", "arcade"], "corporate": ["saas"], "minimal": ["glass", "saas"], "playful": ["neobrutalism", "riso"], "sketch": ["riso", "terracotta"]}
+
+
+def curate_batch2():
+    """Add the batch-2 pieces to assets/manifest.json (kept as it is) and tag existing pieces for the new templates. Idempotent."""
+    mp = os.path.join(HERE, "assets", "manifest.json")
+    man = json.load(open(mp, encoding="utf-8"))
+    items = man["assets"]
+    have = {i["id"] for i in items}
+    new = []
+    pieces = {p["title"]: p for p in json.loads(get("https://incompetech.com/music/royalty-free/pieces.json"))}
+    for title, themes in EXTRA_MUSIC.items():
+        p = pieces.get(title)
+        if not p:
+            print("not in catalogue:", title); continue
+        iid = "m-" + slug(title)
+        if iid in have:
+            it = next(i for i in items if i["id"] == iid)
+            it["themes"] = sorted(set(it["themes"]) | set(themes)); continue
+        raw = os.path.join(RAW, "inc_" + slug(title) + ".mp3")
+        if not os.path.exists(raw):
+            open(raw, "wb").write(get("https://incompetech.com/music/royalty-free/mp3-royaltyfree/" + urllib.parse.quote(p["filename"]), binary=True))
+        if os.path.getsize(raw) < 300_000 or probe(raw) < 60:
+            print("skip (bad download):", title); continue
+        out = os.path.join(OUT, iid + ".mp3")
+        if not os.path.exists(out):
+            normalise_music(raw, out)
+        new.append({"id": iid, "kind": "music", "title": title, "author": "Kevin MacLeod", "source": "incompetech.com",
+                    "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/" + urllib.parse.quote(p["filename"]),
+                    "license": "CC-BY-4.0", "license_url": "https://creativecommons.org/licenses/by/4.0/",
+                    "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+                    "attribution": f"\"{title}\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+                    "moods": sorted({f.strip().lower() for f in (p.get("feel") or "").split(",") if f.strip()}), "themes": themes, "instruments": p.get("instruments"),
+                    "description": p.get("description"), "duration_s": round(probe(out), 1), "bytes": os.path.getsize(out), "sha256": sha(out), "file": os.path.basename(out),
+                    "r2_key": f"assets/music/{os.path.basename(out)}"})
+    page = "https://kenney.nl/assets/impact-sounds"
+    t = get(page)
+    txt = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", re.sub(r"<script.*?</script>|<style.*?</style>", "", t, flags=re.S))))
+    evidence = txt[txt.find("License"):txt.find("License") + 34].strip()
+    if "CC0" not in evidence:
+        raise RuntimeError(f"impact-sounds: the page does not state CC0 ({evidence!r}); refusing to use this pack")
+    zp = os.path.join(RAW, "kenney_impact-sounds.zip")
+    if not os.path.exists(zp):
+        open(zp, "wb").write(get(re.findall(r'https://kenney.nl/media/[^"]*\.zip', t)[0], binary=True))
+    zf = zipfile.ZipFile(zp)
+    for stem in IMPACT_PICKS:
+        iid = f"s-impact-sounds-{slug(stem)}"
+        member = next((n for n in zf.namelist() if os.path.basename(n) == stem + ".ogg"), None)
+        if iid in have or not member:
+            print("skip impact:", stem, "(have)" if iid in have else "(missing in pack)"); continue
+        out = os.path.join(OUT, f"{iid}.ogg")
+        open(out, "wb").write(zf.read(member))
+        if probe(out) < 0.1:
+            os.remove(out); print("too short, skipped:", stem); continue
+        new.append({"id": iid, "kind": "sfx", "title": f"{stem} (impact-sounds)", "author": "Kenney (kenney.nl)", "source": "kenney.nl", "source_url": page,
+                    "license": "CC0-1.0", "license_url": "https://creativecommons.org/publicdomain/zero/1.0/", "license_evidence": f"{page}: '{evidence}'", "attribution": None,
+                    "moods": ["hit"], "themes": ["cinema"], "duration_s": round(probe(out), 2), "bytes": os.path.getsize(out), "sha256": sha(out), "file": os.path.basename(out),
+                    "r2_key": f"assets/sfx/{os.path.basename(out)}"})
+    items.extend(new)
+    for it in items:                                           # tag existing pieces for the new templates
+        extra = set()
+        if it["kind"] == "sfx":
+            for tag in it.get("moods", []):
+                extra |= set(TAG_THEMES.get(tag, []))
+        else:
+            for th in list(it.get("themes", [])):
+                extra |= set(MUSIC_THEMES.get(th, []))
+        it["themes"] = sorted(set(it.get("themes", [])) | extra)
+    json.dump(man, open(mp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    json.dump(new, open(os.path.join(HERE, "assets", "stage_batch2.json"), "w"), indent=1, ensure_ascii=False)
+    return new
+
+
 if __name__ == "__main__":
     what = sys.argv[1] if len(sys.argv) > 1 else "all"
-    for name, fn in (("music", curate_incompetech), ("oga", curate_oga), ("sfx", curate_sfx)):
-        if what in (name, "all"):
+    for name, fn in (("music", curate_incompetech), ("oga", curate_oga), ("sfx", curate_sfx), ("batch2", curate_batch2)):
+        if what == name or (what == "all" and name != "batch2"):
             res = fn()
             print(f"{name}: {len(res)} items")

@@ -99,7 +99,8 @@
     "uplifting"
    ],
    "themes": [
-    "corporate"
+    "corporate",
+    "saas"
    ],
    "instruments": "Synths, Drum Kit, Guitar",
    "description": "Very very clean mix that is non-offensive on almost all fronts. Good spectral distribution - nice lows and highs. 2 catchy synth lines sort of fight for attention, leaving you to ignore them both after a while.",
@@ -125,7 +126,8 @@
     "bright"
    ],
    "themes": [
-    "corporate"
+    "corporate",
+    "saas"
    ],
    "instruments": "Bass, Drums, Guitar, Piano",
    "description": "Stop it! Stop complaining, it is supposed to end like that! This is a loopable piece. Why? You never know how long your voice-overed tour of the cardboard factory is going to take... Or your real estate tour... Or your appendectomy video... Or your video of that one train by your house. Uncompressed download comes with a faster version, and a slower version.",
@@ -152,7 +154,8 @@
     "uplifting"
    ],
    "themes": [
-    "corporate"
+    "corporate",
+    "saas"
    ],
    "instruments": "Synths",
    "description": "Build your pyramid in Five easy steps! 1) Level the intended build site 2) Get your GED in architecture 3) Quarry 100 million tons of limestone from a local quarry (cubits?) 4) Learn to be a charismatic leader 5) Synergize your assets from steps 3 and 4. Congratulations, you are on your way to pyramid success! Ask about our supplementary obelisk pamphlet!",
@@ -234,7 +237,9 @@
     "humorous"
    ],
    "themes": [
-    "sketch"
+    "riso",
+    "sketch",
+    "terracotta"
    ],
    "instruments": "Drums, Tuba, Marimba, Percussion, Clarinets, Flutes, Trumpet, French Horns, Trombones, Glockenspiel, Bassoons, Chimes, Whistles, Cymbals",
    "description": "This piece starts very slow and builds... like Bolero. Unlike Bolero, this piece builds beyond the safety limit and gets crazy. I recommend you check out the piece from 1 minute 48 seconds in. There are several break points you can start from to get to the crazy payoff faster, or use the whole thing!",
@@ -263,7 +268,9 @@
     "uplifting"
    ],
    "themes": [
-    "sketch"
+    "riso",
+    "sketch",
+    "terracotta"
    ],
    "instruments": "Machines, Brass, Organ, Cellos, Percussion, Glockenspiel, Xylophone",
    "description": "It is 1895, you just got your new brass-rimmed monocle, and you want to head out to see the new gigantic music machine that was just constructed... Roaring 1920s fun, 1930s art music style bridge... it is the retro future of music.",
@@ -290,7 +297,10 @@
     "grooving"
    ],
    "themes": [
-    "tech"
+    "arcade",
+    "saas",
+    "tech",
+    "terminal"
    ],
    "instruments": "Synth, Percussion",
    "description": "Welcome to the Holiday Inn, Airport. The presentation will begin shortly.   SUCCESS starts with your ATTITUDE!   If you are not EARNING, make sure you are LEARNING!   AMBITION is the path to success. PERSISTENCE is the vehicle you arrive in.  Success is doing the OPPOSITE of what everyone else is DOING!   Actually... don't take this last one too literally. If everyone else is using the door, don't try walking through a wall (or whatever the opposite of a \"door\" is). I mean... there is a reason most people do the same things. Usually because they make sense. Oh, sure... it is okay to QUESTION what people are doing, but just doing the opposite... probably not great.   The future of NETWORK MARKETING is UNLIMITED!   Oh... Also a bit of hyperbole here. I mean, it literally cannot exceed the gross output of all the world's economies - and will likely top out far before that due to INEFFICIENCIES and REGULATION.",
@@ -317,7 +327,10 @@
     "intense"
    ],
    "themes": [
-    "tech"
+    "arcade",
+    "saas",
+    "tech",
+    "terminal"
    ],
    "instruments": "Electric Piano, Synths, Percussion",
    "description": "Starts thin and explodes suddenly and massively around the 44-second mark. The uncompressed download also comes with a cut where it starts out big. I'm assuming it will be used for the outro parts of videos.",
@@ -344,7 +357,10 @@
     "intense"
    ],
    "themes": [
-    "tech"
+    "arcade",
+    "saas",
+    "tech",
+    "terminal"
    ],
    "instruments": "Bass, Percussion, Synths, Voice",
    "description": "The beginning is calm with the Middle Eastern dudek playing the melody. As the electronic elements melt into the dudek and the plucked strings, the groove is established.  Just into the third minute the melody changes to beautiful and touching, but returns to the feel of the intro, while a woman?s voice sings a haunting melody in a distant language. This is music of wonder, and is best as exposition music for a film about nature or a group of people struggling to survive.",
@@ -370,7 +386,9 @@
     "relaxed"
    ],
    "themes": [
-    "minimal"
+    "glass",
+    "minimal",
+    "saas"
    ],
    "instruments": "Piano",
    "description": "Simple; mostly pentatonic.",
@@ -396,7 +414,9 @@
     "relaxed"
    ],
    "themes": [
-    "minimal"
+    "glass",
+    "minimal",
+    "saas"
    ],
    "instruments": "Piano",
    "description": "Super easy-going slow piano piece. Ends quiet and rich.",
@@ -424,7 +444,9 @@
     "uplifting"
    ],
    "themes": [
-    "playful"
+    "neobrutalism",
+    "playful",
+    "riso"
    ],
    "instruments": "Ukulele, Guitar, Marimba, Glockenspiel, Percussion",
    "description": "Nothing says \"It'll be okay\" quite like a ukulele.",
@@ -452,7 +474,9 @@
     "uplifting"
    ],
    "themes": [
-    "playful"
+    "neobrutalism",
+    "playful",
+    "riso"
    ],
    "instruments": "Marimba, Organ, Flutes, Synths, Percussion",
    "description": "Mid-90s styled happy happy video game music.",
@@ -479,7 +503,9 @@
     "grooving"
    ],
    "themes": [
-    "playful"
+    "neobrutalism",
+    "playful",
+    "riso"
    ],
    "instruments": "Glockenspiel, Percussion, Bass, Flutes, Ukulele",
    "description": "Ukulele and flutes and glockenspiel... I think you already know what this sounds like. The percussion is also adorable.",
@@ -553,7 +579,10 @@
     "electronic"
    ],
    "themes": [
-    "tech"
+    "arcade",
+    "saas",
+    "tech",
+    "terminal"
    ],
    "duration_s": 116.8,
    "bytes": 2336487,
@@ -577,7 +606,9 @@
     "happy"
    ],
    "themes": [
-    "playful"
+    "neobrutalism",
+    "playful",
+    "riso"
    ],
    "duration_s": 97.5,
    "bytes": 1950285,
@@ -601,7 +632,9 @@
     "ukulele"
    ],
    "themes": [
-    "sketch"
+    "riso",
+    "sketch",
+    "terracotta"
    ],
    "duration_s": 211.0,
    "bytes": 4220586,
@@ -625,7 +658,8 @@
     "upbeat"
    ],
    "themes": [
-    "corporate"
+    "corporate",
+    "saas"
    ],
    "duration_s": 57.4,
    "bytes": 1147725,
@@ -649,7 +683,9 @@
     "ambient"
    ],
    "themes": [
-    "minimal"
+    "glass",
+    "minimal",
+    "saas"
    ],
    "duration_s": 49.6,
    "bytes": 992685,
@@ -697,7 +733,9 @@
     "bouncy"
    ],
    "themes": [
-    "playful"
+    "neobrutalism",
+    "playful",
+    "riso"
    ],
    "duration_s": 56.7,
    "bytes": 1133867,
@@ -721,9 +759,12 @@
     "chime"
    ],
    "themes": [
+    "academic",
     "corporate",
+    "glass",
     "luxury",
-    "academic"
+    "saas",
+    "terracotta"
    ],
    "duration_s": 0.29,
    "bytes": 8968,
@@ -747,8 +788,11 @@
     "chime"
    ],
    "themes": [
+    "academic",
+    "glass",
     "luxury",
-    "academic"
+    "saas",
+    "terracotta"
    ],
    "duration_s": 0.32,
    "bytes": 9535,
@@ -772,8 +816,13 @@
     "pop"
    ],
    "themes": [
+    "arcade",
+    "neobrutalism",
     "playful",
-    "sketch"
+    "riso",
+    "saas",
+    "sketch",
+    "terminal"
    ],
    "duration_s": 0.38,
    "bytes": 6767,
@@ -797,7 +846,11 @@
    ],
    "themes": [
     "corporate",
-    "tech"
+    "neobrutalism",
+    "riso",
+    "saas",
+    "tech",
+    "terminal"
    ],
    "duration_s": 0.14,
    "bytes": 7369,
@@ -821,8 +874,12 @@
     "swoosh"
    ],
    "themes": [
+    "cinema",
     "corporate",
-    "minimal"
+    "glass",
+    "minimal",
+    "neobrutalism",
+    "saas"
    ],
    "duration_s": 0.15,
    "bytes": 9834,
@@ -846,8 +903,12 @@
     "swoosh"
    ],
    "themes": [
+    "cinema",
     "corporate",
-    "minimal"
+    "glass",
+    "minimal",
+    "neobrutalism",
+    "saas"
    ],
    "duration_s": 0.15,
    "bytes": 9915,
@@ -871,8 +932,12 @@
     "swoosh"
    ],
    "themes": [
+    "cinema",
+    "glass",
+    "luxury",
     "minimal",
-    "luxury"
+    "neobrutalism",
+    "saas"
    ],
    "duration_s": 0.21,
    "bytes": 11748,
@@ -896,8 +961,12 @@
     "swoosh"
    ],
    "themes": [
+    "cinema",
+    "glass",
+    "luxury",
     "minimal",
-    "luxury"
+    "neobrutalism",
+    "saas"
    ],
    "duration_s": 0.21,
    "bytes": 11739,
@@ -921,8 +990,11 @@
     "bell"
    ],
    "themes": [
+    "academic",
+    "glass",
     "luxury",
-    "academic"
+    "saas",
+    "terracotta"
    ],
    "duration_s": 0.28,
    "bytes": 6103,
@@ -946,8 +1018,11 @@
     "bell"
    ],
    "themes": [
+    "academic",
+    "glass",
     "luxury",
-    "academic"
+    "saas",
+    "terracotta"
    ],
    "duration_s": 0.69,
    "bytes": 8323,
@@ -972,7 +1047,10 @@
    ],
    "themes": [
     "academic",
-    "luxury"
+    "glass",
+    "luxury",
+    "saas",
+    "terracotta"
    ],
    "duration_s": 0.12,
    "bytes": 4848,
@@ -996,8 +1074,12 @@
     "pluck"
    ],
    "themes": [
+    "arcade",
+    "neobrutalism",
+    "playful",
+    "riso",
     "sketch",
-    "playful"
+    "terracotta"
    ],
    "duration_s": 0.1,
    "bytes": 6317,
@@ -1020,7 +1102,10 @@
     "pop"
    ],
    "themes": [
+    "arcade",
+    "neobrutalism",
     "playful",
+    "riso",
     "sketch"
    ],
    "duration_s": 0.11,
@@ -1093,8 +1178,11 @@
     "swoosh"
    ],
    "themes": [
+    "academic",
+    "cinema",
+    "glass",
     "sketch",
-    "academic"
+    "terracotta"
    ],
    "duration_s": 1.0,
    "bytes": 21633,
@@ -1117,8 +1205,10 @@
     "bleep"
    ],
    "themes": [
+    "arcade",
+    "playful",
     "tech",
-    "playful"
+    "terminal"
    ],
    "duration_s": 0.33,
    "bytes": 9455,
@@ -1164,8 +1254,10 @@
     "power-up"
    ],
    "themes": [
+    "arcade",
+    "playful",
     "tech",
-    "playful"
+    "terminal"
    ],
    "duration_s": 1.2,
    "bytes": 9011,
@@ -1188,8 +1280,10 @@
     "power-up"
    ],
    "themes": [
+    "arcade",
+    "playful",
     "tech",
-    "playful"
+    "terminal"
    ],
    "duration_s": 0.44,
    "bytes": 5652,
@@ -1212,8 +1306,10 @@
     "power-up"
    ],
    "themes": [
+    "arcade",
+    "playful",
     "tech",
-    "playful"
+    "terminal"
    ],
    "duration_s": 0.55,
    "bytes": 6101,
@@ -1237,7 +1333,13 @@
     "power-up"
    ],
    "themes": [
-    "tech"
+    "arcade",
+    "cinema",
+    "glass",
+    "neobrutalism",
+    "saas",
+    "tech",
+    "terminal"
    ],
    "duration_s": 0.5,
    "bytes": 7390,
@@ -1260,6 +1362,10 @@
     "whoosh"
    ],
    "themes": [
+    "cinema",
+    "glass",
+    "neobrutalism",
+    "saas",
     "tech"
    ],
    "duration_s": 0.47,
@@ -1284,7 +1390,9 @@
     "laser"
    ],
    "themes": [
-    "tech"
+    "arcade",
+    "tech",
+    "terminal"
    ],
    "duration_s": 1.1,
    "bytes": 9315,
@@ -1307,8 +1415,10 @@
     "bleep"
    ],
    "themes": [
+    "arcade",
+    "playful",
     "tech",
-    "playful"
+    "terminal"
    ],
    "duration_s": 0.55,
    "bytes": 6135,
@@ -1331,7 +1441,9 @@
     "bleep"
    ],
    "themes": [
-    "tech"
+    "arcade",
+    "tech",
+    "terminal"
    ],
    "duration_s": 0.78,
    "bytes": 5956,
@@ -1355,7 +1467,10 @@
     "pop"
    ],
    "themes": [
-    "playful"
+    "arcade",
+    "neobrutalism",
+    "playful",
+    "riso"
    ],
    "duration_s": 0.52,
    "bytes": 6019,
@@ -1379,7 +1494,10 @@
     "pop"
    ],
    "themes": [
-    "playful"
+    "arcade",
+    "neobrutalism",
+    "playful",
+    "riso"
    ],
    "duration_s": 0.44,
    "bytes": 5590,
@@ -1403,8 +1521,11 @@
     "chime"
    ],
    "themes": [
+    "glass",
     "playful",
-    "tech"
+    "saas",
+    "tech",
+    "terracotta"
    ],
    "duration_s": 0.83,
    "bytes": 7361,
@@ -1428,7 +1549,9 @@
     "zap"
    ],
    "themes": [
-    "tech"
+    "arcade",
+    "tech",
+    "terminal"
    ],
    "duration_s": 1.02,
    "bytes": 8126,
@@ -1453,7 +1576,8 @@
    ],
    "themes": [
     "academic",
-    "sketch"
+    "sketch",
+    "terracotta"
    ],
    "duration_s": 0.77,
    "bytes": 18248,
@@ -1478,7 +1602,8 @@
    ],
    "themes": [
     "academic",
-    "sketch"
+    "sketch",
+    "terracotta"
    ],
    "duration_s": 0.43,
    "bytes": 12393,
@@ -1502,7 +1627,8 @@
     "paper"
    ],
    "themes": [
-    "academic"
+    "academic",
+    "terracotta"
    ],
    "duration_s": 0.15,
    "bytes": 8273,
@@ -1526,7 +1652,8 @@
     "paper"
    ],
    "themes": [
-    "academic"
+    "academic",
+    "terracotta"
    ],
    "duration_s": 0.23,
    "bytes": 9292,
@@ -1549,6 +1676,8 @@
     "swoosh"
    ],
    "themes": [
+    "cinema",
+    "glass",
     "luxury",
     "minimal"
    ],
@@ -1573,8 +1702,12 @@
     "click"
    ],
    "themes": [
+    "corporate",
     "luxury",
-    "corporate"
+    "neobrutalism",
+    "riso",
+    "saas",
+    "terminal"
    ],
    "duration_s": 0.45,
    "bytes": 13615,
@@ -1598,14 +1731,513 @@
     "chime"
    ],
    "themes": [
+    "arcade",
+    "corporate",
+    "glass",
     "luxury",
-    "corporate"
+    "saas",
+    "terracotta"
    ],
    "duration_s": 0.85,
    "bytes": 25394,
    "sha256": "8a91f969e932df709df80ee124d86a51389eed9b67f22e5e716bc2bbf60d8dab",
    "file": "s-rpg-audio-handlecoins.ogg",
    "r2_key": "assets/sfx/s-rpg-audio-handlecoins.ogg"
+  },
+  {
+   "id": "m-undaunted",
+   "kind": "music",
+   "title": "Undaunted",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Undaunted.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Undaunted\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "action",
+    "driving",
+    "epic",
+    "intense"
+   ],
+   "themes": [
+    "cinema"
+   ],
+   "instruments": "Percussion, Piano, Synths",
+   "description": "Big big drums pushing a big cinematic feel.",
+   "duration_s": 212.6,
+   "bytes": 4252367,
+   "sha256": "9d213da7c341ff1241864f03edd64cc01d964ae94724fd549ebcb9eba80f329c",
+   "file": "m-undaunted.mp3",
+   "r2_key": "assets/music/m-undaunted.mp3"
+  },
+  {
+   "id": "m-rynos-theme",
+   "kind": "music",
+   "title": "Rynos Theme",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Rynos%20Theme.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Rynos Theme\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "action",
+    "epic",
+    "intense",
+    "suspenseful"
+   ],
+   "themes": [
+    "cinema"
+   ],
+   "instruments": "Violins, Violas, Cellos, Basses, Flutes, French Horns, Trombones, Tuba, Percussion, Piano",
+   "description": "Starts small, gets big... then smaller, then REALLY big... then small again. Kind of like a turtle. Actually, it is entirely possible that I just kept seeing different turtles. I mean, they all sort of look like turtles; I wasn't tagging them or marking them with chalk or anything. Chalk will probably just wash off in the pond anyway. Oh! Kind of like a puffer fish! Like a musical puffer fish! Perfect.",
+   "duration_s": 185.7,
+   "bytes": 3715232,
+   "sha256": "a22f198572a1e6a1db7286e936c77cb548bd84fa1caf42ca14b336918902d8f9",
+   "file": "m-rynos-theme.mp3",
+   "r2_key": "assets/music/m-rynos-theme.mp3"
+  },
+  {
+   "id": "m-americana",
+   "kind": "music",
+   "title": "Americana",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Americana.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Americana\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "epic",
+    "uplifting"
+   ],
+   "themes": [
+    "cinema"
+   ],
+   "instruments": "Cellos, Bass Clarinet, Alto Flute, English Horn, Clarinet, French Horns, Trombones, Tubas, Percussion, Celesta, Violins, Basses",
+   "description": "Starts out simply on the plains with cellos and winds, becomes disrupted bit a bit and piles on the grandiose with a lot of brass!",
+   "duration_s": 202.2,
+   "bytes": 4045936,
+   "sha256": "0625ff50a782e033fd4aa03a8f2e061cf71d9e9d3e9b52b9d7e7269f051daf45",
+   "file": "m-americana.mp3",
+   "r2_key": "assets/music/m-americana.mp3"
+  },
+  {
+   "id": "m-bit-quest",
+   "kind": "music",
+   "title": "Bit Quest",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Bit%20Quest.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Bit Quest\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bouncy",
+    "bright"
+   ],
+   "themes": [
+    "arcade"
+   ],
+   "instruments": "Synths, Percussion",
+   "description": "Wonderful 8-Bit ditty for an exploring action adventure platformer. My favorite part is at 16 seconds in... The rest of the piece was written around that theme. Check it out, yo! Careful of the spiked kittens on level 7... not cuddly.",
+   "duration_s": 192.1,
+   "bytes": 3842952,
+   "sha256": "7672ccb3204e20a133a7e0220e78a3693ee75cbd18fa96f42ecd3fec1d2e5077",
+   "file": "m-bit-quest.mp3",
+   "r2_key": "assets/music/m-bit-quest.mp3"
+  },
+  {
+   "id": "m-pixelland",
+   "kind": "music",
+   "title": "Pixelland",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Pixelland.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Pixelland\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bouncy",
+    "humorous"
+   ],
+   "themes": [
+    "arcade"
+   ],
+   "instruments": "Synths",
+   "description": "What do you get when you cross some 8-bit music technology with Dixieland music? Well... you get stuff that sounds like this. The uncompressed download comes with a pile of extra stuff, like versions at 220, 230, 240, and a whopping 275 beats per minute! That's really fast. It also has loops that don't go through the modulation so you can repeat them as long as you'd like!",
+   "duration_s": 233.8,
+   "bytes": 4677646,
+   "sha256": "112ecd5984032365dd2126f0b7c751bb8cc744d9ba2faf0fd198530cbcd75b56",
+   "file": "m-pixelland.mp3",
+   "r2_key": "assets/music/m-pixelland.mp3"
+  },
+  {
+   "id": "m-cyborg-ninja",
+   "kind": "music",
+   "title": "Cyborg Ninja",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Cyborg%20Ninja.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Cyborg Ninja\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "action",
+    "bouncy",
+    "driving"
+   ],
+   "themes": [
+    "arcade"
+   ],
+   "instruments": "Synths",
+   "description": "Your girlfriend has be kidnapped by ninja! Stage 1: Desert. Avoid the flaming balls and shoot cyborg ninja in the eye to win round. Retro-gaming circa 1988. I was seriously considering naming this piece \"Flaming Balls\" as that would also have been appropriate. Cyborg ninjas are just a little more '1988' to me. Need 10 hours of this? Loop it!",
+   "duration_s": 180.1,
+   "bytes": 3602935,
+   "sha256": "bd5695127fbdb25c96131016f49090699647aa69e17bcd57a030f1d8b00da279",
+   "file": "m-cyborg-ninja.mp3",
+   "r2_key": "assets/music/m-cyborg-ninja.mp3"
+  },
+  {
+   "id": "m-morning",
+   "kind": "music",
+   "title": "Morning",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Morning.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Morning\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bright",
+    "calming",
+    "relaxed"
+   ],
+   "themes": [
+    "terracotta"
+   ],
+   "instruments": "Classical Guitar, Harp, Flutes",
+   "description": "Morning. The time of day when you can’t figure out how to get to your drive-thru coffee place because there’s new construction and the sun is super low, so you’re squinting at the signs, trying to figure out if you are supposed to turn left here or if you definitely should NOT turn left here, because you will get three tires shredded by sharp, metal chunks before you fall in a hole. \r\n\r\nThis piece of music is based on the old-timey concept of calm, beautiful, renewing mornings.",
+   "duration_s": 153.4,
+   "bytes": 3068181,
+   "sha256": "1d7aea82a62eb347021a3e46c107b5ac19276524c8bc83726f45379b865bec6c",
+   "file": "m-morning.mp3",
+   "r2_key": "assets/music/m-morning.mp3"
+  },
+  {
+   "id": "m-evening",
+   "kind": "music",
+   "title": "Evening",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Evening.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Evening\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bright",
+    "calming",
+    "relaxed"
+   ],
+   "themes": [
+    "terracotta"
+   ],
+   "instruments": "Guitar, Cello, Oboe",
+   "description": "Hey Music Supervisors! Are you sick of choosing Claude Debussy's \"Clair de Lune\" or Ravel's \"Pavane for a Dead Princess\" when you're placing music for that one scene at the end of Act II where there is a sunset and an overall sense of relief? I got ya, friend!",
+   "duration_s": 186.3,
+   "bytes": 3726741,
+   "sha256": "d184838a5b9e4f1b9944abc948904628625205459fcae5fa739aceb3eb79afdd",
+   "file": "m-evening.mp3",
+   "r2_key": "assets/music/m-evening.mp3"
+  },
+  {
+   "id": "m-funin-and-sunin",
+   "kind": "music",
+   "title": "Funin and Sunin",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Funin%20and%20Sunin.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Funin and Sunin\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bouncy",
+    "bright",
+    "relaxed"
+   ],
+   "themes": [
+    "riso"
+   ],
+   "instruments": "Bass, Organ, Drums, Guitar",
+   "description": "Deep and round-sounding beach-themed piece. It can be used for non-beach applications. Not to be used internally. May cause rashes.",
+   "duration_s": 219.0,
+   "bytes": 4380998,
+   "sha256": "0ecbdeb764e9cda05bab3011d9a43e653a046f9692260ae9bee92bb133156694",
+   "file": "m-funin-and-sunin.mp3",
+   "r2_key": "assets/music/m-funin-and-sunin.mp3"
+  },
+  {
+   "id": "m-pleasant-porridge",
+   "kind": "music",
+   "title": "Pleasant Porridge",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Pleasant%20Porridge.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Pleasant Porridge\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "calming",
+    "grooving",
+    "relaxed"
+   ],
+   "themes": [
+    "riso",
+    "saas"
+   ],
+   "instruments": "Electric Piano, Guitar, Bass, Drums",
+   "description": "Attention in the lobby: The show will begin shortly. Please find your seat.  Souvenir programs are available for purchase at every entrance. Remember to set your bleeping devices to non-bleepie mode. This show features flashing lights, live bats, and almond butter.  If you have a condition  that may cause problems, please see us at the ticket counter for further information. The show will begin shortly!",
+   "duration_s": 171.5,
+   "bytes": 3431564,
+   "sha256": "4c1302578022f5076c5c19714f45e968774f2d403261647015783025a29f5c8d",
+   "file": "m-pleasant-porridge.mp3",
+   "r2_key": "assets/music/m-pleasant-porridge.mp3"
+  },
+  {
+   "id": "m-shaving-mirror",
+   "kind": "music",
+   "title": "Shaving Mirror",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Shaving%20Mirror.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Shaving Mirror\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bouncy",
+    "grooving",
+    "relaxed"
+   ],
+   "themes": [
+    "neobrutalism"
+   ],
+   "instruments": "Guitar, Bass, Drums, Organ, Horns",
+   "description": "Hey, yo - welcome to the sic'est grammar podcast on the planet, where your future will have been perfectly continuous. I can't really think up much more in the realm of grammar jokes without going to the \"dangling participle\". And that's not happening.",
+   "duration_s": 206.3,
+   "bytes": 4126114,
+   "sha256": "d35292d0c0a80f1f5ef8bdd7617f1d8e3349a0e3b40469eec2ccedfc495279c8",
+   "file": "m-shaving-mirror.mp3",
+   "r2_key": "assets/music/m-shaving-mirror.mp3"
+  },
+  {
+   "id": "m-voxel-revolution",
+   "kind": "music",
+   "title": "Voxel Revolution",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Voxel%20Revolution.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Voxel Revolution\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "bouncy",
+    "bright",
+    "grooving"
+   ],
+   "themes": [
+    "neobrutalism",
+    "terminal"
+   ],
+   "instruments": "Synths, Percussion",
+   "description": "Is it chiptunes? Nope. Is it 80s? Nope. We had to wait 40 years for this stupid fusion! 40 Years!!! It is really happy, though. Like when an underdog video game character is doing a level-up montage, or that song that plays in a 13 year old's head when they get an extra mozzarella stick.",
+   "duration_s": 129.9,
+   "bytes": 2599740,
+   "sha256": "04b9a1a27ed89a4db6e0dd2ae5dd5fdba9c68ad2cae3c2aeed9c9f87a2f402a5",
+   "file": "m-voxel-revolution.mp3",
+   "r2_key": "assets/music/m-voxel-revolution.mp3"
+  },
+  {
+   "id": "m-exit-the-premises",
+   "kind": "music",
+   "title": "Exit the Premises",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Exit%20the%20Premises.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Exit the Premises\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "driving",
+    "intense"
+   ],
+   "themes": [
+    "terminal"
+   ],
+   "instruments": "Synths, Percussion",
+   "description": "Big drums start with piece to reveal that they were not establishing the downbeat. Tight synth percussion and 8-bit inspired synths make this piece downright danceable! And who doesn't like a giant 80s synth? Or a 90s chip tunes synth? Or a modern synth? We gots them all!",
+   "duration_s": 210.1,
+   "bytes": 4203439,
+   "sha256": "d4ee41a3349cdb495ed4df570d4e7b55a3580c283a6f83504cb2c45e6ef0251d",
+   "file": "m-exit-the-premises.mp3",
+   "r2_key": "assets/music/m-exit-the-premises.mp3"
+  },
+  {
+   "id": "m-floating-cities",
+   "kind": "music",
+   "title": "Floating Cities",
+   "author": "Kevin MacLeod",
+   "source": "incompetech.com",
+   "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Floating%20Cities.mp3",
+   "license": "CC-BY-4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "license_evidence": "incompetech.com/music/royalty-free/music.html: 'Creative Commons: By Attribution 4.0 License'",
+   "attribution": "\"Floating Cities\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+   "moods": [
+    "calming",
+    "mystical",
+    "relaxed",
+    "somber"
+   ],
+   "themes": [
+    "glass",
+    "saas"
+   ],
+   "instruments": "Synths, Percussion",
+   "description": "It is the future? It certainly sounds like it... What would I use this for? Probably a video game with non-action gameplay. Certainly a montage of some futuristic film... or maybe one of those sandwiched scenes where a person is walking in the rain, but you don't get any of the sounds of the actual rain... just this piece. No dialog, no voiceover, just walking. Do they have a name for those scenes? They must.",
+   "duration_s": 184.1,
+   "bytes": 3683067,
+   "sha256": "b8688899f8d0c3dee831a7d506fe94641d920395d6a20dda24bf16f5a864901a",
+   "file": "m-floating-cities.mp3",
+   "r2_key": "assets/music/m-floating-cities.mp3"
+  },
+  {
+   "id": "s-impact-sounds-impactbell-heavy-000",
+   "kind": "sfx",
+   "title": "impactBell_heavy_000 (impact-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/impact-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/impact-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "hit"
+   ],
+   "themes": [
+    "cinema"
+   ],
+   "duration_s": 1.48,
+   "bytes": 13915,
+   "sha256": "94b8bb5f2d43ab65e4bcc32b28562416e9bc2c51d9fd4be1e333660ee52f977f",
+   "file": "s-impact-sounds-impactbell-heavy-000.ogg",
+   "r2_key": "assets/sfx/s-impact-sounds-impactbell-heavy-000.ogg"
+  },
+  {
+   "id": "s-impact-sounds-impactmetal-heavy-000",
+   "kind": "sfx",
+   "title": "impactMetal_heavy_000 (impact-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/impact-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/impact-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "hit"
+   ],
+   "themes": [
+    "cinema"
+   ],
+   "duration_s": 0.17,
+   "bytes": 6110,
+   "sha256": "e07045693e4a2b3d165c424e3dab4c781d9ff8880a386880ac89a51315d7f831",
+   "file": "s-impact-sounds-impactmetal-heavy-000.ogg",
+   "r2_key": "assets/sfx/s-impact-sounds-impactmetal-heavy-000.ogg"
+  },
+  {
+   "id": "s-impact-sounds-impactpunch-heavy-000",
+   "kind": "sfx",
+   "title": "impactPunch_heavy_000 (impact-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/impact-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/impact-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "hit"
+   ],
+   "themes": [
+    "cinema"
+   ],
+   "duration_s": 0.65,
+   "bytes": 11617,
+   "sha256": "b33a8f14068aec24ec69ba85e5e87fdc41228975f6a1a3e44a6e7d6fc3d9f8d8",
+   "file": "s-impact-sounds-impactpunch-heavy-000.ogg",
+   "r2_key": "assets/sfx/s-impact-sounds-impactpunch-heavy-000.ogg"
+  },
+  {
+   "id": "s-impact-sounds-impactplate-heavy-000",
+   "kind": "sfx",
+   "title": "impactPlate_heavy_000 (impact-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/impact-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/impact-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "hit"
+   ],
+   "themes": [
+    "cinema"
+   ],
+   "duration_s": 0.49,
+   "bytes": 10032,
+   "sha256": "112d4f93ddcc370b410630f971c0f5d991856102da9c76bc5c5540d388e75aaa",
+   "file": "s-impact-sounds-impactplate-heavy-000.ogg",
+   "r2_key": "assets/sfx/s-impact-sounds-impactplate-heavy-000.ogg"
+  },
+  {
+   "id": "s-impact-sounds-impactsoft-heavy-000",
+   "kind": "sfx",
+   "title": "impactSoft_heavy_000 (impact-sounds)",
+   "author": "Kenney (kenney.nl)",
+   "source": "kenney.nl",
+   "source_url": "https://kenney.nl/assets/impact-sounds",
+   "license": "CC0-1.0",
+   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "license_evidence": "https://kenney.nl/assets/impact-sounds: 'License Creative Commons CC0 Downl'",
+   "attribution": null,
+   "moods": [
+    "hit"
+   ],
+   "themes": [
+    "cinema"
+   ],
+   "duration_s": 0.51,
+   "bytes": 6570,
+   "sha256": "49e7ca88743fca974bb8676ea138b751cfd8f9033b5e7af8736c2a215d6edbc1",
+   "file": "s-impact-sounds-impactsoft-heavy-000.ogg",
+   "r2_key": "assets/sfx/s-impact-sounds-impactsoft-heavy-000.ogg"
   }
  ]
 }

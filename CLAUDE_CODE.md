@@ -48,6 +48,7 @@ Las respuestas de edición son compactas (sin el listado de `ops`, solo `op_coun
 
 
 ## Plantillas, animación y audio
+- 15 plantillas (`list_styles`): luxury, corporate, academic, sketch, tech, minimal, playful, neobrutalism, terracotta, cinema, terminal, arcade, riso, saas, glass. `anim` admite `wipe` (revelado tipo escritura) y `add_card` el layout `bento` (`items=["18 %|crecimiento", …]`).
 - `list_styles` muestra las plantillas; `set_template(name, accent)` cambia el aspecto de todo el proyecto. `add_card` para introducciones/cierres, `add_image(icon=…)` para iconos, `anim`/`animate` para movimiento.
 - Audio: `list_assets(kind="music"|"sfx", theme=…, license=…)` y `add_audio(asset=id, …)`. Las piezas se bajan de R2 la primera vez: el entorno necesita `R2_WORKER_URL` y `R2_UPLOAD_TOKEN` (configúralos en las variables del entorno de la sesión, no en archivos del repo).
 - Si usas algo CC-BY, `get_timeline` lo lista en `credits_required` y `export` escribe `<vídeo>.credits.txt`; ponlo donde publiques el vídeo.

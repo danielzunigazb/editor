@@ -808,6 +808,26 @@ Hallazgos: el motor rechaza audio de menos de 0.1 s, así que se descartaron 9 e
 con `volumedetect` (hay señal, de −37 a −33 dB de media) y por imagen; la normalización a −16 LUFS de piezas CC-BY cuenta como modificación (se conserva la atribución);
 el autor de las piezas de OpenGameArt se dedujo de la página con una heurística; los iconos de la lámina a 720p son pequeños y las etiquetas (`callout`) se leen justas.
 
+## 20. Segunda tanda de plantillas, `wipe` y `bento` (añadido a petición del usuario)
+
+**Referencias.** El enlace compartido (`share.google/…`) redirige a **typeui.sh/design-skills**, que está tras un checkpoint anti-bot de Vercel (HTTP 429): no se pudo leer directo.
+El mismo catálogo está en el repo público `bergside/awesome-design-skills` (MIT): 67 skills con un `DESIGN.md` cada uno (paleta, tipografías, una línea de intención), que sí se leyeron.
+Son sistemas de diseño *web*: unos 30 traen la paleta genérica por defecto y no aportan; se usaron solo como inspiración. Paletas, formas y código son propios; las fuentes son OFL de google/fonts
+(las 14 nuevas cubren `áéíóúüñ¿¡€`, comprobado con PIL, así que no hizo falta ningún sustituto).
+
+**Plantillas nuevas (8, ya son 15):** neobrutalism, terracotta, cinema, terminal, arcade (texto pixel sin suavizado, `fontmode="1"`), riso (desregistro de dos tintas), saas, glass.
+**glass solo está imitado:** panel translúcido teñido; el overlay es un PNG y no desenfoca el video de debajo.
+**Motor:** animación `wipe` (revelado/borrado izquierda→derecha con el filtro `qtcrop` de MLT, rect animado; no disponible en pip). **Tarjetas:** layout `bento` (1–4 teselas `cifra|etiqueta`) con el pintor de paneles de cada plantilla y fondos nuevos
+(brutal, grain, black, scanlines, dither, halftone, blobs). **Audio:** +19 piezas (14 de música de incompetech CC-BY elegidas por catálogo, 5 impactos Kenney CC0) y las existentes etiquetadas para las plantillas nuevas: 83 piezas en total,
+todas con al menos 2 de música y 3 efectos por plantilla; las 19 nuevas están en R2 y se bajaron de vuelta con hash correcto.
+
+**Medido / verificado.** `wipe`: en un test de píxeles el borde izquierdo no se mueve y el derecho crece a la mitad a mitad de la entrada (y al revés en la salida). Suites en verde: `test_anim` 60, `test_engine` 212, `test_text` 353, `test_mcp` 245, `test_assets` 30, `golden` 15/15.
+Hallazgos: `ImageDraw` sobre un RGBA opaco reemplaza el alfa (las teselas de `bento` se pintan en su propia capa); el umbral de alfa del test de callouts (70) era demasiado alto para glass (translúcido), ahora 40.
+Ocho demos de 14 s en R2 (`editados/templates/<plantilla>.mp4` + `.credits.txt`), revisados por láminas de contacto.
+
+**No verificado.** La música se eligió por metadatos del catálogo (género, instrumentos, descripción) y nadie la ha escuchado; los demos solo se comprobaron con `volumedetect` e imagen;
+`wipe` no se probó en 4K ni encadenado con rotación; el pixel-art a 720p depende del tamaño (los pasos de la fuente no caen siempre en píxeles enteros); las tarjetas `bento` con textos largos se encogen (mínimo 55 %) y pueden quedar pequeñas.
+
 ## 10. Archivos
 
 - `poc.py`: el POC (gen/build/bench/preview/export/measure).
