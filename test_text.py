@@ -100,7 +100,7 @@ import golden, json as _json
 _ref, _cur = _json.load(open(golden.GOLD)), golden.compute()
 check("luxury renders are pixel-identical to the reference recorded before the template refactor (golden.py)", all(_cur.get(k) == v for k, v in _ref.items()), [k for k, v in _ref.items() if _cur.get(k) != v])
 # ---- themed overlays (lower third / callout / frame per template): pure PIL, no MLT needed
-import graphics
+import graphics, subprocess
 NEW = [n for n in themes.NAMES if n != "luxury"]
 TW, TH = 960, 540
 for n_ in NEW:
@@ -136,6 +136,39 @@ check("sketch strokes are seeded by content: a different text gets different pen
       graphics.callout(TW, TH, "Uno", "", "ne", theme="sketch")[0].tobytes() != graphics.callout(TW, TH, "Dos", "", "ne", theme="sketch")[0].tobytes())
 check("letterbox takes the theme's accent for its hairline (and gold for luxury, unchanged)",
       graphics.letterbox(TW, TH, 0.1, (0, 229, 255)).tobytes() != graphics.letterbox(TW, TH, 0.1).tobytes())
+# ---- cards (title / section / quote / list / stat / outro) in every template
+import cards
+CW, CH = 640, 360
+KW = {"title": dict(title="Gran Inauguración", subtitle="Nuevo complejo residencial · 2026"), "section": dict(title="Avance de las obras", number="02", subtitle="Octubre"),
+      "quote": dict(title="La arquitectura es música congelada y también un buen lugar donde vivir", author="Goethe"),
+      "list": dict(title="Lo que viene", items=["Fase 1: estructura", "Fase 2: acabados", "Fase 3: paisajismo", "Entrega: diciembre"]),
+      "stat": dict(title="Edificios", number="14", subtitle="en construcción"), "outro": dict(title="Gracias", subtitle="www.ejemplo.com")}
+errs_ = []
+for n_ in themes.NAMES:
+    for lay_ in cards.LAYOUTS:
+        try:
+            im_ = cards.render_card(lay_, CW, CH, themes.get(n_), **KW[lay_])
+            if im_.size != (CW, CH) or im_.getchannel("A").getextrema() != (255, 255):
+                errs_.append((n_, lay_, "size/alpha"))
+        except Exception as e_:
+            errs_.append((n_, lay_, str(e_)))
+check("all 7 templates x 6 card layouts render full-frame and opaque", not errs_, errs_[:3])
+check("a card is deterministic (same pixels twice), incl. the random-looking backgrounds",
+      all(cards.render_card("title", CW, CH, themes.get(n_), **KW["title"]).tobytes() == cards.render_card("title", CW, CH, themes.get(n_), **KW["title"]).tobytes() for n_ in themes.NAMES))
+check("the same title looks different in each template", len({cards.render_card("title", CW, CH, themes.get(n_), **KW["title"]).tobytes() for n_ in themes.NAMES}) == 7)
+for label_, lay_, kw_, needle_ in [("an over-long title", "title", dict(title="MMMMMMMMM " * 19), "fit"), ("a title-less card", "title", dict(title=""), "needs a title"),
+                                   ("6 list items", "list", dict(title="L", items=["a"] * 6), "items"), ("a list item over 60 characters", "list", dict(title="L", items=["x" * 61]), "items"),
+                                   ("an over-long stat figure", "stat", dict(title="x", number="1234567890123"), "figure"), ("an unknown layout", "poster", dict(title="x"), "layout")]:
+    try:
+        cards.render_card(lay_, CW, CH, themes.get("corporate"), **kw_); e_ = None
+    except ValueError as ex_:
+        e_ = str(ex_)
+    check(f"a card rejects {label_}", e_ is not None and needle_ in e_, e_)
+png_a = cards.card_png(tmp, "title", CW, CH, themes.get("sketch"), **KW["title"]); png_b = cards.card_png(tmp, "title", CW, CH, themes.get("sketch"), **KW["title"])
+check("card PNGs are cached by content", png_a == png_b and os.path.exists(png_a))
+mp4_ = cards.card_video(png_a, os.path.join(tmp, "card.mp4"), CW, CH, 25, 1.0)
+probe_ = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,width,height,nb_frames", "-of", "csv=p=0", mp4_], capture_output=True, text=True).stdout
+check("a card video is H.264 at the frame size with an audio track and 25 frames per second", "video,640,360,25" in probe_ and "audio" in probe_, probe_)
 check("style fonts all ship in the repo", all(os.path.isfile(T.font_path(s_)) for s_ in T.STYLE_NAMES))
 
 # ---------------- graphics

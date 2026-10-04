@@ -46,7 +46,7 @@ async def main():
             tools = {t.name for t in (await s.list_tools()).tools}
             want = {"new_project", "import_clip", "list_sources", "add_clip", "cut_clip", "crossfade", "set_fades",
                     "add_pip", "get_timeline", "undo", "remove_op", "get_still", "get_contact_sheet",
-                    "render_preview", "export", "apply_ops", "list_styles", "add_text", "add_subtitles", "add_graphic", "add_lower_third", "add_image", "add_callout"}
+                    "render_preview", "export", "apply_ops", "list_styles", "add_text", "add_subtitles", "add_graphic", "add_lower_third", "add_image", "add_callout", "set_template", "add_card"}
             check("tools listed", want <= tools, f"missing {want - tools}")
 
             _, err = await call("add_clip", source="A")
@@ -629,6 +629,33 @@ async def main():
             check("an unknown per-item template is rejected", err is not None and "unknown template" in err, err)
             res, err = await call("set_template", name="luxury", accent="#112233")
             check("luxury ignores the accent override and says so", err is None and res and "note" in res and "metallic gold" in res["note"], err or res)
+
+            # ---- cards
+            await clean_project()
+            await call("set_template", name="luxury")
+            res, err = await call("add_card", layout="title", title="Gran Inauguración", subtitle="Nuevo complejo", dur_s=3.0)
+            check("add_card makes a card, registers it as a source and appends it", err is None and res and res["card"] == "CARD1" and res["appended"] and abs(res["duration_s"] - 3.0) < 0.1 and abs(res["duration_s"] - 3.0) < 0.1 and abs(res["duration_s"] - res["entries"][0]["end_s"]) < 0.1, err or res)
+            res, err = await call("add_card", layout="title", title="Gran Inauguración", subtitle="Nuevo complejo", dur_s=3.0, append=False)
+            check("the same card again reuses its source instead of duplicating it", err is None and res and res["card"] == "CARD1" and len((await call("list_sources"))[0]) == 3, err or res)
+            await call("add_clip", source="A", end_s=3.0)
+            res, err = await call("crossfade", first_index=0, dur_s=0.5)
+            check("a card dissolves into a clip with the normal crossfade (0.5 s = 12 frames at 25 fps -> 5.52 s)", err is None and res and abs(res["duration_s"] - 5.5) < 0.05, err or res)
+            ex_card, err = await call("export", output_path=os.path.join(TMP, "card_clip.mp4"), quality="draft")
+            check("card + crossfade + clip exports with video and audio", err is None and ex_card and abs(ex_card["duration_s"] - 5.5) < 0.1, err or ex_card)
+            for layout_, kw_ in [("section", dict(title="Avance", number="02")), ("quote", dict(title="Una frase corta", author="Autor")), ("list", dict(title="Lista", items=["uno", "dos", "tres"])),
+                                 ("stat", dict(title="Edificios", number="14", subtitle="en obra")), ("outro", dict(title="Gracias", subtitle="web.com"))]:
+                res, err = await call("add_card", layout=layout_, dur_s=1.0, **kw_)
+                check(f"add_card layout {layout_}", err is None and res and res["card"].startswith("CARD"), err)
+            await clean_project()
+            for name in ("corporate", "tech", "sketch"):
+                await call("set_template", name=name)
+                res, err = await call("add_card", layout="title", title="Hola mundo", subtitle="Subtítulo", dur_s=1.0, append=True)
+                check(f"add_card in the {name} template", err is None and res, err)
+            for label, kw, needle in [("an over-long title", dict(layout="title", title="MMMMMMMMM " * 19), "fit"), ("an unknown layout", dict(layout="poster", title="x"), "layout"),
+                                      ("a duration of 100 s", dict(layout="title", title="x", dur_s=100), "dur_s"), ("6 list items", dict(layout="list", title="x", items=["a"] * 6), "items"),
+                                      ("an unknown template", dict(layout="title", title="x", theme="neon-pink"), "unknown template")]:
+                _, err = await call("add_card", **kw)
+                check(f"add_card rejects {label}", err is not None and needle in err, err)
             await call("set_template", name="luxury")
             await call("add_clip", source="A")
 

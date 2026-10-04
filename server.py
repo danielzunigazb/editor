@@ -8,7 +8,7 @@ Edits are cheap and validated instantly (pure-python timeline model); rendering 
 Run (stdio):  .venv/bin/python server.py          [MLT_EDITOR_HOME=<project dir>]
 Needs the apt binding (python3-mlt) -> use the venv built with --system-site-packages on python3.12.
 """
-import contextlib, fcntl, io, json, os, re, subprocess, sys, time
+import contextlib, fcntl, hashlib, io, json, os, re, subprocess, sys, time
 
 # ---- stdout hygiene: MLT/ffmpeg/LADSPA may print to fd 1, which would corrupt the stdio protocol.
 _real = os.dup(1)
@@ -47,6 +47,7 @@ def _ensure_display():
 _ensure_display()
 import live  # noqa: E402  (engine: layout/build/render)
 import themes  # noqa: E402
+import cards  # noqa: E402
 import graphics  # noqa: E402
 import textrender  # noqa: E402
 from mcp.server.fastmcp import FastMCP, Image  # noqa: E402
@@ -414,6 +415,47 @@ def set_template(name: str, accent: str = "") -> dict:
 
 
 @mcp.tool()
+def add_card(layout: str, title: str = "", subtitle: str = "", items: list[str] | None = None, number: str = "",
+             author: str = "", dur_s: float = 4.0, push: bool = False, append: bool = True, theme: str = "auto") -> dict:
+    """Make a full-screen card in the project's template and (append=true) add it to the END of the main track.
+    layout: title (title+subtitle) | section (number+title) | quote (title = the quote, author) | list (title + items, up to 5) |
+    stat (number = the figure, title/subtitle = its label) | outro (title+subtitle). dur_s 0.5-30. push=true adds a slow zoom-in.
+    The card also becomes a source (CARD1, CARD2...) usable with add_clip/crossfade. It is appended like any clip, so add an INTRO
+    card before the clips and an OUTRO after them; dissolve into it with crossfade. Not available inside apply_ops."""
+    if not 0.5 <= dur_s <= 30:
+        raise ValueError("dur_s must be between 0.5 and 30 seconds")
+    with locked():
+        st = load()
+        bind(st)
+        th = themes.get(live._theme_key({"theme": theme}, "add_card"))
+        if layout not in cards.LAYOUTS:
+            raise ValueError(f"layout must be one of {cards.LAYOUTS}")
+        W, H, fps = st["width"] // 2 * 2, st["height"] // 2 * 2, st["fps"]
+        kw = dict(title=title, subtitle=subtitle, items=tuple(items or ()), number=number, author=author)
+        png = cards.card_png(os.path.join(HOME, "cache"), layout, W, H, th, **kw)
+        os.makedirs(os.path.join(HOME, "cards"), exist_ok=True)
+        key = hashlib.sha1(f"{png}|{fps}|{dur_s}|{push}".encode()).hexdigest()[:16]
+        mp4 = cards.card_video(png, os.path.join(HOME, "cards", f"card_{key}.mp4"), W, H, fps, dur_s, push)
+        sid = next((k for k, v in st["sources"].items() if v["path"] == mp4), None)
+        if sid is None:
+            if len(st["sources"]) >= MAX_SOURCES:
+                raise ValueError(f"the project already has {MAX_SOURCES} sources (the limit)")
+            n = 1
+            while f"CARD{n}" in st["sources"]:
+                n += 1
+            sid = f"CARD{n}"
+            st["sources"][sid] = {"path": mp4, **_probe(mp4)}
+        if append:
+            if len(st["ops"]) >= MAX_OPS:
+                raise ValueError(f"the project already has {MAX_OPS} edits (the limit)")
+            op = _b_add_clip(sid)
+            _validate(st, op)
+            st["ops"].append(op)
+        save(st)
+        return {"card": sid, "duration_s": st["sources"][sid]["duration_s"], "appended": append, **summary(st)}
+
+
+@mcp.tool()
 def add_text(text: str, start_s: float, dur_s: float, position: str = "bottom", size: float = 0.06,
              style: str = "auto", color: str = "", box: bool | None = None, uppercase: bool | None = None,
              ornament: str = "", fade_s: float = 0.15) -> dict:
@@ -488,7 +530,7 @@ def apply_ops(ops: list[dict]) -> dict:
     arguments}, e.g. [{"tool":"add_clip","source":"A","end_s":3}, {"tool":"add_clip","source":"B"},
     {"tool":"crossfade","first_index":0,"dur_s":0.5}, {"tool":"add_text","text":"Hola","start_s":0.5,"dur_s":2}].
     Allowed tools: add_clip, cut_clip, crossfade, set_fades, add_pip, add_text, add_subtitles, add_graphic,
-    add_lower_third, add_image, add_callout (import_clip and new_project are separate calls). Items are validated in order against
+    add_lower_third, add_image, add_callout (import_clip, new_project and add_card are separate calls). Items are validated in order against
     the timeline as the previous items leave it; if ANY item is invalid nothing is applied and the error names the
     item. Up to 50 items. Returns the final timeline (check `warnings`: it flags overlays that may overlap on screen).
     Prefer this to many single calls: it is the same result with far fewer round trips."""
