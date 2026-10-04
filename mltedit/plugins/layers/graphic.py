@@ -39,3 +39,6 @@ class Graphic(Layer):
 
     def svg(self, L):
         return L.get("gk", "graphic"), "ctext"
+
+    def summary(self, L):
+        return {"graphic": L["gk"]}

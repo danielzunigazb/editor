@@ -13,7 +13,9 @@ from .. import registry
 class Op:
     """Base for op plugins. Subclasses set `name` and implement layout()."""
     name = ""
+    order = 100                                  # position in lists shown to the LLM (lower first, then by name)
     animatable = False                           # accepts an `anim` spec
+    timed = False                                # has a `start` on the timeline (an overlay or audio): it must begin before the timeline ends
 
     def layout(self, o, n, where, st):
         """Validate op `o` (index n; `where` prefixes error messages) and add what it makes to st (a LayoutState). Raise ValueError."""
@@ -25,6 +27,16 @@ class Op:
 
     def check_new(self, o, ctx):
         """Extra validation of a freshly added op at the EXPORT size (ctx.W/H). Raise ValueError."""
+
+    def placement_error(self, o, total):
+        """Message if a freshly added op (against a timeline `total` seconds long) would never be seen, else None."""
+        if self.timed and o["start"] >= total - 1e-6:
+            return (f"{o['op']} starts at {o['start']:g}s but the timeline is only {total:g}s long "
+                    f"(add the clips first, or start it earlier)")
+
+    def legibility(self, o, i, st):
+        """Warnings (strings) when the op's type would be too small at the project's export size st['width'] x st['height']."""
+        return []
 
 
 class Layer:
@@ -77,6 +89,14 @@ class Layer:
         """(label, css class) in the timeline SVG."""
         return self.label(L), "ctext"
 
+    def group(self, L):
+        """Name of the group this layer collapses into in the timeline summary (e.g. the cues of one subtitle file), or None."""
+        return None
+
+    def summary(self, L):
+        """Extra fields of the layer in the timeline summary (what it shows)."""
+        return {}
+
 
 def op(cls):
     """Class decorator registering an op plugin under cls.name."""
@@ -103,7 +123,7 @@ def op_names():
 
 
 def animatable():
-    return tuple(n for n, o in registry.items("op") if o.animatable)
+    return tuple(n for n, o in sorted(registry.items("op"), key=lambda i: (i[1].order, i[0])) if o.animatable)
 
 
 class LayoutState:

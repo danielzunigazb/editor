@@ -86,3 +86,6 @@ class Callout(Layer):
 
     def svg(self, L):
         return L.get("title", "")[:22], "ctext"
+
+    def summary(self, L):
+        return {"callout": L["title"]}

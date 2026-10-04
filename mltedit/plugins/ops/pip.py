@@ -8,6 +8,8 @@ _WHERE = {"top-right": "arriba a la derecha", "top-left": "arriba a la izquierda
 
 @op
 class Pip(Op):
+    timed = True
+    order = 30
     name = "pip"
     animatable = True
 

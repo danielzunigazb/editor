@@ -6,6 +6,8 @@ from ...ops.common import clean, gfx_layer, theme_key
 
 @op
 class LowerThird(Op):
+    timed = True
+    order = 50
     name = "lower_third"
     animatable = True
 

@@ -7,6 +7,7 @@ from ...ops import Op, op
 
 @op
 class Audio(Op):
+    timed = True
     name = "audio"
 
     def layout(self, o, n, where, st):

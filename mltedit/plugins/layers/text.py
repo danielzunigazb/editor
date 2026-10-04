@@ -32,3 +32,9 @@ class Text(Layer):
 
     def svg(self, L):
         return L.get("text", "").replace("\n", " ")[:22], "ctext"
+
+    def group(self, L):
+        return "subtitles" if "sub" in L else None
+
+    def summary(self, L):
+        return {"text": L["text"]}

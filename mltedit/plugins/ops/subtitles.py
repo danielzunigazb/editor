@@ -9,6 +9,11 @@ class Subtitles(Op):
     subtitle_style = True                        # style "auto" -> the template's subtitle style
     box_default = True
 
+    def placement_error(self, o, total):
+        if all(c["start"] >= total - 1e-6 for c in o["cues"]):
+            return (f"every subtitle starts after the end of the timeline ({total:g}s); add the clips first "
+                    f"or check offset_s")
+
     def layout(self, o, n, where, st):
         cues = o.get("cues")
         if not isinstance(cues, list) or not 1 <= len(cues) <= 300:

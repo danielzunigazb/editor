@@ -5,6 +5,8 @@ from ...ops.common import anim, check_text_fits, clean, need_time, resolve_style
 
 @op
 class Text(Op):
+    timed = True
+    order = 10
     name = "text"
     animatable = True
 
@@ -16,6 +18,12 @@ class Text(Op):
 
     def describe(self, o):
         return f"Texto “{o['text'][:30]}” de {o['start']:g} a {o['start']+o['dur']:g} s", f"text @ {o['start']:g}s {o['dur']:g}s"
+
+    def legibility(self, o, i, st):
+        H = st["height"]
+        if isinstance(o.get("size"), (int, float)) and o["size"] * H < 14:
+            return [f"op {i} (text) would be only {o['size'] * H:.0f} px tall at {st['width']}x{H}: raise its size to at least {14 / H:.3f}"]
+        return []
 
     def check_new(self, o, ctx):
         check_text_fits([(o.get("text"), o.get("size", 0.06))], resolve_style(o, ctx), o.get("uppercase"), ctx)

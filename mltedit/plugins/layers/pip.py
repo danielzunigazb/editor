@@ -26,3 +26,6 @@ class Pip(Layer):
     def svg(self, L):
         src = L.get("src", "")
         return f"{src} · PiP", (f"c{src.lower()}" if len(src) == 1 and src.lower() in "abc" else "ca")
+
+    def summary(self, L):
+        return {"source": L["src"]}

@@ -28,3 +28,6 @@ class Image(Layer):
 
     def svg(self, L):
         return "imagen", "ctext"
+
+    def summary(self, L):
+        return {"image": L.get("icon") or os.path.basename(L["path"])}

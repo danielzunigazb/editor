@@ -9,6 +9,8 @@ from ...render import text as textrender
 
 @op
 class Image(Op):
+    timed = True
+    order = 20
     name = "image"
     animatable = True
 

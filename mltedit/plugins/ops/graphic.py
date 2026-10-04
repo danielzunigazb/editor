@@ -6,6 +6,8 @@ from ...ops.common import gfx_layer, theme_key
 
 @op
 class Graphic(Op):
+    timed = True
+    order = 40
     name = "graphic"
     animatable = True
 

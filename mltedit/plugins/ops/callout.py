@@ -6,6 +6,8 @@ from ...ops.common import anim, clean, theme_key
 
 @op
 class Callout(Op):
+    timed = True
+    order = 60
     name = "callout"
     animatable = True
 
@@ -39,6 +41,13 @@ class Callout(Op):
 
     def describe(self, o):
         return f"Callout “{o['title'][:24]}” de {o['start']:g} a {o['start']+o['dur']:g} s", f"callout @ {o['start']:g}s"
+
+    def legibility(self, o, i, st):
+        H = st["height"]
+        sz = o.get("size", 1.0) if isinstance(o.get("size"), (int, float)) else 1.0
+        if o.get("subtitle") and 0.0135 * H * sz < 11:
+            return [f"op {i} (callout) has a subtitle only {0.0135 * H * sz:.0f} px tall at {st['width']}x{H}: use size={min(2.0, 11 / (0.0135 * H)):.1f} or more"]
+        return []
 
     def check_new(self, o, ctx):
         graphics.callout(ctx.W, ctx.H, o["title"], o.get("subtitle", ""), "ne", strict=True, theme=theme_key(o, "callout", ctx))
