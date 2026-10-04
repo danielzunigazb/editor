@@ -8,6 +8,7 @@ class Text(Op):
     timed = True
     order = 10
     name = "text"
+    defaults = {"pos": "bottom", "size": 0.06, "fade": 0.15, "style": "auto"}
     animatable = True
 
     def layout(self, o, n, where, st):

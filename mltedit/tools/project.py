@@ -1,16 +1,17 @@
 """Project and timeline-wide tools: project/sources, templates, batches, undo."""
-import json, os, re
+import inspect, json, os, re
 
 from .. import assets as assets_lib
 from .. import graphics
 from .. import icons
 from .. import themes
 from .. import transitions
-from .. import anim, cards, registry
+from .. import anim, cards, errors, registry
 from .. import engine as live
 from .. import server as sv
 from ..render import text as textrender
 from .. import project as P
+from ..errors import EditError, as_edit_error
 from . import edit_tool, tool
 
 # ------------------------------------------------------------------ tools: project / sources
@@ -51,9 +52,37 @@ def import_clip(path: str, id: str = "") -> dict:
             raise ValueError(f"source id '{sid}' already exists")
         if len(st["sources"]) >= sv.MAX_SOURCES:
             raise ValueError(f"the project already has {sv.MAX_SOURCES} sources (the limit)")
-        st["sources"][sid] = {"path": path, **info}
+        st["sources"][sid] = {"path": path, "sig": P.file_sig(path), **info}
         rev = sv.save(st, {"kind": "import", "source": sid})
     return {"id": sid, "revision": rev, **info}
+
+
+@tool
+def verify_sources() -> dict:
+    """Check that every file the project depends on (imported sources, images, audio) is still there and unchanged since it was imported or
+    added. Returns {ok, problems}; each problem has a code (SOURCE_MISSING | SOURCE_CHANGED), what it is and its path. A missing file makes the rendering tools refuse;
+    a changed one still renders what is on disk, and get_timeline warns. `refresh_source` re-reads a changed source."""
+    bad = P.file_problems(sv.load())
+    return {"ok": not bad, "problems": bad}
+
+
+@edit_tool
+def refresh_source(id: str) -> dict:
+    """Re-read a source whose file changed on disk (new length, resolution, audio): its record is updated and the whole timeline is checked again.
+    If the edits no longer fit the new file (e.g. a clip now shorter than a cut) nothing is changed and the error says which edit. `undo` takes it back."""
+    with sv.locked():
+        st = sv.load()
+        sv.check_revision(st)
+        if id not in st["sources"]:
+            raise EditError("UNKNOWN_SOURCE", f"unknown source '{id}'; known: {sorted(st['sources'])}")
+        old = json.loads(json.dumps(st["sources"]))
+        path = st["sources"][id]["path"]
+        st["sources"][id] = {"path": path, "sig": P.file_sig(path), **sv._probe(path)}
+        sv.bind(st)
+        live.layout(st["ops"])                                  # raises if an edit no longer fits the new file: nothing is saved
+        sv.push_undo(st, {"k": "set", "fields": {"sources": old}})
+        sv.save(st, {"kind": "refresh_source", "source": id})
+        return {"refreshed": id, **sv.summary(st)}
 
 
 @tool
@@ -72,6 +101,7 @@ def list_styles() -> dict:
             "graphics": {k: f"amount = {graphics.AMOUNT[k][0]}, {graphics.AMOUNT[k][1]}-{graphics.AMOUNT[k][2]} "
                             f"(default {graphics.AMOUNT[k][3]})" for k in graphics.KINDS},
             "lower_third": "name + role panel in the template's own shape (add_lower_third)", "transitions": list(transitions.STYLES),
+            "edit_tools": {n: str(inspect.signature(f)) for n, f in sorted(sv.BUILDERS.items())}, "error_codes": errors.CODES,
             "animation_presets": list(anim.PRESETS), "easings": list(anim.EASES), "card_layouts": list(cards.LAYOUTS),
             **({"problems": registry.problems()} if registry.problems() else {})}
 
@@ -155,10 +185,9 @@ def _apply_ops(ops):
             sv._validate(st, op)
         except TypeError as e:
             import inspect
-            raise ValueError(f"item {i} ({tool}): bad arguments ({e}); expected {tool}{inspect.signature(fn)}; "
-                             f"nothing was applied")
+            raise EditError("INVALID_ARGUMENT", f"item {i} ({tool})", f"bad arguments ({e}); expected {tool}{inspect.signature(fn)}; nothing was applied")
         except ValueError as e:
-            raise ValueError(f"item {i} ({tool}): {e}; nothing was applied")
+            raise as_edit_error(e).with_prefix(f"item {i} ({tool}): ", "; nothing was applied")
         st["ops"].append(op)                       # in memory only until every item has passed
         made.append(op["id"])
     sv.push_undo(st, {"k": "batch", "patches": [{"k": "pop", "id": i} for i in reversed(made)]})

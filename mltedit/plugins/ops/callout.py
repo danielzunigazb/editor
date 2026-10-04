@@ -9,6 +9,7 @@ class Callout(Op):
     timed = True
     order = 60
     name = "callout"
+    defaults = {"side": "auto", "size": 1.0, "fade": 0.3, "subtitle": ""}
     animatable = True
 
     def layout(self, o, n, where, st):

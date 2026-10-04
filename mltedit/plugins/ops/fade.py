@@ -5,6 +5,7 @@ from ...ops import Op, op
 @op
 class Fade(Op):
     name = "fade"
+    defaults = {"in": 0.0, "out": 0.0}
 
     def layout(self, o, n, where, st):
         st.fade = {"in": float(o.get("in", 0.0)), "out": float(o.get("out", 0.0))}

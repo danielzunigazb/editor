@@ -6,6 +6,7 @@ from ...ops.common import check_text_fits, clean, resolve_style, text_style
 @op
 class Subtitles(Op):
     name = "subtitles"
+    defaults = {"pos": "bottom", "size": 0.05, "fade": 0.0, "style": "auto", "ornament": "none"}
     subtitle_style = True                        # style "auto" -> the template's subtitle style
     box_default = True
 

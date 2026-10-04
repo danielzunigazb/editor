@@ -6,13 +6,25 @@ Docstrings may use <<placeholders>> (see DOC_VARS): they are filled in from the 
 lists templates, transitions or presets by hand."""
 import functools, importlib, inspect, pkgutil
 
-from .. import registry
+from .. import errors, registry
+
+
+def _coded(fn):
+    """Wrap a tool so that every ValueError reaching the agent is an EditError with a code (see errors.py)."""
+    @functools.wraps(fn)
+    def wrapper(*a, **kw):
+        try:
+            return fn(*a, **kw)
+        except ValueError as e:
+            raise errors.as_edit_error(e) from None
+    return wrapper
 
 
 def tool(fn):
     """Register an MCP tool under its function name."""
-    registry.register("tool", fn.__name__, fn)
-    return fn
+    w = _coded(fn)
+    registry.register("tool", fn.__name__, w)
+    return w
 
 
 def edit_tool(fn):
@@ -28,6 +40,8 @@ def edit_tool(fn):
         tok = sv.CALL.set({"tool": fn.__name__, "expected_revision": expected_revision})
         try:
             return fn(*a, **kw)
+        except ValueError as e:
+            raise errors.as_edit_error(e) from None
         finally:
             sv.CALL.reset(tok)
     wrapper.__signature__ = sig.replace(parameters=list(sig.parameters.values()) + extra)

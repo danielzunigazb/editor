@@ -5,6 +5,7 @@ from .. import cards
 from .. import themes
 from .. import engine as live
 from .. import server as sv
+from .. import project as P
 from . import edit_tool
 
 @edit_tool
@@ -44,7 +45,7 @@ def add_card(layout: str, title: str = "", subtitle: str = "", items: list[str] 
             while f"CARD{n}" in st["sources"]:
                 n += 1
             sid = f"CARD{n}"
-            st["sources"][sid] = {"path": mp4, **sv._probe(mp4)}
+            st["sources"][sid] = {"path": mp4, "sig": P.file_sig(mp4), **sv._probe(mp4)}
         if append:
             if len(st["ops"]) >= sv.MAX_OPS:
                 raise ValueError(f"the project already has {sv.MAX_OPS} edits (the limit)")

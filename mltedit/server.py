@@ -48,6 +48,7 @@ from . import engine as live  # noqa: E402  (engine: layout/build/render)
 from . import themes  # noqa: E402
 from . import ops as O  # noqa: E402
 from . import project as P  # noqa: E402
+from .errors import EditError, as_edit_error  # noqa: E402
 from . import assets as assets_lib  # noqa: E402
 from mcp.server.fastmcp import FastMCP  # noqa: E402
 
@@ -105,8 +106,8 @@ def check_revision(st):
     """The edit says which revision it was made against (expected_revision); refuse it, changing nothing, if the project moved on."""
     exp = _call().get("expected_revision")
     if exp is not None and exp != st.get("revision", 0):
-        raise ValueError(f"REVISION_CONFLICT: the project is at revision {st.get('revision', 0)} but this edit was made against revision {exp}; "
-                         f"call get_timeline to see the current state and make the edit again; nothing was changed")
+        raise EditError("REVISION_CONFLICT", f"the project is at revision {st.get('revision', 0)} but this edit was made against revision {exp}; "
+                        f"call get_timeline to see the current state and make the edit again; nothing was changed", hint="get_timeline")
 
 
 def push_undo(st, patch):
@@ -121,7 +122,25 @@ def prepare(st, op):
     op = {**op, "id": op.get("id") or P.new_op_id({o.get("id") for o in st["ops"]})}
     if plug is not None:
         op = plug.resolve_refs(op, live.layout(st["ops"])["entries"])
+        try:
+            op = plug.freeze(plug.normalize(op, live.CTX), live.CTX)
+        except ValueError as e:
+            raise as_edit_error(e, f"op {len(st['ops'])} ({op.get('op')})")
     return op
+
+
+def require_fresh(st):
+    """Before rendering: every file the project depends on must still be there. (A file that CHANGED still renders - what is on disk is what you see,
+    and the caches are keyed on it - but get_timeline warns and verify_sources lists it, because its recorded length may no longer be true.)"""
+    gone = [p for p in P.file_problems(st) if p["code"] == "SOURCE_MISSING"]
+    if gone:
+        more = f" (and {len(gone) - 1} more: verify_sources lists them)" if len(gone) > 1 else ""
+        raise EditError("SOURCE_MISSING", f"{gone[0]['what']}: {gone[0]['path']} is missing{more}", hint="import_clip it again, or remove the edit")
+
+
+def _file_warnings(st):
+    return [f"{p['what']}: {p['path']} changed on disk since it was recorded; " + (f"refresh_source('{p['source']}') re-reads it" if p.get("source") else "check the edit")
+            for p in P.file_problems(st) if p["code"] == "SOURCE_CHANGED"][:3]
 
 
 def bind(st, scale=1.0):
@@ -219,7 +238,7 @@ def summary(st, full=False):
         "overlays": layers,
         "audio": [{"op": a["op"], "name": a["name"], "start_s": round(a["start"], 3), "end_s": round(a["start"] + a["dur_eff"], 3), "volume_db": a["vol"],
                    "loop": a["loop"], "ducked": len(a["duck"])} for a in m["audios"]],
-        "warnings": m["warnings"] + _legibility(st),
+        "warnings": m["warnings"] + _legibility(st) + _file_warnings(st),
         "op_count": len(st["ops"]),
     }
     credits = assets_lib.credit_lines(O.project_assets(st["ops"]))
@@ -229,6 +248,7 @@ def summary(st, full=False):
         out["ops"] = [{"index": i, **({k: v for k, v in o.items() if k != "cues"}), **({"cues": len(o["cues"])} if "cues" in o else {})}
                       for i, o in enumerate(st["ops"])]
         out["can_undo"], out["can_redo"] = len(st.get("undo", [])), len(st.get("redo", []))
+        out["layout_hash"] = P.layout_hash(st)
     return out
 
 

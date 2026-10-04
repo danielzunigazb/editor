@@ -83,6 +83,7 @@ def get_still(time_s: float, full_res: bool = False) -> Image:
     """Render ONE frame of the current edit at `time_s` and return it as an image, so you can look at
     the result. Half resolution by default (faster); full_res=True renders at export size."""
     st = sv.load()
+    sv.require_fresh(st)
     return Image(data=_png(_frames(st, [time_s], 1.0 if full_res else 0.5)), format="png")
 
 
@@ -93,6 +94,7 @@ def get_contact_sheet(count: int = 6) -> Image:
     if not 2 <= count <= 12:
         raise ValueError("count must be between 2 and 12")
     st = sv.load()
+    sv.require_fresh(st)
     sv.bind(st)
     total = live.layout(st["ops"])["total"] if st["ops"] else 0
     if total <= 0:
@@ -110,6 +112,7 @@ def render_preview() -> dict:
     """Render the whole edit to a small half-resolution mp4 (with audio) for quick playback.
     Returns its path and how long rendering took."""
     st = sv.load()
+    sv.require_fresh(st)
     if not st["ops"]:
         raise ValueError("the timeline is empty; add_clip first")
     sv.bind(st, 0.5)
@@ -134,6 +137,7 @@ def export(output_path: str, quality: str = "high", overwrite: bool = False, mas
     if quality not in ("high", "draft"):
         raise ValueError("quality must be 'high' or 'draft'")
     st = sv.load()
+    sv.require_fresh(st)
     if not st["ops"]:
         raise ValueError("the timeline is empty; add_clip first")
     out = sv._safe_path(output_path, "export", must_exist=False)

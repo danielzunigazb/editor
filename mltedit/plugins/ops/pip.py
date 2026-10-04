@@ -11,6 +11,7 @@ class Pip(Op):
     timed = True
     order = 30
     name = "pip"
+    defaults = {"pos": "top-right", "scale": 0.3, "opacity": 1.0, "in": 0.0}
     animatable = True
 
     def layout(self, o, n, where, st):

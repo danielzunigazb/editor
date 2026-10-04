@@ -16,6 +16,7 @@ State: one EngineContext (core/context.py), CTX. `live.W`, `live.THEME`, ... rea
 import base64, html, json, os, subprocess, sys, time, types
 
 from . import anim as animmod
+from . import errors
 from . import ops as O
 from . import transitions
 from .config import S
@@ -67,7 +68,15 @@ def resolve_style(o, ctx=None):
 # ---------------------------------------------------------------- timeline model (pure python)
 def layout(ops, ctx=None):
     """Compute entry durations/starts and effects from the op list (for validation + the SVG), each op through its plugin.
-    Raises ValueError with a message the caller can show verbatim."""
+    Raises EditError (a ValueError with a stable `code`) with a message the caller can show verbatim; a malformed op is an INVALID_ARGUMENT, never
+    a KeyError or TypeError."""
+    try:
+        return _layout(ops, ctx)
+    except ValueError as e:
+        raise errors.as_edit_error(e) from None
+
+
+def _layout(ops, ctx=None):
     ctx = ctx or CTX
     for n, o in enumerate(ops):
         timeline.check_finite(o, f"op {n} ({o.get('op')})")
@@ -80,7 +89,10 @@ def layout(ops, ctx=None):
             raise ValueError(f"{where}: anim is not supported on '{k}' (use it on {', '.join(O.animatable())}); a silently ignored animation would be worse")
         if plug is None:
             raise ValueError(f"{where}: unknown op; known: {', '.join(O.op_names())}")
-        plug.layout(o, n, where, st)
+        try:
+            plug.layout(plug.normalize(o, ctx), n, where, st)
+        except (KeyError, TypeError, AttributeError, IndexError) as e:
+            raise errors.EditError("INVALID_ARGUMENT", where, f"malformed op ({type(e).__name__}: {e}); see list_styles for the fields each edit takes") from None
     return timeline.resolve(st)
 
 
@@ -89,7 +101,10 @@ def check_new_op(op, ctx=None):
     fit on screen. Raises ValueError."""
     plug = O.get_op(op.get("op"))
     if plug is not None:
-        plug.check_new(op, ctx or CTX)
+        try:
+            plug.check_new(op, ctx or CTX)
+        except ValueError as e:
+            raise errors.as_edit_error(e) from None
 
 
 # ---------------------------------------------------------------- MLT build (the actual engine)

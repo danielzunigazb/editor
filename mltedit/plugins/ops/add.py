@@ -5,7 +5,14 @@ from ...ops import Op, op
 @op
 class Add(Op):
     name = "add"
+    defaults = {"in": 0.0}
     makes_clip = True
+
+    def normalize(self, o, ctx=None):
+        o = super().normalize(o)
+        if ctx is not None and "end" not in o and o.get("src") in ctx.CLIP_LEN:
+            o = {**o, "end": ctx.CLIP_LEN[o["src"]]}               # "to the end of the source" becomes the number it meant when the edit was made
+        return o
 
     def layout(self, o, n, where, st):
         clip_len, fr = st.ctx.CLIP_LEN, st.fr

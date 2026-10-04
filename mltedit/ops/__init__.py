@@ -14,6 +14,7 @@ class Op:
     """Base for op plugins. Subclasses set `name` and implement layout()."""
     name = ""
     order = 100                                  # position in lists shown to the LLM (lower first, then by name)
+    defaults = {}                                # static defaults of the op's fields: stored with the op on commit, so replaying never depends on the code's defaults
     makes_clip = False                           # adds an entry to the base track (an entry's id is the id of the op that made it)
     animatable = False                           # accepts an `anim` spec
     timed = False                                # has a `start` on the timeline (an overlay or audio): it must begin before the timeline ends
@@ -34,6 +35,16 @@ class Op:
         if self.timed and o["start"] >= total - 1e-6:
             return (f"{o['op']} starts at {o['start']:g}s but the timeline is only {total:g}s long "
                     f"(add the clips first, or start it earlier)")
+
+    def normalize(self, o, ctx=None):
+        """The op with every static default filled in (the canonical form that is stored). Defaults that follow the template (style "auto", box None)
+        stay as they are on purpose. `ctx` (the EngineContext) lets an op fill defaults that depend on the sources."""
+        return {**self.defaults, **o}
+
+    def freeze(self, o, ctx):
+        """Facts about the world the op depends on, measured once at commit and stored in it (image aspect, file signatures), so that
+        laying the project out again never reads the disk. Returns the op with them added."""
+        return o
 
     def migrate_refs(self, o, clip_ids):
         """v1 -> v2: the op with its clip positions replaced by clip ids (`clip_ids` = ids of the entries made by the ops before it)."""

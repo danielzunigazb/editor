@@ -20,6 +20,15 @@ def off_video(spec):
     return [v for v in (spec or {}).values() if isinstance(v, str) and v in animmod.PRESETS and not animmod.preset(v).on_video]
 
 
+def file_sig(path):
+    """[size, mtime_ns] of a file (what tells that it changed), or None if it is not there."""
+    try:
+        s = os.stat(path)
+        return [s.st_size, s.st_mtime_ns]
+    except OSError:
+        return None
+
+
 def need_time(o, where):
     if not (o.get("start", -1) >= 0 and 0 < o.get("dur", 0) <= 3600):
         raise ValueError(f"{where}: needs start>=0 and 0 < dur <= 3600")

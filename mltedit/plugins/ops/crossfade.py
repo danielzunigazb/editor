@@ -8,6 +8,9 @@ from ...ops import Op, op
 class Crossfade(Op):
     name = "crossfade"
 
+    def normalize(self, o, ctx=None):
+        return {"style": S.default_transition, **o}                  # read at call time: the setting can change between runs
+
     def layout(self, o, n, where, st):
         a_, b_ = (st.clip_index(r, where) for r in o["between"])
         if b_ != a_ + 1:

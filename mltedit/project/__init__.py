@@ -130,6 +130,44 @@ def clean_stale_tmp(path):
                 pass
 
 
+# ------------------------------------------------------------------------------------------------ files the project depends on
+def file_problems(st):
+    """Files whose state differs from what the project recorded: [{code, what, path, ...}]. Sources record [size, mtime_ns] on import; image and audio
+    edits record theirs on commit. A project without a signature (older file) is not checked for that file, only for existing."""
+    out = []
+
+    def chk(path, sig, what, **extra):
+        now = file_sig(path)
+        if now is None:
+            out.append({"code": "SOURCE_MISSING", "what": what, "path": path, **extra})
+        elif sig is not None and list(sig) != now:
+            out.append({"code": "SOURCE_CHANGED", "what": what, "path": path, **extra})
+
+    for sid, src in st["sources"].items():
+        chk(src["path"], src.get("sig"), f"source {sid}", source=sid)
+    for i, o in enumerate(st["ops"]):
+        plug = O.get_op(o.get("op"))
+        for f in (plug.files(o) if plug else []):
+            chk(f, o.get("file_sig"), f"op {i} ({o['op']})", op=o.get("id"))
+    return out
+
+
+LAYOUT_VERSION = 1                                        # bump when the code changes what a given project lays out to
+
+
+def layout_hash(st):
+    """Hash of everything the layout of a project depends on (the stored ops, the format, the template, the sources' identity): equal hashes mean an
+    identical timeline. Used as the key of the preview caches. Pure: reads nothing from disk."""
+    data = {"v": LAYOUT_VERSION, "ops": st["ops"], "size": [st["width"], st["height"], st["fps"]], "theme": st.get("theme"), "motion": bool(st.get("motion")),
+            "sources": {k: [v["path"], v.get("sig"), v.get("duration_s"), v.get("width"), v.get("height")] for k, v in sorted(st["sources"].items())}}
+    return hashlib.sha1(json.dumps(data, sort_keys=True, ensure_ascii=False, default=str).encode()).hexdigest()[:16]
+
+
+def file_sig(path):
+    from ..ops.common import file_sig as sig
+    return sig(path)
+
+
 # ------------------------------------------------------------------------------------------------ patches (undo / redo)
 def index_of(st, op_id):
     for i, o in enumerate(st["ops"]):

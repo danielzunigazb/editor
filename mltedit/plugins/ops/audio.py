@@ -3,12 +3,14 @@ import os
 
 from ...config import S
 from ...ops import Op, op
+from ...ops.common import file_sig
 
 
 @op
 class Audio(Op):
     timed = True
     name = "audio"
+    defaults = {"loop": False, "in": 0.0, "volume_db": -14.0, "duck_db": -12.0, "duck": []}
 
     def layout(self, o, n, where, st):
         if not isinstance(o.get("loop", False), bool):
@@ -38,6 +40,9 @@ class Audio(Op):
                           "vol": float(nums["volume_db"]), "fade_in": None if o.get("fade_in") is None else float(nums["fade_in"]),
                           "fade_out": None if o.get("fade_out") is None else float(nums["fade_out"]), "loop": bool(o.get("loop", False)),
                           "duck": [(float(a_), float(b_)) for a_, b_ in duck], "duck_db": float(nums["duck_db"]), "name": o.get("name") or os.path.basename(str(o.get("path")))})
+
+    def freeze(self, o, ctx):
+        return {**o, "file_sig": file_sig(o["path"])} if o.get("path") and "file_sig" not in o else o
 
     def assets(self, o):
         return [o["asset"]] if o.get("asset") else []

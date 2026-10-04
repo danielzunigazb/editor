@@ -9,6 +9,7 @@ class LowerThird(Op):
     timed = True
     order = 50
     name = "lower_third"
+    defaults = {"subtitle": "", "align": "left", "opacity": 1.0, "fade": 0.4}
     animatable = True
 
     def layout(self, o, n, where, st):

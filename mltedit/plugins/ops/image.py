@@ -3,7 +3,7 @@ import os
 
 from ... import icons, themes
 from ...ops import Op, op
-from ...ops.common import POS_IMG, anim, image_aspect, theme_key
+from ...ops.common import POS_IMG, anim, file_sig, image_aspect, theme_key
 from ...render import text as textrender
 
 
@@ -12,6 +12,7 @@ class Image(Op):
     timed = True
     order = 20
     name = "image"
+    defaults = {"pos": "center", "scale": 0.3, "opacity": 1.0}
     animatable = True
 
     def layout(self, o, n, where, st):
@@ -34,16 +35,18 @@ class Image(Op):
             raise ValueError(f"{where}: color must look like #RRGGBB")
         base = {"kind": "image", "op": n, "start": float(o["start"]), "dur": float(o["dur"]), "pos": o.get("pos", "center"), "xy": xy,
                 "scale": float(o.get("scale", 0.3)), "opacity": float(o.get("opacity", 1.0)), "anim": anim(o, where, st.ctx)}
+        frozen = o.get("aspect")                                # measured when the edit was made: no disk access while laying out
         if icon or path.lower().endswith(".svg"):
             try:
                 if icon:
                     svg = icons.icon_path(icon)
                 else:
                     svg = os.path.abspath(os.path.expanduser(path))
-                    if not os.path.isfile(svg):
-                        raise ValueError(f"image not found: {svg}")
-                    icons.check_svg(svg)
-                aspect = 1.0 if (icon or svg is None) else icons.svg_aspect(svg)
+                    if frozen is None:
+                        if not os.path.isfile(svg):
+                            raise ValueError(f"image not found: {svg}")
+                        icons.check_svg(svg)
+                aspect = 1.0 if (icon or svg is None) else (frozen if frozen is not None else icons.svg_aspect(svg))
             except ValueError as e:
                 raise ValueError(f"{where}: {e}")
             tk = theme_key(o, where, st.ctx)
@@ -53,7 +56,21 @@ class Image(Op):
             default_color = icons.plate_style(themes.get(tk))[3] if plate else tk["accent"]
             st.layers.append({**base, "icon": icon or None, "svg": svg, "path": path or "", "aspect": aspect, "color": color or default_color, "plate": plate, "theme": tk})
         else:
-            st.layers.append({**base, "path": path, "aspect": image_aspect(path, where)})
+            st.layers.append({**base, "path": path, "aspect": frozen if frozen is not None else image_aspect(path, where)})
+
+    def freeze(self, o, ctx):
+        path = o.get("path") or ""
+        if not path or "aspect" in o:
+            return o                                             # an icon reads nothing from the user's disk; or already frozen
+        full = os.path.abspath(os.path.expanduser(path))
+        if path.lower().endswith(".svg"):
+            if not os.path.isfile(full):
+                raise ValueError(f"image not found: {full}")
+            icons.check_svg(full)
+            aspect = icons.svg_aspect(full)
+        else:
+            aspect = image_aspect(path, "image")
+        return {**o, "aspect": aspect, "file_sig": file_sig(full)}
 
     def files(self, o):
         return [o["path"]] if o.get("path") else []

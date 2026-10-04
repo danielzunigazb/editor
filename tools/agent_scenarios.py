@@ -141,7 +141,7 @@ def a_retry_with_the_same_request_id_adds_one_edit():
     return e1 is None and e2 is None and n == 2, (e1, e2, n)
 
 
-@scenario(xfail="P2")
+@scenario()
 def errors_carry_a_stable_code():
     fresh()
     e = err(server.add_clip, "A", 0, 99)

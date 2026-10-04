@@ -9,6 +9,7 @@ class Graphic(Op):
     timed = True
     order = 40
     name = "graphic"
+    defaults = {"opacity": 1.0, "fade": 0.4}
     animatable = True
 
     def layout(self, o, n, where, st):
