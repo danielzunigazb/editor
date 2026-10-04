@@ -60,6 +60,7 @@ def smooth(tr):
 
 
 # ------------------------------------------------------------------ optical-flow lock (needs cv2 + numpy)
+EXTEND_S = 2.0                           # the lock may outlive the first/last detection of its track by this long
 TRACK_FPS, SCALE = 25.0, 0.5            # tracked at 25 fps on a half-size grey image: ~5 ms per step, plenty for a drone
 
 
@@ -68,7 +69,7 @@ def load_frames(video, t0, t1):
     cap = cv2.VideoCapture(video)
     vfps = cap.get(cv2.CAP_PROP_FPS)
     step = max(1, int(round(vfps / TRACK_FPS)))
-    first = int(t0 * vfps) // step * step
+    first = max(0, int(max(0.0, t0) * vfps)) // step * step
     cap.set(cv2.CAP_PROP_POS_FRAMES, first)
     frames, i = {}, first
     while i / vfps <= t1:
@@ -128,11 +129,12 @@ def refine(frames, tr, dets, W_, H_):
         return None
     h_, w_ = next(iter(frames.values())).shape
     path = {k0: ((seed[1] * w_, seed[2] * h_), seed[3] * w_, seed[4] * h_)}
+    k_lo, k_hi = max(0, round((tr[0][0] - EXTEND_S) * TRACK_FPS)), round((tr[-1][0] + EXTEND_S) * TRACK_FPS)    # never wander far past what the detector saw
     for direction in (1, -1):
         k, state, lost_since = k0, path[k0], None
         while True:
             nk = k + direction
-            if nk not in frames or k not in frames:
+            if nk not in frames or k not in frames or not k_lo <= nk <= k_hi:
                 break
             r = lk_step(frames[k], frames[nk], *state)
             if r is None:
@@ -168,6 +170,7 @@ def main():
     ap.add_argument("spec"); ap.add_argument("out")
     ap.add_argument("--src-in", type=float, default=0.0); ap.add_argument("--src-out", type=float, default=1e9)
     ap.add_argument("--max-concurrent", type=int, default=3)
+    ap.add_argument("--min-agree", type=float, default=0.5, help="drop a locked track unless its anchor is inside the detector's box in at least this fraction of the detections")
     ap.add_argument("--min-dx", type=float, default=0.16, help="two labels on screen together must differ by at least this much in x (fraction of the frame) OR ...")
     ap.add_argument("--min-dy", type=float, default=0.07, help="... this much in y; otherwise the lower-scored one is dropped")
     ap.add_argument("--video", default="", help="lock tracks to the structure with optical flow (needs the detector venv)")
@@ -175,7 +178,7 @@ def main():
     spec = json.load(open(a.spec))
     sel = []                                                   # (score, detection track, target, all detections of that group)
     for tgt in spec["targets"]:
-        by_t = load(spec["detections"], tgt["queries"])
+        by_t = load(tgt.get("detections", spec["detections"]), tgt["queries"])
         by_t = {t: v for t, v in by_t.items() if a.src_in <= t <= a.src_out}
         tracks = []
         for tr in track(by_t, tgt.get("min_score", 0.2), tgt.get("max_area", 0.3)):
@@ -199,6 +202,9 @@ def main():
                 inside = [1 for t, cx, cy, w, h, _ in tr if min(locked, key=lambda p: abs(p[0] - t))[1:] and
                           abs(min(locked, key=lambda p: abs(p[0] - t))[1] - cx) <= w / 2 and abs(min(locked, key=lambda p: abs(p[0] - t))[2] - cy) <= h / 2]
                 stats.append((tgt["title"], len(tr), len(inside), pts_src[0][0], pts_src[-1][0], locked[0][0], locked[-1][0]))
+                if len(inside) < a.min_agree * len(tr):
+                    print(f"! {tgt['title']} {tr[0][0]:.0f}-{tr[-1][0]:.0f}s dropped: the lock agrees with the detector in only {len(inside)}/{len(tr)} samples", file=sys.stderr)
+                    continue
                 pts_src = locked
             else:
                 print(f"! {tgt['title']}: could not lock with optical flow, using the detector path", file=sys.stderr)
