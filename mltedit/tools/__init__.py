@@ -64,12 +64,7 @@ def edit_tool(fn=None, *, anchor=False):
             finally:
                 sv.CALL.reset(tok)
         wrapper.__signature__ = sig.replace(parameters=list(sig.parameters.values()) + extra)
-        doc = (fn.__doc__ or "") + ("\n    expected_revision: refuse the edit (REVISION_CONFLICT, nothing changed) if the project is no longer at this revision."
-                                    "\n    dry_run: true = change nothing and report what this call would do (a diff). request_id: retrying with the same id applies nothing twice."
-                                    "\n    Errors are `CODE: message` plus a JSON line; codes: <<error_codes>>.")
-        if anchor:
-            doc += ("\n    anchor: \"clip\" (default) = the edit follows the clip on screen at start_s (it moves when earlier clips are cut, trimmed, moved or removed); "
-                    "\"timeline\" = it stays at that timeline time.")
+        doc = (fn.__doc__ or "") + "\n    Also takes expected_revision, dry_run, request_id" + (", anchor" if anchor else "") + " (see the server instructions)."
         wrapper.__doc__ = doc
         registry.register("tool", fn.__name__, wrapper)
         return wrapper

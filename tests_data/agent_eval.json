@@ -1,5 +1,5 @@
 {
- "note": "claude -p with the server as the only tool; 'before' = the code before the modularization (a13a39e), 'after' = this code. One run per task except edit_a_finished_project (two). Small n: indicative, not statistics.",
+ "note": "claude -p with the server as the only tool. before = the code before the modularization (a13a39e); after = P6 code; after-trimmed = after the tool docs were shortened (schema 14.9k -> 11.5k tokens; before: 6.5k). 1-2 runs per task. Small n and cost is dominated by prompt-cache state: indicative only.",
  "runs": [
   {
    "label": "after",
@@ -55,6 +55,50 @@
    "turns": 3,
    "cost_usd": 0.036,
    "seconds": 9.1
+  },
+  {
+   "label": "after-trimmed",
+   "task": "edit_a_finished_project",
+   "correct": true,
+   "tool_calls": 2,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "turns": 3,
+   "cost_usd": 0.114,
+   "seconds": 9.9
+  },
+  {
+   "label": "after-trimmed",
+   "task": "overlay_survives_a_cut",
+   "correct": true,
+   "tool_calls": 8,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "turns": 9,
+   "cost_usd": 0.066,
+   "seconds": 18.6
+  },
+  {
+   "label": "after-trimmed",
+   "task": "fix_the_right_edit",
+   "correct": true,
+   "tool_calls": 7,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "turns": 8,
+   "cost_usd": 0.076,
+   "seconds": 18.6
+  },
+  {
+   "label": "after-trimmed",
+   "task": "short_piece",
+   "correct": true,
+   "tool_calls": 6,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "turns": 7,
+   "cost_usd": 0.049,
+   "seconds": 18.2
   },
   {
    "label": "before",

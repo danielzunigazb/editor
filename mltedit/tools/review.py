@@ -3,7 +3,7 @@ import hashlib, json, os, re, subprocess, time
 
 from .. import assets as assets_lib
 from .. import engine as live
-from .. import jobs
+from .. import jobs, qa
 from .. import ops as O
 from .. import project as P
 from .. import server as sv
@@ -143,6 +143,17 @@ def get_contact_sheet(count: int = 6) -> Image:
     return Image(data=_serve(_cached(st, 0.25, f"sheet|{count}"), make), format="png")
 
 
+def _qa(path, m):
+    """Watch the rendered file for what a viewer would notice (unexpected hard cuts, flashes, frozen stretches) and say so: the model only sees stills, so
+    the render checks itself. A hard cut where two clips meet WITHOUT a crossfade is what the edit asked for, not a finding."""
+    try:
+        joined = {i for i in m["xfades"]}
+        expected = [e["start"] for i, e in enumerate(m["entries"]) if i > 0 and (i - 1) not in joined]
+        return qa.check(path, expected)
+    except (SystemExit, OSError, ValueError) as e:
+        return {"ok": None, "findings": [f"QA could not read the file: {e}"]}
+
+
 def do_preview(st):
     """Render the whole edit at half size to HOME/preview.mp4 (runs in this process or in a job)."""
     sv.bind(st, 0.5)
@@ -150,13 +161,14 @@ def do_preview(st):
     out = os.path.join(sv.HOME, "preview.mp4")
     t0 = time.perf_counter()
     live.render(p, tr, out)
-    return {"path": out, "duration_s": round(m["total"], 3), "size_kb": os.path.getsize(out) // 1024, "render_s": round(time.perf_counter() - t0, 2)}
+    return {"path": out, "duration_s": round(m["total"], 3), "size_kb": os.path.getsize(out) // 1024, "render_s": round(time.perf_counter() - t0, 2), "qa": _qa(out, m)}
 
 
 @tool
 def render_preview(background: bool = False) -> dict:
     """Render the whole edit to a small half-resolution mp4 (with audio) for quick playback.
-    Returns its path and how long rendering took. background=true: start it as a job and answer at once with a job_id (see job_status, cancel_job)."""
+    Returns its path, how long rendering took, and `qa`: the rendered file watched for unexpected hard cuts and one-frame flashes
+    (`qa.findings` is empty when it looks right; still stretches are listed as `qa.notes`). background=true: start it as a job and answer at once with a job_id (see job_status, cancel_job)."""
     st = sv.load()
     sv.require_fresh(st)
     if not st["ops"]:
@@ -195,7 +207,7 @@ def do_export(st, out, quality, master):
     live.render(p, tr, out, *(("medium", 20, "160k") if quality == "high" else ("ultrafast", 28, "96k")), master=master)
     info = sv._probe(out)
     res = {"path": out, "duration_s": info["duration_s"], "resolution": f"{info['width']}x{info['height']}",
-           "size_kb": os.path.getsize(out) // 1024, "render_s": round(time.perf_counter() - t0, 2), **_loudness(out)}
+           "size_kb": os.path.getsize(out) // 1024, "render_s": round(time.perf_counter() - t0, 2), **_loudness(out), "qa": _qa(out, m)}
     credits = assets_lib.credit_lines(O.project_assets(st["ops"]))
     credit_path = os.path.splitext(out)[0] + ".credits.txt"
     if credits:                                              # CC-BY pieces must be credited: write the text next to the video
@@ -213,7 +225,8 @@ def export(output_path: str, quality: str = "high", overwrite: bool = False, mas
     does the H.264/AAC encode. output_path must end in .mp4 or .mov. An existing file is NOT replaced unless
     overwrite=true. quality: 'high' (CRF 20, preset medium) or 'draft' (CRF 28, ultrafast).
     master: '' (default) or 'loudnorm' = normalise the sound to -16 LUFS integrated / -1.5 dB true peak. The result reports the loudness measured on the
-    exported file (loudness_lufs, true_peak_db).
+    exported file (loudness_lufs, true_peak_db), and `qa`: the exported file watched for unexpected hard cuts and one-frame flashes
+    (qa.ok / qa.findings, qa.notes for still stretches; a cut where two clips meet without a crossfade is intended and not reported).
     Blocking by default (about as long as the video itself at 1080p). background=true: the checks run now, the render runs as a job (of the project as it
     is at this moment) and the answer is a job_id; poll job_status, stop it with cancel_job - for long exports that would outlast a tool-call timeout."""
     st, out = check_export(output_path, quality, overwrite, master)

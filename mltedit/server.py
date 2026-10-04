@@ -54,7 +54,14 @@ from .errors import EditError, as_edit_error  # noqa: E402
 from . import assets as assets_lib  # noqa: E402
 from mcp.server.fastmcp import FastMCP  # noqa: E402
 
-mcp = FastMCP(S.server_name)
+INSTRUCTIONS = """Video editor. Edits are validated at once and cost nothing to render; look with get_still / get_contact_sheet, or open_viewer for a live player.
+Every response has `revision`; every edit and clip has a stable id (op_id, clip id): use ids, not positions, and get_timeline / describe_project / query to find them.
+Arguments every EDIT tool takes: expected_revision (refuse the edit if the project moved on: REVISION_CONFLICT), dry_run=true (change nothing, get a diff of what the
+call would do), request_id (a retry with the same id applies nothing twice). Overlay and audio edits also take anchor: "clip" (default: the edit is tied to the clip on
+screen at start_s and moves with it when earlier clips are cut, trimmed, moved or removed) or "timeline" (stays at that time).
+Failures read `CODE: message` plus a JSON line; codes: """ + ", ".join(__import__("mltedit.errors", fromlist=["CODES"]).CODES) + """.
+undo/redo cover every change, a whole apply_ops batch is one step. export and render_preview accept background=true (job_status, cancel_job)."""
+mcp = FastMCP(S.server_name, instructions=INSTRUCTIONS)
 
 # ------------------------------------------------------------------ project state
 DEFAULT = {"sources": {}, "ops": [], **S.project_defaults, "theme": {"name": themes.DEFAULT, "accent": None}}

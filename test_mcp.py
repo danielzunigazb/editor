@@ -413,7 +413,7 @@ async def main():
                 await call("new_project", width=1280, height=720, fps=25)
                 for n in "ab":
                     await call("import_clip", path=M(n), id=n.upper())
-            strip = lambda tl: {**{k: v for k, v in tl.items() if k not in ("applied", "ops", "op_ids", "op_id", "revision", "can_undo", "can_redo", "layout_hash")},
+            strip = lambda tl: {**{k: v for k, v in tl.items() if k not in ("applied", "ops", "op_ids", "op_id", "made", "revision", "can_undo", "can_redo", "layout_hash")},
                                 **({"entries": [{k: v for k, v in e.items() if k != "id"} for e in tl["entries"]]} if "entries" in tl else {}),
                                 **{g: [{k: v for k, v in x.items() if k != "anchor"} for x in tl[g]] for g in ("overlays", "audio") if g in tl}}   # compact responses; ids are random and revisions count saves, neither is part of the timeline
             await clean_project()
