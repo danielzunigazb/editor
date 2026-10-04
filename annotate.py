@@ -76,8 +76,7 @@ def main():
         tracks.sort(key=lambda x: -x[0])
         for k, (score, tr) in enumerate(tracks[: tgt.get("max", 1)]):
             pts = [[round(t - a.src_in, 3), x, y] for t, x, y in smooth(tr)]
-            title = tgt["title"] + (f" {k + 1}" if tgt.get("number") else "")
-            op = {"tool": "add_callout", "title": title, "track": pts, "side": tgt.get("side", "auto")}
+            op = {"tool": "add_callout", "title": tgt["title"], "_number": bool(tgt.get("number")), "track": pts, "side": tgt.get("side", "auto")}
             if tgt.get("subtitle"):
                 op["subtitle"] = tgt["subtitle"]
             op["dur_s"] = round(pts[-1][0] - pts[0][0] + tgt.get("hold", 0.6), 3)
@@ -87,7 +86,13 @@ def main():
         overlap = [k for k in kept if min(k[2], c[2]) - max(k[1], c[1]) > 0.3]
         if all(sum(1 for k2 in kept if k2[1] < t < k2[2]) < a.max_concurrent for t in {c[1], c[2] - 0.01, *(k[1] for k in overlap)} if c[1] <= t < c[2]):
             kept.append(c)
-    ops = [c[3] for c in sorted(kept, key=lambda c: c[1])]
+    ops, seen = [], {}
+    for c in sorted(kept, key=lambda c: c[1]):                  # number repeated names in order of appearance, not of rank
+        op = c[3]
+        if op.pop("_number"):
+            seen[op["title"]] = seen.get(op["title"], 0) + 1
+            op["title"] += f" {seen[op['title']]}"
+        ops.append(op)
     json.dump(ops, open(a.out, "w"), ensure_ascii=False)
     for c in sorted(kept, key=lambda c: c[1]):
         print(f"{c[3]['title']:28s} {c[1]:6.1f}s -> {c[2]:6.1f}s  {len(c[3]['track'])} pts  score {c[0]:.2f}")
