@@ -175,7 +175,8 @@ def apply_ops(ops: list[dict]) -> dict:
     {"tool":"crossfade","first_index":0,"dur_s":0.5}, {"tool":"add_text","text":"Hola","start_s":0.5,"dur_s":2}].
     Allowed tools: <<edit_tools>> (import_clip, new_project, add_card and duck_auto are separate calls). Items are validated in order against
     the timeline as the previous items leave it; if ANY item is invalid nothing is applied and the error names the
-    item. Up to 50 items. Returns the final timeline (check `warnings`: it flags overlays that may overlap on screen) and `op_ids`.
+    item. Up to 50 items. Returns the final timeline (check `warnings`: it flags overlays that may overlap on screen) and `made`: the id of the edit
+    each item made, in order, e.g. [{\"item\": 2, \"tool\": \"add_text\", \"op_id\": \"op_1a2b3c\"}] (`op_ids` is the same ids as a plain list).
     One `undo` takes back the whole batch.
     Prefer this to many single calls: it is the same result with far fewer round trips."""
     if not isinstance(ops, list) or not 1 <= len(ops) <= 50:
@@ -189,7 +190,7 @@ def _apply_ops(ops):
     sv.check_revision(st)
     if len(st["ops"]) + len(ops) > sv.MAX_OPS:
         raise ValueError(f"this batch would take the project past {sv.MAX_OPS} edits (it has {len(st['ops'])})")
-    made = []
+    made, tools_used = [], []
     for i, spec in enumerate(ops):
         if not isinstance(spec, dict) or not isinstance(spec.get("tool"), str):
             raise ValueError(f"item {i}: needs a 'tool' key naming an edit tool; nothing was applied")
@@ -207,9 +208,10 @@ def _apply_ops(ops):
             raise as_edit_error(e).with_prefix(f"item {i} ({tool}): ", "; nothing was applied")
         st["ops"].append(op)                       # in memory only until every item has passed
         made.append(op["id"])
+        tools_used.append(tool)
     sv.push_undo(st, {"k": "batch", "patches": [{"k": "pop", "id": i} for i in reversed(made)]})
     sv.save(st, {"kind": "apply_ops", "ops": made})
-    return {"applied": len(ops), "op_ids": made, **sv.summary(st)}
+    return {"applied": len(ops), "op_ids": made, "made": [{"item": i, "tool": t, "op_id": x} for i, (t, x) in enumerate(zip(tools_used, made))], **sv.summary(st)}
 
 
 @tool

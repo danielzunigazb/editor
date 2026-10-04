@@ -1,0 +1,115 @@
+{
+ "note": "claude -p with the server as the only tool; 'before' = the code before the modularization (a13a39e), 'after' = this code. One run per task except edit_a_finished_project (two). Small n: indicative, not statistics.",
+ "runs": [
+  {
+   "label": "after",
+   "task": "overlay_survives_a_cut",
+   "correct": true,
+   "tool_calls": 6,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "turns": 7,
+   "cost_usd": 0.176,
+   "seconds": 19.3
+  },
+  {
+   "label": "after",
+   "task": "fix_the_right_edit",
+   "correct": true,
+   "tool_calls": 7,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "turns": 8,
+   "cost_usd": 0.082,
+   "seconds": 19.1
+  },
+  {
+   "label": "after",
+   "task": "short_piece",
+   "correct": true,
+   "tool_calls": 6,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "turns": 7,
+   "cost_usd": 0.052,
+   "seconds": 15.7
+  },
+  {
+   "label": "after",
+   "task": "edit_a_finished_project",
+   "correct": true,
+   "tool_calls": 2,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "turns": 3,
+   "cost_usd": 0.036,
+   "seconds": 9.6
+  },
+  {
+   "label": "after",
+   "task": "edit_a_finished_project",
+   "correct": true,
+   "tool_calls": 2,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "turns": 3,
+   "cost_usd": 0.036,
+   "seconds": 9.1
+  },
+  {
+   "label": "before",
+   "task": "overlay_survives_a_cut",
+   "correct": true,
+   "tool_calls": 6,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "turns": 7,
+   "cost_usd": 0.094,
+   "seconds": 17.9
+  },
+  {
+   "label": "before",
+   "task": "fix_the_right_edit",
+   "correct": true,
+   "tool_calls": 6,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "turns": 7,
+   "cost_usd": 0.047,
+   "seconds": 15.8
+  },
+  {
+   "label": "before",
+   "task": "short_piece",
+   "correct": true,
+   "tool_calls": 6,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "turns": 7,
+   "cost_usd": 0.04,
+   "seconds": 17.2
+  },
+  {
+   "label": "before",
+   "task": "edit_a_finished_project",
+   "correct": true,
+   "tool_calls": 6,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "turns": 7,
+   "cost_usd": 0.049,
+   "seconds": 18.2
+  },
+  {
+   "label": "before",
+   "task": "edit_a_finished_project",
+   "correct": true,
+   "tool_calls": 7,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "turns": 8,
+   "cost_usd": 0.055,
+   "seconds": 19.1
+  }
+ ]
+}
