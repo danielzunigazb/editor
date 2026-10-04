@@ -9,7 +9,8 @@ SINGLE_MAX = 90 * 1000 * 1000
 
 def call(method, url, token, data=None, ctype="application/octet-stream", tries=3):
     for k in range(tries):
-        req = urllib.request.Request(url, data=data, method=method, headers={"Authorization": f"Bearer {token}", "Content-Type": ctype})
+        req = urllib.request.Request(url, data=data, method=method, headers={"Authorization": f"Bearer {token}", "Content-Type": ctype,
+                                                                                    "User-Agent": "mlt-poc-uploader/1.0"})   # Cloudflare answers 403/1010 to urllib's default UA
         try:
             with urllib.request.urlopen(req, timeout=300) as r:
                 return json.loads(r.read() or b"{}")
