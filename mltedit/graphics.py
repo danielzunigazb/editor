@@ -5,14 +5,38 @@ import hashlib, os
 
 from PIL import Image, ImageDraw
 
-from . import shapes, themes
+from . import registry, shapes, themes
 
-KINDS = ("frame", "letterbox", "vignette")
-AMOUNT = {            # kind -> (name, min, max, default)
-    "frame": ("inset (fraction of frame width)", 0.015, 0.08, 0.035),
-    "letterbox": ("bar height (fraction of frame height, each bar)", 0.04, 0.25, 0.10),
-    "vignette": ("strength", 0.1, 1.0, 0.55),
-}
+
+class GraphicKind:
+    """A graphic kind plugin (plugins/graphic_kinds). amount = (what it means, min, max, default) or None; user: offered by add_graphic."""
+    name = ""
+    amount = None
+    user = True
+
+    def key(self, params, amount):
+        """Cache key part identifying what is drawn (the theme, size and version are added by render)."""
+        return f"{self.name}|{amount}"
+
+    def draw(self, W, H, params, amount, th):
+        """The W x H RGBA image."""
+        raise NotImplementedError
+
+
+def kind(cls):
+    """Class decorator registering a graphic kind under cls.name."""
+    registry.register("graphic_kind", cls.name, cls())
+    return cls
+
+
+def __getattr__(name):
+    if name == "KINDS":                                          # what add_graphic accepts
+        return tuple(n for n, k in registry.items("graphic_kind") if k.user)
+    if name == "AMOUNT":                                         # kind -> (name, min, max, default)
+        return {n: k.amount for n, k in registry.items("graphic_kind") if k.user and k.amount}
+    raise AttributeError(name)
+
+
 _fit = shapes.fit
 CALLOUT_SIDES, CALLOUT_SUB_MAX, CALLOUT_TITLE_MAX = shapes.CALLOUT_SIDES, shapes.CALLOUT_SUB_MAX, shapes.CALLOUT_TITLE_MAX   # re-exported for callers
 
@@ -40,13 +64,8 @@ def letterbox(W, H, amount, color=None):
 
 
 def vignette(W, H, amount):
-    """Soft dark falloff toward the edges."""
-    g = Image.radial_gradient("L").resize((W, H), Image.BICUBIC)           # 0 centre -> 255 corners
-    k = 255 * amount
-    alpha = g.point(lambda v: int(min(255, max(0, (v / 255 - 0.35) / 0.65) ** 1.6 * k)))
-    img = Image.new("RGBA", (W, H), (0, 0, 0, 255))
-    img.putalpha(alpha)
-    return img
+    """Soft dark falloff toward the edges (the vignette graphic kind; kept as a function for callers that draw it directly)."""
+    return registry.get("graphic_kind", "vignette").draw(W, H, {}, amount, _theme(None))
 
 
 def _theme(theme):
@@ -88,9 +107,10 @@ def render_merged(parts, W, H, cache_dir):
 
 def validate(kind, params):
     """Raise ValueError for bad graphic params (pure checks, no rendering)."""
-    if kind not in KINDS:
-        raise ValueError(f"unknown graphic '{kind}'; choose one of {KINDS}")
-    name, lo, hi, _ = AMOUNT[kind]
+    plug = registry.get("graphic_kind", kind, None)
+    if plug is None or not plug.user:
+        raise ValueError(f"unknown graphic '{kind}'; choose one of {__getattr__('KINDS')}")
+    name, lo, hi, _ = plug.amount
     a = params.get("amount")
     if a is not None and not (isinstance(a, (int, float)) and lo <= a <= hi):
         raise ValueError(f"{kind}: amount ({name}) must be between {lo} and {hi}")
@@ -99,24 +119,18 @@ def validate(kind, params):
 def render(kind, W, H, cache_dir, **params):
     """Render a graphic (or lower third) to a cached PNG and return its path."""
     th = _theme(params.get("theme"))
-    if kind == "lower_third":
-        key = f"lt|{params['title']}|{params.get('subtitle','')}|{params.get('align','left')}"
-    else:
+    plug = registry.get("graphic_kind", kind, None)
+    if plug is None:
+        raise ValueError(f"unknown graphic '{kind}'; choose one of {__getattr__('KINDS')}")
+    amount = None
+    if plug.user:
         validate(kind, params)
-        amount = params.get("amount") if params.get("amount") is not None else AMOUNT[kind][3]
-        key = f"{kind}|{amount}"
-    key += f"|{th.name}|{th.accent}"
+        amount = params.get("amount") if params.get("amount") is not None else plug.amount[3]
+    key = plug.key(params, amount) + f"|{th.name}|{th.accent}"
     out = os.path.join(cache_dir, f"gfx_{hashlib.sha1(f'v2|{key}|{W}|{H}'.encode()).hexdigest()[:16]}.png")
     if os.path.exists(out):
         return out
-    if kind == "lower_third":
-        img = lower_third(W, H, params["title"], params.get("subtitle", ""), params.get("align", "left"), strict=False, theme=th)
-    elif kind == "frame":
-        img = frame(W, H, amount, th)
-    elif kind == "letterbox":
-        img = letterbox(W, H, amount, shapes.of(th).letterbox_color(th))
-    else:
-        img = vignette(W, H, amount)
+    img = plug.draw(W, H, params, amount, th)
     os.makedirs(cache_dir, exist_ok=True)
     tmp = out + f".{os.getpid()}.tmp"
     img.save(tmp, format="PNG")

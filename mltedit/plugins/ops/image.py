@@ -55,6 +55,9 @@ class Image(Op):
         else:
             st.layers.append({**base, "path": path, "aspect": image_aspect(path, where)})
 
+    def files(self, o):
+        return [o["path"]] if o.get("path") else []
+
     def describe(self, o):
         name = o.get("icon") or os.path.basename(o.get("path") or "")
         return f"Imagen {name} de {o['start']:g} a {o['start']+o['dur']:g} s", f"image @ {o['start']:g}s {o['dur']:g}s"

@@ -3,6 +3,7 @@ import json, os, re, subprocess, time
 
 from .. import assets as assets_lib
 from .. import engine as live
+from .. import ops as O
 from .. import server as sv
 from ..config import S
 from . import tool
@@ -18,7 +19,7 @@ _TRACTOR_SLOTS = 2      # stills (0.5x) and contact sheets (0.25x) alternate; mo
 def _state_key(st, scale):
     """Everything a built timeline depends on: the edit list, the format, and the files behind it (path+mtime+size)."""
     files = []
-    for p in sorted({v["path"] for v in st["sources"].values()} | {o["path"] for o in st["ops"] if o.get("op") in ("image", "audio") and o.get("path")}):
+    for p in sorted({v["path"] for v in st["sources"].values()} | set(O.project_files(st["ops"]))):
         try:
             stt = os.stat(p); files.append((p, stt.st_mtime_ns, stt.st_size))
         except OSError:
@@ -150,7 +151,7 @@ def export(output_path: str, quality: str = "high", overwrite: bool = False, mas
     info = sv._probe(out)
     res = {"path": out, "duration_s": info["duration_s"], "resolution": f"{info['width']}x{info['height']}",
            "size_kb": os.path.getsize(out) // 1024, "render_s": round(time.perf_counter() - t0, 2), **_loudness(out)}
-    credits = assets_lib.credit_lines([o.get("asset") for o in st["ops"] if o.get("op") == "audio" and o.get("asset")])
+    credits = assets_lib.credit_lines(O.project_assets(st["ops"]))
     credit_path = os.path.splitext(out)[0] + ".credits.txt"
     if credits:                                              # CC-BY pieces must be credited: write the text next to the video
         with open(credit_path, "w", encoding="utf-8") as f:

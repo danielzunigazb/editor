@@ -39,6 +39,12 @@ class Audio(Op):
                           "fade_out": None if o.get("fade_out") is None else float(nums["fade_out"]), "loop": bool(o.get("loop", False)),
                           "duck": [(float(a_), float(b_)) for a_, b_ in duck], "duck_db": float(nums["duck_db"]), "name": o.get("name") or os.path.basename(str(o.get("path")))})
 
+    def assets(self, o):
+        return [o["asset"]] if o.get("asset") else []
+
+    def files(self, o):
+        return [o["path"]] if o.get("path") else []
+
     def describe(self, o):
         name = o.get("name") or os.path.basename(str(o.get("path")))
         return f"Audio {name} desde {o.get('start', 0):g} s", f"audio {name} @ {o.get('start', 0):g}s"

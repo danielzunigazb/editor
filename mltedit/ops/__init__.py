@@ -34,9 +34,27 @@ class Op:
             return (f"{o['op']} starts at {o['start']:g}s but the timeline is only {total:g}s long "
                     f"(add the clips first, or start it earlier)")
 
+    def assets(self, o):
+        """Library asset ids the op uses (for credit lines)."""
+        return []
+
+    def files(self, o):
+        """Files on disk the op reads (a built timeline depends on them)."""
+        return []
+
     def legibility(self, o, i, st):
         """Warnings (strings) when the op's type would be too small at the project's export size st['width'] x st['height']."""
         return []
+
+
+def project_assets(ops):
+    """Library asset ids used by a list of ops, in order."""
+    return [a for o in ops for a in (get_op(o.get("op")).assets(o) if get_op(o.get("op")) else [])]
+
+
+def project_files(ops):
+    """Files read by a list of ops."""
+    return [f for o in ops for f in (get_op(o.get("op")).files(o) if get_op(o.get("op")) else [])]
 
 
 class Layer:

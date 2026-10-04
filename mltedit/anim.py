@@ -25,7 +25,7 @@ class Preset:
     """An entrance/exit preset (plugins/anim). transform(p, x, y, w, h, W, H) -> (dx, dy, scale, rotation, opacity multiplier) at appearance
     progress p (0 = hidden, 1 = at rest).
       timing   "item" = takes the item's own fade time by default, else in_s/out_s default to 0.5 / 0.4 s
-      reveal   "" | "wipe" | "draw": the preset is a crop the engine animates (wipe_keys / draw_keys), not a transform
+      reveal   empty, or the name of a crop reveal (wipe_keys / draw_keys) the engine animates instead of a transform
       ease_in / ease_out  default easings (an exit never uses an overshooting easing);  still: True for 'none' (nothing to sample)
       callout  usable on callouts (scaled about the ring);  callout_only: only on callouts;  on_video: usable on picture-in-picture"""
     def __init__(self, transform, timing="", reveal="", ease_in="out", ease_out="in", still=False, callout=False, callout_only=False, on_video=True):

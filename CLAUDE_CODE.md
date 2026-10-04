@@ -58,3 +58,9 @@ Las respuestas de edición son compactas (sin el listado de `ops`, solo `op_coun
 - `new_project(motion=True)` o `set_template(name, motion=True)` activan el movimiento propio de la plantilla (overlays, tarjetas animadas, callouts, música que baja bajo la voz). Apagado por defecto: nada cambia si no lo pides.
 - `add_callout(..., size=1.3, anim={"in": "draw"})`: `size` mejora la lectura a 1080p; `draw` despliega el callout desde el aro. `get_timeline` avisa de textos ilegibles.
 - `export(..., master="loudnorm")` normaliza a −16 LUFS; el resultado trae `loudness_lufs` y `true_peak_db`. `tools/qa_frames.py video.mp4` mide cortes secos, parpadeos y cuadros congelados.
+
+## Configuración y piezas (modular)
+- Toda ruta, límite e interruptor se configura con variables `MLT_*` o un archivo (`MLT_EDITOR_CONFIG`, TOML o JSON); lista completa en `mltedit/config.py` y `ARCHITECTURE.md`. Los secretos (`R2_*`) solo del entorno.
+- Plantillas nuevas: copia una carpeta de `mltedit/packs/themes/` en una carpeta de `MLT_PACKS_DIRS` y edita su `theme.json`. Transiciones, formas, presets, layouts de tarjeta y demás: un `.py` en una carpeta de `MLT_PLUGIN_DIRS`. Quitar una pieza = borrar su archivo. `list_styles` muestra lo disponible y, si algún pack o plugin falló, `problems`.
+- Las herramientas del repo (`tools/curate_assets.py`, `make_demos.py`, `player_demo.py`, `make_licenses.py`) leen sus datos de `data/*.json` y aceptan argumentos (`--help`). El POC original está en `legacy/`.
+

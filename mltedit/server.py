@@ -187,7 +187,7 @@ def summary(st, full=False):
         "warnings": m["warnings"] + _legibility(st),
         "op_count": len(st["ops"]),
     }
-    credits = assets_lib.credit_lines([o.get("asset") for o in st["ops"] if o.get("op") == "audio" and o.get("asset")])
+    credits = assets_lib.credit_lines(O.project_assets(st["ops"]))
     if credits:
         out["credits_required"] = credits
     if full:

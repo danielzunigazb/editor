@@ -851,13 +851,47 @@ con test para las 15 plantillas); los fondos `blobs` mostraban anillos por banda
 **No verificado.** Las transiciones se juzgaron por cuadros y medidas, no viéndolas en reproducción continua; la música sigue sin escucharse; 4K sin probar; sigue habiendo 3 demos con ~2 s de cierre idéntico y el último tramo de Player tiene ~0.2 s con solo fondo entre la última escena y la tarjeta final;
 `slide-*` dentro de `Playlist.mix` se comprobó con clips sintéticos y en los demos, no con todos los formatos; las láminas B y C que te envié se hicieron antes del dither de `glass`/`saas` (el video final ya lo trae).
 
+## 22. Modularización: todo son piezas desmontables (añadido a petición del usuario)
+
+**Pedido:** «modulariza todo, no quiero rutas ni nombres ni nada hardcodeado, que todas sean piezas desmontables dentro del engine». Decisiones del usuario: paquetes de datos (`theme.json`) más plugins Python que se registran solos;
+fachadas finas para que `live`, `server`, `cards`… sigan funcionando; el POC antiguo a `legacy/`; las `tools/` del repo leen sus datos de `data/*.json` y reciben argumentos. Diseño y cómo agregar cada pieza: `ARCHITECTURE.md`.
+
+**Auditoría previa (sobre el código de la sección 21):** 37 ramas por nombre de plantilla (`th.name == "minimal"`…), unas 60 tablas indexadas por plantilla, 56 ramas por forma, un `if/elif` por tipo de operación en `layout()`/`build()` (archivo de 1100 líneas),
+40 herramientas MCP en un solo archivo, rutas fijas en 15 módulos y URLs/textos fijos en `tools/`.
+
+**Qué se hizo (una fase por commit, cada una con la misma batería de pruebas):**
+- **R0 `snapshot.py`:** 686 hashes de píxeles y claves (lower third, callout, marco, 7 tarjetas, icono y textos de las 15 plantillas, máscaras de transición, keyframes de animación) tomados del código *anterior*. Se verificó 686/686 en cada fase; nunca se regeneró.
+- **R1 `config.py` + `registry.py`:** toda ruta, límite e interruptor sale a `Settings` (`MLT_*` > archivo > defecto; secretos solo del entorno); un registro por tipo de pieza. El código quedó en el paquete `mltedit/`; los módulos de la raíz son fachadas (`sys.modules[__name__] = …`: el mismo módulo, no una copia).
+- **R2 packs:** las 15 plantillas son `packs/themes/<n>/theme.json` (generados con un script desde los diccionarios que ya estaban probados), con sus estilos de texto y opciones. El tema por defecto es el que declara `"default": true`. Un pack roto se omite y se informa (`list_styles → problems`).
+- **R3 formas:** 13 plugins de forma (`plugins/shapes`); las 37 ramas por nombre pasaron a opciones del tema (`lower_third.scrim`, `callout.flag`, `card.align`, `card.vertical_bar`, `card.list_role`…).
+- **R4:** fondos y divisores de tarjeta, layouts de tarjeta (7), transiciones (15), presets (13) y easings (6) de animación y tipos de gráfico (4) son plugins; los presets llevan banderas (`reveal`, `callout`, `callout_only`, `on_video`, easings por defecto) en vez de que el motor pregunte por su nombre.
+- **R5 operaciones:** `engine.layout/build` se partieron en 12 plugins de op y 5 de capa (`plugins/ops`, `plugins/layers`) más `core/` (contexto, timeline, caché de PNG, render). El estado global es un `EngineContext`; `live.W = …` sigue funcionando.
+- **R6 herramientas:** `server.py` pasó de 1000 a 257 líneas (estado del proyecto + FastMCP); las 28 herramientas están en `tools/{project,timeline,overlays,audio,cards,review}.py` con `@tool`/`@builder`. Los docstrings ya no listan nombres a mano (`<<templates>>`, `<<transitions>>`…). Resumen, legibilidad, colocación, créditos y archivos de dependencia pasaron a hooks de los plugins.
+- **R7 `tools/` y `legacy/`:** `curate_assets` (fuentes, picks, URLs, moods → `data/asset_sources.json`; `--sources/--assets-dir/--stage-dir`), `make_demos` (`--out/--footage/--data/--quality`, textos y tiempos en `data/demos/templates.json`), `player_demo` (escenas en `data/demos/player.json`, `--template/--home/--data`),
+  `make_licenses` (`--manifest/--out/--notes`, salida idéntica byte a byte). `poc.py`, `bench_4k.py`, `build_demo.py`, `demo_session.py`, `stress_1080p.py` → `legacy/` con README.
+- **R8 `test_modularity.py`** (24 comprobaciones, cada escenario en un proceso nuevo con su propio entorno): agregar una plantilla copiando un pack (disponible por MCP, con sus colores); quitar una (error que la nombra y lista las demás); pack roto y JSON inválido (se omiten, se informan); carpeta de plugins externa con una transición, una forma,
+  un preset, un easing y un layout de tarjeta (los docstrings de las herramientas ya listan la transición nueva); un plugin que lanza excepción; quitar una transición y una op; y *greps* de que no queda ningún nombre de plantilla, ruta absoluta, rama por forma, rama por tipo de op/capa ni nombre de preset/easing/transición escrito en el motor.
+
+**Resultado medido (sobre el código final):** snapshot 686/686, golden 15/15, `test_modularity` 24, `test_engine` 270, `test_mcp` 268 (misma lista de herramientas), `test_text` 353, `test_anim` 65, `test_transitions` 61, `test_cards_anim` 43, `test_assets` 38, `test_annotate` 6, `test_transcribe` 12, `test_r2_upload` 5; `pyflakes` limpio.
+Arranque del servidor (`import server`, mediana de 5): 0.50 s antes, 0.52 s ahora.
+
+**Hallazgos durante el trabajo.** Los nombres de estilo de texto son globales: copiar un pack sin renombrarlos hace que el segundo se rechace (lo detecta el cargador y lo informa; está documentado en `ARCHITECTURE.md`); un test que copiaba `minimal` lo destapó.
+Una versión intermedia de `summary()` agrupaba los callouts como subtítulos (ambos tenían la clave `sub`); lo cazó `test_mcp` y se resolvió con un hook `group()` de la capa.
+
+**No verificado / límites.**
+- No se regeneraron en este entorno los 15 demos ni el de Player con el footage real (`media_user/clip.mp4` y el repo `player` no están en este contenedor): `make_demos` se ejecutó con el clip de prueba (plantilla luxury, texto/tiempos de otro footage) y `player_demo` con capturas de relleno; ambos terminaron sin error ni avisos, pero **no se compararon cuadros con los videos ya publicados**. La garantía de «misma salida» es la del snapshot de componentes (686 hashes), no la de un video final completo.
+- `curate_assets.py` no se volvió a ejecutar contra la red: se comprobó que las constantes cargadas de `data/asset_sources.json` son idénticas a las originales; los patrones de extracción de páginas (regex sobre el HTML de Kenney/OpenGameArt) siguen en el script porque describen el marcado de esos sitios.
+- `legacy/*.py` solo se comprobó que importan y resuelven la raíz del repo (`poc.py` imprime su ayuda); no se corrieron sus benchmarks.
+- Los tipos de revelado de animación (`wipe`, `draw`) se implementan en `anim.py` (`wipe_keys`/`draw_keys`) y un preset elige cuál usa: agregar un tercer *tipo de revelado* requiere código en `anim.py`; agregar presets que usen los existentes, no.
+- Los nombres de op y de capa que `engine.py` conoce son solo los de los plugins registrados; las herramientas MCP siguen siendo una función por edición (agregar un op nuevo exige también su herramienta en `tools/`, si se quiere exponerlo con argumentos propios; `apply_ops` lo toma de su `@builder`).
+
 ## 10. Archivos
 
 - `legacy/poc.py`: el POC (gen/build/bench/preview/export/measure).
 - `POC_MODE=multi` en `legacy/poc.py`: multipista con composición (sección 9; requiere `xvfb-run`).
 - `POC_MODE=real` en `legacy/poc.py`: timeline con clips reales de `media_real/` (sección 8).
 - `legacy/bench_4k.py`: benchmark 4K a través del servidor MCP (sección 13).
-- `graphics.py`, `fonts/`: recursos de lujo y fuentes OFL (sección 11.3).
+- `graphics.py`, `fonts/`: gráficos y fuentes OFL (sección 11.3; tras la sección 22 viven en `mltedit/` y los archivos de la raíz son fachadas).
 - `textrender.py`, `test_text.py`, `test_engine.py`: texto/subtítulos y pruebas cuadro a cuadro (sección 11.2).
 - `server.py`, `test_mcp.py`, `setup.sh`, `requirements.txt`, `mcp.example.json`: servidor MCP y su prueba (sección 11).
 - `live.py`, `viewer_template.html`: motor declarativo y visor de la sesión en vivo.
@@ -865,3 +899,4 @@ con test para las 15 plantillas); los fondos `blobs` mostraban anillos por banda
 - `themes.py`, `themed.py`, `sketch.py`, `cards.py`, `icons.py`, `anim.py`, `assets_lib.py`, `fetch_assets.py`, `tools/` (curaduría, licencias, demos), `assets/`: plantillas, animación y biblioteca de audio (sección 19).
 - `transitions.py`, `tools/qa_frames.py`, `test_transitions.py`, `test_cards_anim.py`: transiciones, QA de movimiento y sus pruebas (sección 21).
 - `media/`, `out/`: clips y resultados generados (ignorados por git; se regeneran con `gen` y `export`).
+- `mltedit/`, `ARCHITECTURE.md`, `data/`, `test_modularity.py`, `snapshot.py`, `legacy/`: la modularización de la sección 22.
