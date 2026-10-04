@@ -8,3 +8,4 @@ media_1080/
 media_user/
 .venv_det/
 .venv_stt/
+assets_cache/
