@@ -27,6 +27,16 @@ def _b_crossfade(first_index=-1, dur_s=1.0, style="", first_clip_id=""):
     return {"op": "crossfade", "between": between, "dur": dur_s, **({"style": style} if style and style != S.default_transition else {})}
 
 
+@builder("trim_clip")
+def _b_trim_clip(index=-1, in_s=0.0, end_s=0.0, clip_id=""):
+    return {"op": "trim", "clip": clip_id or index, "in": in_s, "end": end_s}
+
+
+@builder("move_clip")
+def _b_move_clip(index=-1, to_index=0, clip_id=""):
+    return {"op": "move", "clip": clip_id or index, "to": to_index}
+
+
 @builder("set_fades")
 def _b_set_fades(fade_in_s=0.0, fade_out_s=0.0):
     return {"op": "fade", "in": fade_in_s, "out": fade_out_s}
@@ -45,6 +55,21 @@ def cut_clip(index: int, at_s: float, clip_id: str = "") -> dict:
     """Cut timeline entry `index` (or the clip with this stable `clip_id`: the `id` of an entry in get_timeline) at `at_s` seconds from the ENTRY's
     own start and drop everything after (the entry becomes `at_s` long). Later entries shift earlier."""
     return sv.commit(sv.BUILDERS["cut_clip"](index, at_s, clip_id))
+
+
+@edit_tool
+def trim_clip(index: int, in_s: float, end_s: float, clip_id: str = "") -> dict:
+    """Keep only the range in_s..end_s (seconds of the SOURCE file) of timeline entry `index` (or of the clip with this stable `clip_id`): trims its
+    start and its end. Later clips shift; overlays and audio anchored to clips move with theirs (an overlay whose anchored moment was trimmed away is
+    hidden with an ANCHOR_LOST warning)."""
+    return sv.commit(sv.BUILDERS["trim_clip"](index, in_s, end_s, clip_id))
+
+
+@edit_tool
+def move_clip(index: int, to_index: int, clip_id: str = "") -> dict:
+    """Move timeline entry `index` (or the clip with this stable `clip_id`) to position `to_index`. Overlays and audio anchored to it travel with it.
+    A crossfade joins two specific clips: moving one of them away from the other is rejected until that crossfade is removed."""
+    return sv.commit(sv.BUILDERS["move_clip"](index, to_index, clip_id))
 
 
 @edit_tool
@@ -70,7 +95,8 @@ def crossfade(first_index: int, dur_s: float = 1.0, style: str = "", sfx: str = 
         t = entries[ids.index(nxt) if nxt in ids else nxt]["start"]                # the new clip starts coming in here
         if sfx == "auto":
             sfx = assets_lib.auto_sfx(live.THEME.name)
-        aop = sv.prepare(st, sv.BUILDERS["add_audio"](start_s=t, dur_s=None, asset=sfx, volume_db=-10.0))
+        aop = sv.prepare(st, {**sv.BUILDERS["add_audio"](start_s=t, dur_s=None, asset=sfx, volume_db=-10.0),
+                              "anchor": {"transition": op["id"], "t0_f": live.CTX.fr(t)}})     # the sound follows its transition
         sv._validate(st, aop)
         st["ops"].append(aop)
         sv.push_undo(st, {"k": "batch", "patches": [{"k": "pop", "id": aop["id"]}, {"k": "pop", "id": op["id"]}]})

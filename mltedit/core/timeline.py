@@ -1,6 +1,7 @@
 """The timeline model, in pure Python on the FRAME GRID: MLT rounds each clip to whole frames, so computing in raw seconds drifted
 (40 entries of 0.1 s: layout said 100 frames, MLT built 80) and overlays landed on the wrong frame."""
 from .. import ops as O
+from ..errors import EditError
 from ..config import S
 
 DUCK_RAMP_S = 0.3                       # how fast the music dips/recovers around speech
@@ -100,8 +101,16 @@ def collisions(layers, ctx, max_warnings=4):
 def resolve(st):
     """Turn what the ops built (a LayoutState) into the layout: entry starts, overlays clipped to the timeline and given tracks, audio
     resolved to frames. Raises ValueError with a message the caller can show verbatim."""
-    entries, xfades, fade, layers, audios, fps, fr = st.entries, st.xfades, st.fade, st.layers, st.audios, st.fps, st.fr
+    entries, fade, layers, audios, fps, fr = st.entries, st.fade, st.layers, st.audios, st.fps, st.fr
     MAX_LAYERS, MAX_LAYER_TRACKS, MAX_AUDIO_TRACKS = S.max_layers, S.max_layer_tracks, S.max_audio_tracks
+    pos = {id(e): i for i, e in enumerate(entries)}
+    xfades, xstyles = {}, {}
+    for pr in st.xfade_pairs.values():                   # crossfades are tied to their two entries: after clips were moved they must still be neighbours
+        i, j = pos[id(pr["a"])], pos[id(pr["b"])]
+        if j != i + 1:
+            raise EditError("TIMELINE_CONFLICT", f"a crossfade joins clips {pr['a'].get('id') or i} and {pr['b'].get('id') or j}, which are no longer next to each other "
+                            f"(a clip was moved or removed between them): remove that crossfade or put the clips back together")
+        xfades[i], xstyles[i] = pr["frames"], pr["style"]
     for i, e in enumerate(entries):   # a clip must be long enough for the dissolves on both of its sides
         need = xfades.get(i - 1, 0) + xfades.get(i, 0)
         if need > e["dur_f"]:
@@ -116,11 +125,42 @@ def resolve(st):
     xfades_f, xfades = dict(xfades), {a: x / fps for a, x in xfades.items()}   # seconds for callers, frames for build()
     if fade and fade["in"] + fade["out"] > total + 1e-6:
         raise ValueError(f"fade in+out ({fade['in']+fade['out']:g}s) is longer than the timeline ({total:g}s)")
-    # Overlays live in TIMELINE time: they do not move when earlier clips are edited. Anything now beyond the end
-    # (e.g. after a cut) is clipped or dropped with a warning instead of rejecting the edit.
+    # Overlays and audio that were anchored to a clip move with it: their start is re-derived from where that clip is NOW. One that was placed by
+    # timeline time (anchor timeline_f, or an older project) stays where it is. Anything now beyond the end (e.g. after a cut) is clipped or dropped
+    # with a warning instead of rejecting the edit.
     if len(layers) > MAX_LAYERS:
-        raise ValueError(f"{len(layers)} overlays (subtitle cues count one each); the limit is {MAX_LAYERS}")
-    warnings, kept = [], []
+        raise EditError("LIMIT_EXCEEDED", f"{len(layers)} overlays (subtitle cues count one each); the limit is {MAX_LAYERS}")
+    warnings = []
+    by_id = {e.get("id"): e for e in entries if e.get("id")}
+    xop = {pr["op"]: pr["b"] for pr in st.xfade_pairs.values() if pr.get("op")}
+
+    def anchored(item, shift, name):
+        """True if the item stays; it moves by the frames its anchor moved since it was committed. False (with a warning) if its anchor is gone."""
+        a = item.get("anchor")
+        if not isinstance(a, dict) or "clip" not in a and "transition" not in a:
+            return True                                           # a timeline_f anchor (or none): absolute
+        if "clip" in a:
+            e = by_id.get(a["clip"])
+            moment = None if e is None or not e["in_f"] <= a["src_f"] < e["in_f"] + e["dur_f"] else e["start_f"] + a["src_f"] - e["in_f"]
+            what = f"clip {a['clip']}" if e is None else f"frame {a['src_f']} of clip {a['clip']}"
+        else:
+            e = xop.get(a["transition"])
+            moment, what = (None if e is None else e["start_f"]), f"transition {a['transition']}"
+        if moment is None:
+            warnings.append(f"ANCHOR_LOST: {name} is anchored to {what}, which is no longer on the timeline: not shown")
+            return False
+        delta_f = moment - a.get("t0_f", fr(item["start"]))         # t0_f: the frame the anchor stood on when it was made
+        if delta_f:
+            shift(item, delta_f / fps)
+        return True
+
+    layers = [L for L in layers if anchored(L, lambda it, d, p=O.get_layer: p(it["kind"]).shift(it, d), label(L))]
+
+    def shift_audio(a, d):
+        a["start"] += d
+        a["duck"] = [(x + d, y + d) for x, y in a["duck"]]
+    audios = [a for a in audios if anchored(a, shift_audio, f"audio {a['name']!r}")]
+    kept = []
     for L in layers:
         if L["start"] >= total - 1e-6:
             warnings.append(f"{label(L)} starts at {L['start']:g}s, after the timeline end ({total:g}s): not shown")
@@ -169,5 +209,5 @@ def resolve(st):
     kept.sort(key=lambda L: (L["start"], L["op"], L.get("sub", 0)))
     warnings.extend(collisions(kept, st.ctx))
     first_pip = next((L for L in kept if O.get_layer(L["kind"]).audible), None)
-    return {"entries": entries, "xfades": xfades, "xfades_f": xfades_f, "xstyles": st.xstyles, "fade": fade, "layers": kept, "pip": first_pip, "audios": heard,
+    return {"entries": entries, "xfades": xfades, "xfades_f": xfades_f, "xstyles": xstyles, "fade": fade, "layers": kept, "pip": first_pip, "audios": heard,
             "warnings": warnings, "total": total, "total_f": total_f}

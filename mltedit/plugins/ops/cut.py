@@ -21,6 +21,9 @@ class Cut(Op):
         i = o.get("clip")
         return {**o, "clip": clip_ids[i]} if isinstance(i, int) and not isinstance(i, bool) and 0 <= i < len(clip_ids) else o
 
+    def clip_refs(self, o):
+        return [o["clip"]] if isinstance(o.get("clip"), str) else []
+
     def resolve_refs(self, o, entries):
         i = o.get("clip")
         if isinstance(i, int) and not isinstance(i, bool) and 0 <= i < len(entries) and entries[i].get("id"):

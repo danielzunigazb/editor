@@ -66,6 +66,11 @@ CALL = hs.one_of(
     call("add_lower_third", title=texts, subtitle=texts, start_s=nums, dur_s=nums, align=hs.sampled_from(["left", "right", "up"])),
     call("add_callout", title=texts, track=hs.lists(hs.tuples(nums, fracs, fracs).map(list), max_size=4), start_s=hs.one_of(hs.none(), nums), dur_s=hs.one_of(hs.none(), nums), side=hs.sampled_from(["auto", "ne", "zz"])),
     call("add_subtitles", cues=hs.lists(hs.fixed_dictionaries({"start": nums, "end": nums, "text": texts}), max_size=3), offset_s=nums),
+    call("trim_clip", index=idx, in_s=nums, end_s=nums),
+    call("move_clip", index=idx, to_index=idx),
+    call("remove_op", index=idx, cascade=hs.booleans(), reanchor=hs.sampled_from(["", "timeline", "clip"])),
+    call("move_op", pick=hs.integers(0, 40), start_s=nums),
+    call("update_op", pick=hs.integers(0, 40), patch=hs.fixed_dictionaries({"start": nums}) | hs.fixed_dictionaries({"dur": nums}) | hs.just({"anim": None})),
     call("undo"), call("redo"),
 )
 
@@ -108,6 +113,10 @@ def random_sessions(calls):
     reset()
     for tool, kw in [("add_clip", {"source": "A", "start_s": 0.0, "end_s": 4.0}), ("add_clip", {"source": "B", "start_s": 0.0, "end_s": 3.0})] + calls:
         CALLS["n"] += 1
+        if "pick" in kw:                                     # an existing op, chosen by position in the current list
+            kw = dict(kw)
+            ids_now = [o["id"] for o in server.load()["ops"]] or ["op_none"]
+            kw["op_id"] = ids_now[kw.pop("pick") % len(ids_now)]
         try:
             getattr(server, tool)(**kw)
             CALLS["accepted"] += 1
@@ -150,10 +159,14 @@ server.apply_ops([{{"tool": "add_clip", "source": "A", "end_s": 3}}, {{"tool": "
 st = server.load(); server.bind(st)
 m = engine.layout(st["ops"])
 m["entries"] = [{{k: v for k, v in e.items() if k != "id"}} for e in m["entries"]]       # ids are random per process; everything else must be identical
+for it in list(m["layers"]) + list(m["audios"]):
+    if isinstance(it.get("anchor"), dict) and "clip" in it["anchor"]:
+        it["anchor"] = {{**it["anchor"], "clip": "c"}}
 strip = lambda o: {{k: v for k, v in o.items() if k != "id"}}
 ops = [strip(o) if o.get("op") != "cut" else o for o in st["ops"]]
 for o in ops:
     if "between" in o: o["between"] = ["c", "c"]
+    if isinstance(o.get("anchor"), dict) and "clip" in o["anchor"]: o["anchor"] = {{**o["anchor"], "clip": "c"}}
 print(json.dumps({{"layout": hashlib.sha1(json.dumps(m, sort_keys=True, default=str).encode()).hexdigest(), "ops": hashlib.sha1(json.dumps(ops, sort_keys=True).encode()).hexdigest()}}))
 '''
 outs = []

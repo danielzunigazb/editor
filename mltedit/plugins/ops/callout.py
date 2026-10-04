@@ -7,6 +7,7 @@ from ...ops.common import anim, clean, theme_key
 @op
 class Callout(Op):
     timed = True
+    anchorable = True
     order = 60
     name = "callout"
     defaults = {"side": "auto", "size": 1.0, "fade": 0.3, "subtitle": ""}
@@ -39,6 +40,9 @@ class Callout(Op):
         st.layers.append({"kind": "callout", "op": n, "start": float(o["start"]), "dur": float(o["dur"]), "title": title, "sub": sub,
                           "side": o.get("side", "auto"), "path": pts, "fade": float(o.get("fade", 0.3)), "theme": tk,
                           "size": float(size_), "anim": anim(o, where, st.ctx, callout=True)})
+
+    def shifted(self, o, delta):
+        return {**o, "start": o["start"] + delta, "path": [[p[0] + delta, p[1], p[2]] for p in o["path"]]}
 
     def describe(self, o):
         return f"Callout “{o['title'][:24]}” de {o['start']:g} a {o['start']+o['dur']:g} s", f"callout @ {o['start']:g}s"

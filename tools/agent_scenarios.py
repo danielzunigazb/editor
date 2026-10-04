@@ -85,7 +85,7 @@ def a_second_overlay_in_the_same_place_warns():
     return any("overlap" in w for w in r["warnings"]), r["warnings"]
 
 
-@scenario(xfail="P3")
+@scenario()
 def overlay_follows_its_clip_when_an_earlier_clip_is_cut():
     """Text placed on clip B (timeline 4-5 s) must still sit on the same moment of B after clip A is shortened by 1 s."""
     fresh()

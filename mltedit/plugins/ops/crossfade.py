@@ -19,13 +19,17 @@ class Crossfade(Op):
             raise ValueError(f"{where}: dur must be > 0")
         if st.fr(o["dur"]) < 1:
             raise ValueError(f"{where}: dur {o['dur']:g}s is shorter than one frame ({1 / st.fps:g}s)")
-        st.xfades[a_] = st.fr(o["dur"])               # frames
+        frames = st.fr(o["dur"])
         style_ = transitions.validate(o.get("style") or S.default_transition, where)
         if style_ == "auto":                          # the template's own transition, only when the project's motion is on
             style_ = st.ctx.THEME.transition if st.ctx.MOTION else S.default_transition
         if not transitions.is_plain(style_) and o["dur"] < transitions.MIN_S:
             raise ValueError(f"{where}: a '{style_}' transition needs at least {transitions.MIN_S:g}s (dur is {o['dur']:g}s); use {S.default_transition} for a quick blend")
-        st.xstyles[a_] = style_
+        ea = st.entries[a_]
+        st.xfade_pairs[id(ea)] = {"a": ea, "b": st.entries[b_], "frames": frames, "style": style_, "op": o.get("id")}
+
+    def clip_refs(self, o):
+        return [b for b in o.get("between", []) if isinstance(b, str)]
 
     def migrate_refs(self, o, clip_ids):
         b = o.get("between", [])

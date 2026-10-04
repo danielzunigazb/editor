@@ -15,6 +15,7 @@ class Op:
     name = ""
     order = 100                                  # position in lists shown to the LLM (lower first, then by name)
     defaults = {}                                # static defaults of the op's fields: stored with the op on commit, so replaying never depends on the code's defaults
+    anchorable = False                           # an overlay/audio edit placed on the timeline by `start`: it is anchored to the clip under that moment
     makes_clip = False                           # adds an entry to the base track (an entry's id is the id of the op that made it)
     animatable = False                           # accepts an `anim` spec
     timed = False                                # has a `start` on the timeline (an overlay or audio): it must begin before the timeline ends
@@ -45,6 +46,24 @@ class Op:
         """Facts about the world the op depends on, measured once at commit and stored in it (image aspect, file signatures), so that
         laying the project out again never reads the disk. Returns the op with them added."""
         return o
+
+    def start_of(self, o):
+        """Timeline second at which the edit begins (what an anchor is computed from), or None if it has none."""
+        return o.get("start")
+
+    def shifted(self, o, delta):
+        """The edit moved `delta` seconds later on the timeline: its start and every time that is relative to the timeline moves with it."""
+        return {**o, "start": o["start"] + delta}
+
+    def clip_refs(self, o):
+        """Ids of the base-track clips this edit depends on (a cut's clip, a crossfade's two clips, an anchor's clip)."""
+        a = o.get("anchor")
+        return [a["clip"]] if isinstance(a, dict) and a.get("clip") else []
+
+    def refs(self, o):
+        """Ids of the ops this edit depends on: its clips (clip_refs) and the transition an anchor points at."""
+        a = o.get("anchor")
+        return self.clip_refs(o) + ([a["transition"]] if isinstance(a, dict) and a.get("transition") else [])
 
     def migrate_refs(self, o, clip_ids):
         """v1 -> v2: the op with its clip positions replaced by clip ids (`clip_ids` = ids of the entries made by the ops before it)."""
@@ -132,6 +151,10 @@ class Layer:
         """Name of the group this layer collapses into in the timeline summary (e.g. the cues of one subtitle file), or None."""
         return None
 
+    def shift(self, L, delta):
+        """The layer moved `delta` seconds later (an anchor resolved to a different moment): its start and times that are relative to the timeline."""
+        L["start"] += delta
+
     def summary(self, L):
         """Extra fields of the layer in the timeline summary (what it shows)."""
         return {}
@@ -170,7 +193,8 @@ class LayoutState:
 
     def __init__(self, ctx):
         self.ctx, self.fps, self.fr = ctx, ctx.FPS, ctx.fr
-        self.entries, self.xfades, self.xstyles, self.fade, self.layers, self.audios = [], {}, {}, None, [], []
+        self.entries, self.fade, self.layers, self.audios = [], None, [], []
+        self.xfade_pairs = {}              # id(entry a) -> {a, b, frames, style, op}: tied to the entries themselves, so moving clips cannot mix them up
 
     def clip_index(self, ref, where, what="clip"):
         """Position in the base track of a clip given as an entry position (int) or as the id of the `add` op that made it (str)."""

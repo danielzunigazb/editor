@@ -27,32 +27,54 @@ def tool(fn):
     return w
 
 
-def edit_tool(fn):
+def edit_tool(fn=None, *, anchor=False):
     """Register an MCP tool that changes the project. It gets the arguments every edit takes:
       expected_revision: the revision the agent made this edit against (see `revision` in every response); a stale one is refused with REVISION_CONFLICT.
+    With anchor=True (overlay and audio edits) also:
+      anchor: "clip" (default) = the edit is anchored to the clip that is on screen at start_s and moves with it when earlier clips are cut, trimmed,
+              moved or removed; "timeline" = it stays at that timeline time whatever happens to the clips.
     They are passed to the server through a per-call context (server.CALL), so the tool body never sees them."""
-    sig = inspect.signature(fn)
-    extra = [inspect.Parameter("expected_revision", inspect.Parameter.POSITIONAL_OR_KEYWORD, default=None, annotation=int | None)]
-
-    @functools.wraps(fn)
-    def wrapper(*a, expected_revision=None, **kw):
-        from .. import server as sv
-        tok = sv.CALL.set({"tool": fn.__name__, "expected_revision": expected_revision})
-        try:
-            return fn(*a, **kw)
-        except ValueError as e:
-            raise errors.as_edit_error(e) from None
-        finally:
-            sv.CALL.reset(tok)
-    wrapper.__signature__ = sig.replace(parameters=list(sig.parameters.values()) + extra)
-    wrapper.__doc__ = (fn.__doc__ or "") + "\n    expected_revision: refuse the edit (REVISION_CONFLICT, nothing changed) if the project is no longer at this revision."
-    registry.register("tool", fn.__name__, wrapper)
-    return wrapper
-
-
-def builder(name):
-    """Register the op builder of an edit tool: (tool arguments) -> engine op. apply_ops uses it too, so a batch behaves like single calls."""
     def deco(fn):
+        sig = inspect.signature(fn)
+        extra = ([inspect.Parameter("anchor", inspect.Parameter.POSITIONAL_OR_KEYWORD, default="clip", annotation=str)] if anchor else []) + \
+                [inspect.Parameter("expected_revision", inspect.Parameter.POSITIONAL_OR_KEYWORD, default=None, annotation=int | None)]
+
+        @functools.wraps(fn)
+        def wrapper(*a, expected_revision=None, **kw):
+            from .. import server as sv
+            tok = sv.CALL.set({"tool": fn.__name__, "expected_revision": expected_revision, "anchor": kw.pop("anchor", None) if anchor else None})
+            try:
+                return fn(*a, **kw)
+            except ValueError as e:
+                raise errors.as_edit_error(e) from None
+            finally:
+                sv.CALL.reset(tok)
+        wrapper.__signature__ = sig.replace(parameters=list(sig.parameters.values()) + extra)
+        doc = (fn.__doc__ or "") + "\n    expected_revision: refuse the edit (REVISION_CONFLICT, nothing changed) if the project is no longer at this revision."
+        if anchor:
+            doc += ("\n    anchor: \"clip\" (default) = the edit follows the clip on screen at start_s (it moves when earlier clips are cut, trimmed, moved or removed); "
+                    "\"timeline\" = it stays at that timeline time.")
+        wrapper.__doc__ = doc
+        registry.register("tool", fn.__name__, wrapper)
+        return wrapper
+    return deco(fn) if fn is not None else deco
+
+
+def builder(name, anchor=False):
+    """Register the op builder of an edit tool: (tool arguments) -> engine op. apply_ops uses it too, so a batch behaves like single calls.
+    anchor=True: the builder also takes anchor="clip"|"timeline" (see edit_tool)."""
+    def deco(fn):
+        if anchor:
+            @functools.wraps(fn)
+            def wrapped(*a, anchor="clip", **kw):
+                op = fn(*a, **kw)
+                if anchor not in ("clip", "timeline"):
+                    raise errors.EditError("INVALID_ARGUMENT", f"anchor must be 'clip' or 'timeline' (got {anchor!r})")
+                return {**op, "anchor": anchor} if anchor == "timeline" else op
+            sig = inspect.signature(fn)
+            wrapped.__signature__ = sig.replace(parameters=list(sig.parameters.values()) + [inspect.Parameter("anchor", inspect.Parameter.POSITIONAL_OR_KEYWORD, default="clip", annotation=str)])
+            registry.register("builder", name, wrapped)
+            return wrapped
         registry.register("builder", name, fn)
         return fn
     return deco

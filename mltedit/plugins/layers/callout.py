@@ -81,6 +81,10 @@ class Callout(Layer):
         alpha = lambda f_: 0 if ramp and f_ in (s0, s0 + n - 1) else 1
         return [(f_, "{:.2f} {:.2f} {} {} {}".format(*pos(L, f_ / FPS, cax, cay, w, h, W, H), w, h, alpha(f_))) for f_ in keys]
 
+    def shift(self, L, delta):
+        L["start"] += delta
+        L["path"] = [(t + delta, x, y) for t, x, y in L["path"]]
+
     def label(self, L):
         return f"callout {L['title'][:24]!r}"
 

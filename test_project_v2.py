@@ -67,7 +67,7 @@ server.crossfade(0, 0.5)
 xf = next(o for o in ops() if o["op"] == "crossfade")
 check("a crossfade is stored with the ids of its two clips", xf["between"] == ids, xf)
 e = err(server.remove_op, op_id=ids[0])
-check("removing a clip that a crossfade refers to is refused, naming the problem", e and "no clip with id" in e, e)
+check("removing a clip that a crossfade refers to is refused, naming the crossfade", e and "depend on" in e and xf["id"] in e, e)
 tl = server.get_timeline()
 check("...and nothing was changed", len(tl["ops"]) == 4 and [x["id"] for x in tl["entries"]] == ids)
 

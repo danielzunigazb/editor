@@ -26,7 +26,7 @@ def _probe_audio(path):
     return dur
 
 
-@builder("add_audio")
+@builder("add_audio", anchor=True)
 def _b_add_audio(start_s=0.0, dur_s=None, path="", source_in_s=0.0, volume_db=-14.0, fade_in_s=None, fade_out_s=None, loop=False,
                  duck_under=None, duck_db=-12.0, asset=""):
     if bool(path) == bool(asset):
@@ -80,7 +80,7 @@ def _speech_intervals(st):
     return [(round(a, 3), round(b, 3)) for a, b in merged if b - a >= 0.4]
 
 
-@edit_tool
+@edit_tool(anchor=True)
 def add_audio(start_s: float = 0.0, dur_s: float | None = None, path: str = "", source_in_s: float = 0.0, volume_db: float = -14.0,
               fade_in_s: float | None = None, fade_out_s: float | None = None, loop: bool = False, duck_under: list[list[float]] | None = None,
               duck_auto: bool | None = None, duck_db: float = -12.0, asset: str = "") -> dict:

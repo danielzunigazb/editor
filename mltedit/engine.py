@@ -89,10 +89,14 @@ def _layout(ops, ctx=None):
             raise ValueError(f"{where}: anim is not supported on '{k}' (use it on {', '.join(O.animatable())}); a silently ignored animation would be worse")
         if plug is None:
             raise ValueError(f"{where}: unknown op; known: {', '.join(O.op_names())}")
+        n_layers, n_audios = len(st.layers), len(st.audios)
         try:
             plug.layout(plug.normalize(o, ctx), n, where, st)
         except (KeyError, TypeError, AttributeError, IndexError) as e:
             raise errors.EditError("INVALID_ARGUMENT", where, f"malformed op ({type(e).__name__}: {e}); see list_styles for the fields each edit takes") from None
+        if o.get("anchor"):                                  # everything this edit placed on the timeline follows its anchor (see core/timeline.resolve)
+            for item in st.layers[n_layers:] + st.audios[n_audios:]:
+                item["anchor"] = o["anchor"]
     return timeline.resolve(st)
 
 

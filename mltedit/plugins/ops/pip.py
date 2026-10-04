@@ -9,6 +9,7 @@ _WHERE = {"top-right": "arriba a la derecha", "top-left": "arriba a la izquierda
 @op
 class Pip(Op):
     timed = True
+    anchorable = True
     order = 30
     name = "pip"
     defaults = {"pos": "top-right", "scale": 0.3, "opacity": 1.0, "in": 0.0}

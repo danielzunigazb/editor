@@ -414,7 +414,8 @@ async def main():
                 for n in "ab":
                     await call("import_clip", path=M(n), id=n.upper())
             strip = lambda tl: {**{k: v for k, v in tl.items() if k not in ("applied", "ops", "op_ids", "op_id", "revision", "can_undo", "can_redo", "layout_hash")},
-                                **({"entries": [{k: v for k, v in e.items() if k != "id"} for e in tl["entries"]]} if "entries" in tl else {})}   # compact responses; ids are random and revisions count saves, neither is part of the timeline
+                                **({"entries": [{k: v for k, v in e.items() if k != "id"} for e in tl["entries"]]} if "entries" in tl else {}),
+                                **{g: [{k: v for k, v in x.items() if k != "anchor"} for x in tl[g]] for g in ("overlays", "audio") if g in tl}}   # compact responses; ids are random and revisions count saves, neither is part of the timeline
             await clean_project()
             res, err = await call("apply_ops", ops=LUX)
             check("apply_ops builds a 9-edit luxury project in ONE call", err is None and res and res["applied"] == 9 and abs(res["duration_s"] - 7.2) < 1e-6, err)

@@ -10,20 +10,20 @@ def _theme_arg(theme):
     return None if theme in (None, "", "auto") else theme
 
 
-@builder("add_pip")
+@builder("add_pip", anchor=True)
 def _b_add_pip(source, start_s, dur_s, position="top-right", scale=0.3, opacity=1.0, source_in_s=0.0, anim=None):
     return {"op": "pip", "src": source, "start": start_s, "dur": dur_s, "pos": position, "scale": scale,
             "opacity": opacity, "in": source_in_s, "anim": anim or None}
 
 
-@builder("add_text")
+@builder("add_text", anchor=True)
 def _b_add_text(text, start_s, dur_s, position="bottom", size=0.06, style="auto", color="", box=None,
                 uppercase=None, ornament="", fade_s=0.15, anim=None):
     return {"op": "text", "text": text, "start": start_s, "dur": dur_s, "pos": position, "size": size, "style": style,
             "color": color or None, "box": box, "uppercase": uppercase, "ornament": ornament or None, "fade": fade_s, "anim": anim or None}
 
 
-@builder("add_subtitles")
+@builder("add_subtitles", anchor=True)
 def _b_add_subtitles(srt_path="", cues=None, offset_s=0.0, position="bottom", size=0.05, style="auto", color="",
                      box=None):
     if bool(srt_path) == bool(cues):
@@ -40,19 +40,19 @@ def _b_add_subtitles(srt_path="", cues=None, offset_s=0.0, position="bottom", si
             "color": color or None, "box": box, "fade": 0.0, "ornament": "none"}
 
 
-@builder("add_graphic")
+@builder("add_graphic", anchor=True)
 def _b_add_graphic(kind, start_s, dur_s, amount=None, opacity=1.0, fade_s=0.5, theme="auto"):
     return {"op": "graphic", "kind": kind, "start": start_s, "dur": dur_s, "amount": amount, "opacity": opacity,
             "fade": fade_s, "theme": _theme_arg(theme)}
 
 
-@builder("add_lower_third")
+@builder("add_lower_third", anchor=True)
 def _b_add_lower_third(title, subtitle="", start_s=0.0, dur_s=4.0, align="left", fade_s=0.4, theme="auto", anim=None):
     return {"op": "lower_third", "title": title, "subtitle": subtitle, "start": start_s, "dur": dur_s, "align": align,
             "fade": fade_s, "theme": _theme_arg(theme), "anim": anim or None}
 
 
-@builder("add_image")
+@builder("add_image", anchor=True)
 def _b_add_image(start_s, dur_s, path="", position="center", scale=0.3, opacity=1.0, icon="", color="", at=None, plate=None, theme="auto", anim=None):
     op = {"op": "image", "path": sv._safe_path(path, "add_image") if path else "", "start": start_s, "dur": dur_s,
           "pos": position, "scale": scale, "opacity": opacity, "icon": icon or "", "color": color or None, "at": at, "theme": _theme_arg(theme), "anim": anim or None}
@@ -61,7 +61,7 @@ def _b_add_image(start_s, dur_s, path="", position="center", scale=0.3, opacity=
     return op
 
 
-@builder("add_callout")
+@builder("add_callout", anchor=True)
 def _b_add_callout(title, track, subtitle="", start_s=None, dur_s=None, side="auto", fade_s=0.3, theme="auto", size=1.0, anim=None):
     if not isinstance(track, list) or not track or not all(isinstance(p, (list, tuple)) and len(p) == 3 for p in track):
         raise ValueError("track must be a list of [t_s, x, y] points (timeline seconds; x, y = fractions 0-1 of the frame)")
@@ -75,17 +75,17 @@ def _b_add_callout(title, track, subtitle="", start_s=None, dur_s=None, side="au
             **({"size": size} if size != 1.0 else {}), **({"anim": anim} if anim else {})}
 
 
-@edit_tool
+@edit_tool(anchor=True)
 def add_pip(source: str, start_s: float, dur_s: float, position: str = "top-right",
             scale: float = 0.3, opacity: float = 1.0, source_in_s: float = 0.0, anim: dict | None = None) -> dict:
     """Overlay a picture-in-picture video on its own layer from start_s for dur_s (TIMELINE time).
     position: top-right | top-left | bottom-right | bottom-left. scale: fraction of frame width (0-1].
     opacity 0-1 (fades in/out at the edges). Calls accumulate (several PiPs are allowed, up to 6 overlays
-    at the same moment). Overlays are placed in timeline seconds and do NOT move if you later edit earlier clips."""
+    at the same moment). start_s is a timeline time; the overlay is anchored to the clip on screen at that moment, so it moves with that clip when earlier clips are cut, trimmed, moved or removed (anchor=\"timeline\" keeps it at that time instead)."""
     return sv.commit(sv.BUILDERS["add_pip"](source, start_s, dur_s, position, scale, opacity, source_in_s, anim))
 
 
-@edit_tool
+@edit_tool(anchor=True)
 def add_text(text: str, start_s: float, dur_s: float, position: str = "bottom", size: float = 0.06,
              style: str = "auto", color: str = "", box: bool | None = None, uppercase: bool | None = None,
              ornament: str = "", fade_s: float = 0.15, anim: dict | None = None) -> dict:
@@ -101,7 +101,7 @@ def add_text(text: str, start_s: float, dur_s: float, position: str = "bottom", 
     return sv.commit(sv.BUILDERS["add_text"](text, start_s, dur_s, position, size, style, color, box, uppercase, ornament, fade_s, anim))
 
 
-@edit_tool
+@edit_tool(anchor=True)
 def add_subtitles(srt_path: str = "", cues: list[dict] | None = None, offset_s: float = 0.0,
                   position: str = "bottom", size: float = 0.05, style: str = "auto", color: str = "",
                   box: bool | None = None) -> dict:
@@ -113,7 +113,7 @@ def add_subtitles(srt_path: str = "", cues: list[dict] | None = None, offset_s: 
     return sv.commit(sv.BUILDERS["add_subtitles"](srt_path, cues, offset_s, position, size, style, color, box))
 
 
-@edit_tool
+@edit_tool(anchor=True)
 def add_graphic(kind: str, start_s: float, dur_s: float, amount: float | None = None, opacity: float = 1.0,
                 fade_s: float = 0.5, theme: str = "auto") -> dict:
     """Add a graphic overlay (drawn to match the video size) from start_s for dur_s (TIMELINE time).
@@ -122,7 +122,7 @@ def add_graphic(kind: str, start_s: float, dur_s: float, amount: float | None = 
     return sv.commit(sv.BUILDERS["add_graphic"](kind, start_s, dur_s, amount, opacity, fade_s, theme))
 
 
-@edit_tool
+@edit_tool(anchor=True)
 def add_lower_third(title: str, subtitle: str = "", start_s: float = 0.0, dur_s: float = 4.0,
                     align: str = "left", fade_s: float = 0.4, theme: str = "auto", anim: dict | None = None) -> dict:
     """Name/role caption panel at the bottom, drawn in the project's template (e.g. title "Señor Muñoz", subtitle "Director de Proyecto"). Single lines only (title max 60 chars,
@@ -130,7 +130,7 @@ def add_lower_third(title: str, subtitle: str = "", start_s: float = 0.0, dur_s:
     return sv.commit(sv.BUILDERS["add_lower_third"](title, subtitle, start_s, dur_s, align, fade_s, theme, anim))
 
 
-@edit_tool
+@edit_tool(anchor=True)
 def add_image(start_s: float, dur_s: float, path: str = "", position: str = "center", scale: float = 0.3,
               opacity: float = 1.0, icon: str = "", color: str = "", at: list[float] | None = None,
               plate: bool | None = None, theme: str = "auto", anim: dict | None = None) -> dict:
@@ -143,7 +143,7 @@ def add_image(start_s: float, dur_s: float, path: str = "", position: str = "cen
     return sv.commit(sv.BUILDERS["add_image"](start_s, dur_s, path, position, scale, opacity, icon, color, at, plate, theme, anim))
 
 
-@edit_tool
+@edit_tool(anchor=True)
 def add_callout(title: str, track: list[list[float]], subtitle: str = "", start_s: float | None = None,
                 dur_s: float | None = None, side: str = "auto", fade_s: float = 0.3, theme: str = "auto", size: float = 1.0,
                 anim: dict | None = None) -> dict:

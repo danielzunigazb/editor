@@ -10,6 +10,7 @@ from ...render import text as textrender
 @op
 class Image(Op):
     timed = True
+    anchorable = True
     order = 20
     name = "image"
     defaults = {"pos": "center", "scale": 0.3, "opacity": 1.0}

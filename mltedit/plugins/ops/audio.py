@@ -9,6 +9,7 @@ from ...ops.common import file_sig
 @op
 class Audio(Op):
     timed = True
+    anchorable = True
     name = "audio"
     defaults = {"loop": False, "in": 0.0, "volume_db": -14.0, "duck_db": -12.0, "duck": []}
 
@@ -49,6 +50,9 @@ class Audio(Op):
 
     def files(self, o):
         return [o["path"]] if o.get("path") else []
+
+    def shifted(self, o, delta):
+        return {**o, "start": o["start"] + delta, "duck": [[a + delta, b + delta] for a, b in o.get("duck") or []]}
 
     def describe(self, o):
         name = o.get("name") or os.path.basename(str(o.get("path")))

@@ -10,6 +10,7 @@ from .. import anim, cards, errors, registry
 from .. import engine as live
 from .. import server as sv
 from ..render import text as textrender
+from .. import ops as O
 from .. import project as P
 from ..errors import EditError, as_edit_error
 from . import edit_tool, tool
@@ -257,22 +258,90 @@ def _op_index(st, index, op_id, what):
     return i
 
 
+def _resolved_starts(m):
+    """op position -> where its edit starts on the timeline now (seconds), from a layout; edits that are not shown are absent."""
+    out = {}
+    for item in list(m["layers"]) + list(m["audios"]):
+        out[item["op"]] = min(item["start"], out.get(item["op"], item["start"]))
+    return out
+
+
 @edit_tool
-def remove_op(index: int | None = None, op_id: str = "") -> dict:
-    """Remove an edit by its `op_id` (stable; see get_timeline) or its `index`. Rejected, with nothing changed, if later edits
-    depend on it (e.g. removing an add_clip that a later cut refers to). `undo` brings it back."""
+def remove_op(index: int | None = None, op_id: str = "", cascade: bool = False, reanchor: str = "") -> dict:
+    """Remove an edit by its `op_id` (stable; see get_timeline) or its `index`. If other edits depend on it (removing a clip that a cut, a crossfade or
+    an anchored overlay refers to) it is rejected with the list of them and nothing changes, unless: cascade=true removes those edits too, or
+    reanchor="timeline" keeps the anchored overlays/audio where they are now (anchored to the timeline instead of the clip; cuts, trims and crossfades
+    of the clip still need cascade). `undo` brings everything back in one step."""
+    if reanchor not in ("", "timeline"):
+        raise EditError("INVALID_ARGUMENT", "reanchor must be '' or 'timeline'")
     with sv.locked():
         st = sv.load()
         sv.check_revision(st)
         i = _op_index(st, index, op_id, "remove_op")
         sv.bind(st)
-        rest = st["ops"][:i] + st["ops"][i + 1:]
-        live.layout(rest)          # raises if the remaining ops are no longer valid
-        removed = st["ops"][i]
-        st["ops"] = rest
-        sv.push_undo(st, {"k": "insert", "index": i, "op": removed})
-        sv.save(st, {"kind": "remove_op", "op": removed["id"]})
-        return {"removed": removed, **sv.summary(st, full=True)}
+        target = st["ops"][i]
+        plug = lambda o: O.get_op(o["op"])                  # noqa: E731
+        depends = lambda gone: [o for o in st["ops"] if o["id"] not in gone and plug(o) and set(plug(o).refs(o)) & gone]   # noqa: E731
+        direct = depends({target["id"]})
+        gone, moved = {target["id"]}, []
+        if direct and cascade:
+            while True:                                      # everything that depends on what is going away, transitively
+                more = depends(gone)
+                if not more:
+                    break
+                gone |= {o["id"] for o in more}
+        elif direct and reanchor == "timeline":
+            moved = [o for o in direct if plug(o).anchorable and set(plug(o).refs(o)) <= {target["id"]}]
+            direct = [o for o in direct if o not in moved]
+        if direct and not cascade:
+            raise EditError("TIMELINE_CONFLICT", f"{len(direct)} edit(s) depend on {target['id']} ({target['op']}): "
+                            + ", ".join(f"{o['id']} ({o['op']})" for o in direct) + "; pass cascade=true to remove them too"
+                            + ("" if reanchor else ", or reanchor='timeline' to keep the overlays and audio where they are"), hint="cascade / reanchor")
+        m = live.layout(st["ops"])
+        starts = _resolved_starts(m)
+        undo = []
+        for o in moved:                                      # keep them where they are now: absolute timeline frames
+            j = P.index_of(st, o["id"])
+            p = plug(o)
+            now = starts.get(j, p.start_of(o))
+            new = p.shifted(o, now - p.start_of(o))
+            new["anchor"] = {"timeline_f": live.CTX.fr(now), "t0_f": live.CTX.fr(now)}
+            undo.append({"k": "replace", "id": o["id"], "op": o})
+            st["ops"][j] = new
+        removed = sorted((j, o) for j, o in enumerate(st["ops"]) if o["id"] in gone)
+        for j, o in reversed(removed):
+            st["ops"].pop(j)
+        undo += [{"k": "insert", "index": j, "op": o} for j, o in removed]
+        live.layout(st["ops"])                               # raises if what remains is no longer valid: nothing is saved
+        sv.push_undo(st, undo[0] if len(undo) == 1 else {"k": "batch", "patches": undo})
+        sv.save(st, {"kind": "remove_op", "ops": [o["id"] for _, o in removed]})
+        return {"removed": target, **({"also_removed": [o["id"] for _, o in removed if o["id"] != target["id"]]} if len(removed) > 1 else {}),
+                **({"reanchored": [o["id"] for o in moved]} if moved else {}), **sv.summary(st, full=True)}
+
+
+@edit_tool(anchor=True)
+def move_op(op_id: str, start_s: float) -> dict:
+    """Move an overlay or audio edit (text, subtitles, lower third, graphic, image, picture-in-picture, callout, audio) to timeline time `start_s` by its
+    stable `op_id`; everything timed inside it (subtitle cues, a callout's path, ducking intervals) moves with it. It is anchored to the clip on screen
+    at the new time (anchor="timeline" to keep it at that time instead). `undo` takes it back."""
+    with sv.locked():
+        st = sv.load()
+        sv.check_revision(st)
+        i = P.index_of(st, op_id)
+        old = st["ops"][i]
+        plug = O.get_op(old["op"])
+        if plug is None or not plug.anchorable:
+            raise EditError("INVALID_ARGUMENT", f"op {op_id} is a '{old['op']}': only overlay and audio edits can be moved ({', '.join(n for n, p in registry.items('op') if p.anchorable)})")
+        now = plug.start_of(old)
+        new = plug.shifted(old, start_s - now)
+        new = sv.reanchor(st, {k: v for k, v in new.items() if k != "anchor"}, sv._call().get("anchor") or "clip")
+        before = live.layout(st["ops"])["total"]
+        sv.replace_op(st, i, new)
+        err = plug.placement_error(new, before)
+        if err:
+            raise EditError("TIMELINE_CONFLICT", err)
+        sv.save(st, {"kind": "move_op", "op": op_id})
+        return {"moved": op_id, **sv.summary(st, full=True)}
 
 
 @edit_tool
@@ -292,6 +361,8 @@ def update_op(op_id: str, patch: dict) -> dict:
         for k, v in patch.items():
             if v is None:
                 new.pop(k, None)
+        if "anchor" not in patch:
+            new = sv.reanchor(st, new)                   # a changed time means a new anchor (same kind as before)
         sv.replace_op(st, i, new)
         sv.save(st, {"kind": "update_op", "op": op_id})
         return {"updated": op_id, **sv.summary(st, full=True)}

@@ -7,6 +7,7 @@ from ...ops.common import clean, gfx_layer, theme_key
 @op
 class LowerThird(Op):
     timed = True
+    anchorable = True
     order = 50
     name = "lower_third"
     defaults = {"subtitle": "", "align": "left", "opacity": 1.0, "fade": 0.4}

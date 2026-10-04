@@ -121,12 +121,46 @@ def prepare(st, op):
     plug = O.get_op(op.get("op"))
     op = {**op, "id": op.get("id") or P.new_op_id({o.get("id") for o in st["ops"]})}
     if plug is not None:
-        op = plug.resolve_refs(op, live.layout(st["ops"])["entries"])
+        m = live.layout(st["ops"])
+        op = plug.resolve_refs(op, m["entries"])
+        if plug.anchorable and not isinstance(op.get("anchor"), dict):
+            op = {**op, "anchor": make_anchor(m["entries"], plug.start_of(op), op.get("anchor") or _call().get("anchor") or "clip")}
         try:
             op = plug.freeze(plug.normalize(op, live.CTX), live.CTX)
         except ValueError as e:
             raise as_edit_error(e, f"op {len(st['ops'])} ({op.get('op')})")
     return op
+
+
+def make_anchor(entries, start, mode="clip"):
+    """The anchor of an edit placed at timeline second `start`: the frame of the source clip that is on screen at that moment (the incoming clip wins
+    inside a transition), or the timeline frame itself when no clip is there or mode is "timeline". `entries` = the layout's entries."""
+    if mode not in ("clip", "timeline"):
+        raise EditError("INVALID_ARGUMENT", f"anchor must be 'clip' or 'timeline' (got {mode!r})")
+    if not isinstance(start, (int, float)) or isinstance(start, bool) or start != start or start in (float("inf"), float("-inf")):
+        return None                                           # not a time: the edit will be refused by validation, with its own message
+    t_f = live.CTX.fr(start)
+    if mode == "clip":
+        here = [e for e in entries if e.get("id") and e["start_f"] <= t_f < e["start_f"] + e["dur_f"]]
+        if here:
+            e = here[-1]
+            return {"clip": e["id"], "src_f": e["in_f"] + t_f - e["start_f"], "t0_f": t_f}
+    return {"timeline_f": t_f, "t0_f": t_f}
+
+
+def reanchor(st, op, mode=None):
+    """The op with a fresh anchor for its current start (after its time changed). mode None keeps the kind it had (clip / timeline)."""
+    bind(st)
+    plug = O.get_op(op.get("op"))
+    if plug is None or not plug.anchorable:
+        return op
+    old = op.get("anchor") if isinstance(op.get("anchor"), dict) else {}
+    mode = mode or ("timeline" if "timeline_f" in old else "clip")
+    return {**{k: v for k, v in op.items() if k != "anchor"}, "anchor": make_anchor(live.layout(st["ops"])["entries"], plug.start_of(op), mode)}
+
+
+def _anchor_view(a):
+    return {k: v for k, v in a.items() if k != "t0_f"} if isinstance(a, dict) else a
 
 
 def require_fresh(st):
@@ -223,7 +257,7 @@ def summary(st, full=False):
                  "end_s": round(L["start"] + L["dur"], 3), "track": L["track"]}
             seen[L["op"]] = g; layers.append(g); continue
         d = {"kind": L["kind"], "op": L["op"], "start_s": round(L["start"], 3), "end_s": round(L["start"] + L["dur"], 3),
-             "track": L["track"], **O.get_layer(L["kind"]).summary(L)}
+             "track": L["track"], **({"anchor": _anchor_view(L["anchor"])} if L.get("anchor") else {}), **O.get_layer(L["kind"]).summary(L)}
         layers.append(d)
     out = {
         "revision": st.get("revision", 0),
@@ -237,7 +271,7 @@ def summary(st, full=False):
         "fade": m["fade"],
         "overlays": layers,
         "audio": [{"op": a["op"], "name": a["name"], "start_s": round(a["start"], 3), "end_s": round(a["start"] + a["dur_eff"], 3), "volume_db": a["vol"],
-                   "loop": a["loop"], "ducked": len(a["duck"])} for a in m["audios"]],
+                   "loop": a["loop"], "ducked": len(a["duck"]), **({"anchor": _anchor_view(a["anchor"])} if a.get("anchor") else {})} for a in m["audios"]],
         "warnings": m["warnings"] + _legibility(st) + _file_warnings(st),
         "op_count": len(st["ops"]),
     }

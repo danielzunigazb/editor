@@ -6,6 +6,7 @@ from ...ops.common import anim, check_text_fits, clean, need_time, resolve_style
 @op
 class Text(Op):
     timed = True
+    anchorable = True
     order = 10
     name = "text"
     defaults = {"pos": "bottom", "size": 0.06, "fade": 0.15, "style": "auto"}
