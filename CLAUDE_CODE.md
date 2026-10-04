@@ -46,3 +46,8 @@ Las respuestas de edición son compactas (sin el listado de `ops`, solo `op_coun
 - `MLT_TRACTOR_CACHE=0` desactiva la reutilización del timeline en los cuadros de revisión.
 - El estado del proyecto se guarda con bloqueo de archivo (`project.lock`): dos procesos sobre el mismo `MLT_EDITOR_HOME` no se pierden ediciones.
 
+
+## Plantillas, animación y audio
+- `list_styles` muestra las plantillas; `set_template(name, accent)` cambia el aspecto de todo el proyecto. `add_card` para introducciones/cierres, `add_image(icon=…)` para iconos, `anim`/`animate` para movimiento.
+- Audio: `list_assets(kind="music"|"sfx", theme=…, license=…)` y `add_audio(asset=id, …)`. Las piezas se bajan de R2 la primera vez: el entorno necesita `R2_WORKER_URL` y `R2_UPLOAD_TOKEN` (configúralos en las variables del entorno de la sesión, no en archivos del repo).
+- Si usas algo CC-BY, `get_timeline` lo lista en `credits_required` y `export` escribe `<vídeo>.credits.txt`; ponlo donde publiques el vídeo.

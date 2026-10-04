@@ -787,6 +787,27 @@ decodificadores de hasta 2 timelines: a 4K el proceso llegó a ~1.07 GB de RSS c
 cuadros a 0.5x y hojas a 0.25x; `MLT_TRACTOR_CACHE=0` la desactiva); el tope de 8000 px de imágenes ya existía y es lo que
 protege de bombas de descompresión (se lee solo la cabecera); no se repitió la prueba con un modelo real tras estos cambios.
 
+## 19. Plantillas de diseño, animación y biblioteca de audio (añadido a petición del usuario)
+
+**Qué hay.** Siete plantillas (`set_template`): lujo (la original, píxel a píxel idéntica; `golden.py` 15/15), corporativa, académica, boceto, tech/neón, minimal e infantil.
+Cada una define paleta, tipografías (OFL, `fonts/`), estilos de texto, tercio inferior, etiqueta (`add_callout`), marcos, fondos de tarjeta e icono con placa.
+Lo que no nombra estilo propio (`style`/`theme` = `auto`) sigue a la plantilla, así que cambiarla reestiliza toda la edición. `add_card` genera tarjetas
+(título, sección, cita, lista, cifra, cierre) como fuente de vídeo. `add_image(icon=…)` pone iconos Lucide (95, ISC) o garabatos propios, teñidos y con placa.
+`add_text`, `add_lower_third`, `add_image` y `add_pip` aceptan `anim` (entradas/salidas, easings, keyframes libres, rotación/escala; `anim.py`) y `animate` lo añade después.
+
+**Audio.** Op `audio` en el motor (hasta 8 pistas, fades en dB, bucle, ducking manual o automático con los segmentos de habla). Biblioteca: 64 piezas
+(27 de música, 37 efectos; CC0 y CC-BY) con licencia leída en la fuente (`assets/manifest.json`, `assets/LICENSES.md`). El audio vive en el bucket R2
+(`assets/music|sfx/…`) y se baja bajo demanda con verificación SHA-256 (`assets_lib.py`; `fetch_assets.py` para precargar). `list_assets(kind=music|sfx, theme, mood, license)`
+y `add_audio(asset=id)`. Lo CC-BY sale en `credits_required` de `get_timeline` y `export` escribe `<vídeo>.credits.txt`.
+
+**Medido / verificado.** 64/64 piezas subidas a R2 y descargadas de vuelta con hash correcto; `test_assets.py` 30, `test_mcp.py` 244, `test_engine.py` 166, `test_text.py` 225,
+`test_anim.py` 53 en verde. Siete demos de 14 s (`tools/make_demos.py`, 720p draft) en `editados/templates/<plantilla>.mp4` con su `.credits.txt`; revisadas por láminas de contacto.
+Hallazgos: el motor rechaza audio de menos de 0.1 s, así que se descartaron 9 efectos de Kenney demasiado cortos; un reemplazo mío borró `add_callout` y `test_mcp` lo detectó.
+
+**No verificado.** La música se eligió por metadatos (género, instrumentos, duración) y nadie la ha escuchado para juzgar si encaja; los demos solo se comprobaron
+con `volumedetect` (hay señal, de −37 a −33 dB de media) y por imagen; la normalización a −16 LUFS de piezas CC-BY cuenta como modificación (se conserva la atribución);
+el autor de las piezas de OpenGameArt se dedujo de la página con una heurística; los iconos de la lámina a 720p son pequeños y las etiquetas (`callout`) se leen justas.
+
 ## 10. Archivos
 
 - `poc.py`: el POC (gen/build/bench/preview/export/measure).
@@ -798,4 +819,5 @@ protege de bombas de descompresión (se lee solo la cabecera); no se repitió la
 - `server.py`, `test_mcp.py`, `setup.sh`, `requirements.txt`, `mcp.example.json`: servidor MCP y su prueba (sección 11).
 - `live.py`, `viewer_template.html`: motor declarativo y visor de la sesión en vivo.
 - `stress_1080p.py`: prueba extra de estrés 1080p (secuencial vs. seek aleatorio).
+- `themes.py`, `themed.py`, `sketch.py`, `cards.py`, `icons.py`, `anim.py`, `assets_lib.py`, `fetch_assets.py`, `tools/` (curaduría, licencias, demos), `assets/`: plantillas, animación y biblioteca de audio (sección 19).
 - `media/`, `out/`: clips y resultados generados (ignorados por git; se regeneran con `gen` y `export`).
