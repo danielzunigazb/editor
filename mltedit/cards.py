@@ -1,4 +1,4 @@
-"""Title / section / quote / list / stat / outro cards in the project's template.
+"""Full-frame cards in the project's template, drawn by card_layout plugins (plugins/card_layouts).
 
 A card is a full-frame picture (procedural background + the theme's type) turned by ffmpeg into a short mp4 with a silent audio
 track, so the editor treats it as any other source: add it with add_clip, dissolve into it with crossfade. No engine changes.
@@ -10,7 +10,6 @@ from PIL import Image, ImageDraw
 from . import registry, shapes
 from .render import text as T
 
-LAYOUTS = ("title", "section", "quote", "list", "stat", "outro", "bento")
 MAX_ITEMS, MAX_ITEM_CHARS = 5, 60
 c_ = shapes._c
 
@@ -95,159 +94,83 @@ def _tile(canvas, rect, th, H, key):
 
 
 # ------------------------------------------------------------------------------------------------ the layouts
-def render_card(layout, W, H, th, title="", subtitle="", items=(), number="", author="", strict=True, split=False):
-    """Full-frame card as an RGBA PIL image. Raises ValueError (with a message to show verbatim) if text does not fit.
-    split=True returns (background, [foreground layers]) instead: one transparent layer per element group (title, rule, subtitle, each list row or
-    bento tile) so the card can be animated; compositing them over the background gives the same card."""
-    if layout not in LAYOUTS:
-        raise ValueError(f"layout must be one of {LAYOUTS}")
-    title, subtitle, author = (T.clean(title, th.title_style) if title else ""), (T.clean(subtitle, th.caption_style) if subtitle else ""), (T.clean(author, th.caption_style) if author else "")
-    if not title and layout != "stat":
-        raise ValueError("a card needs a title")
-    layers = []
-    canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0)) if split else background(W, H, th)
+class Layout:
+    """A card layout plugin: draw(c) paints the card through a Ctx. needs_title: whether a card of this layout needs a title."""
 
-    def boundary():                                                                # split mode: close the current group, start a fresh transparent layer
-        nonlocal canvas
-        if split:
-            layers.append(canvas)
-            canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    cp = _card(th)
-    align = cp["align"]
-    ml = 0.10 * W                                                                  # left margin for left-aligned cards
-    cx = ml if align == "left" else W / 2                                          # anchor x
-    maxw = (0.80 * W) if align == "center" else (0.78 * W)
-    ts, ss = th.title_style, th.caption_style
+    def __init__(self, draw, needs_title=True):
+        self.draw, self.needs_title = draw, needs_title
 
-    def put(lines, font, track, y, role, style):
+
+def layout(name, needs_title=True):
+    """Decorator registering a card layout: @layout("title") def draw(c): ..."""
+    def deco(fn):
+        registry.register("card_layout", name, Layout(fn, needs_title))
+        return fn
+    return deco
+
+
+def __getattr__(name):
+    if name == "LAYOUTS":
+        return registry.names("card_layout")
+    raise AttributeError(name)
+
+
+class Ctx:
+    """What a layout draws with: the card's text, the theme and its card options, the anchor/margins, and the current canvas.
+    In split mode boundary() closes the current element group and starts a fresh transparent layer (c.canvas changes)."""
+
+    def __init__(self, W, H, th, split, title, subtitle, items, number, author, strict):
+        self.W, self.H, self.th, self.split, self.strict = W, H, th, split, strict
+        self.title, self.subtitle, self.items, self.number, self.author = title, subtitle, items, number, author
+        self.layers = []
+        self.canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0)) if split else background(W, H, th)
+        self.cp = _card(th)
+        self.align = self.cp["align"]
+        self.ml = 0.10 * W                                                         # left margin for left-aligned cards
+        self.cx = self.ml if self.align == "left" else W / 2                       # anchor x
+        self.maxw = (0.80 * W) if self.align == "center" else (0.78 * W)
+        self.ts, self.ss = th.title_style, th.caption_style
+
+    def boundary(self):
+        if self.split:
+            self.layers.append(self.canvas)
+            self.canvas = Image.new("RGBA", (self.W, self.H), (0, 0, 0, 0))
+
+    def block(self, text, style, px, max_w, max_lines):
+        return _block(text, style, px, max_w, max_lines, self.strict)
+
+    def line(self, xy, text, style, font, track, role, align=None):
+        return _line(self.canvas, self.th, xy, text, style, font, track, role, align or self.align, self.W)
+
+    def put(self, lines, font, track, y, role, style):
         for ln in lines:
-            _line(canvas, th, (cx, y), ln, style, font, track, role, align, W)
+            _line(self.canvas, self.th, (self.cx, y), ln, style, font, track, role, self.align, self.W)
             y += sum(font.getmetrics()) * 1.1
         return y
 
-    if layout in ("title", "outro"):
-        tf, ttr, tl = _block(title, ts, 0.115 * H, maxw, 3, strict)
-        sf, sstr, sl = _block(subtitle, ss, 0.045 * H, 0.7 * W if align == "center" else maxw, 2, strict) if subtitle else (None, 0, [])
-        gap = 0.05 * H
-        total = _heights(tf, len(tl)) + (gap + _heights(sf, len(sl)) if sl else 0)
-        y = (H - total) / 2 - 0.02 * H
-        if cp["vertical_bar"]:                                                    # a vertical accent bar to the left of the block
-            ImageDraw.Draw(canvas).rectangle([ml - 0.03 * W, y, ml - 0.03 * W + max(5, 0.006 * H), y + total], fill=c_(cp["accent"]))
-        y = put(tl, tf, ttr, y, "title", ts)
-        if sl:
-            boundary()
-            wmax = max(T.text_width(l, tf, ttr) for l in tl)
-            _decor_rule(canvas, th, cx, y + gap * 0.45, min(wmax, 0.34 * W), align, H)
-            boundary()
-            put(sl, sf, sstr, y + gap, "sub", ss)
-    elif layout == "section":
-        nf, ntr, nl = _block(number or "01", ts, 0.30 * H, 0.5 * W, 1, strict)
-        tf, ttr, tl = _block(title, ts, 0.09 * H, maxw, 2, strict)
-        sf, sstr, sl = _block(subtitle, ss, 0.04 * H, 0.7 * W, 2, strict) if subtitle else (None, 0, [])
-        total = _heights(nf, 1) + 0.02 * H + _heights(tf, len(tl)) + (0.03 * H + _heights(sf, len(sl)) if sl else 0)
-        y = (H - total) / 2
-        y = put(nl, nf, ntr, y, "accent", ts) + 0.02 * H
-        boundary()
-        y = put(tl, tf, ttr, y, "title", ts)
-        if sl:
-            boundary()
-            put(sl, sf, sstr, y + 0.03 * H, "sub", ss)
-    elif layout == "quote":
-        qf = T.make_font(ts, 0.22 * H)
-        tf, ttr, tl = _block(title, th.subtitle_style if th.subtitle_style in T.STYLES else ts, 0.062 * H, 0.74 * W if align == "center" else 0.7 * W, 5, strict)
-        af, astr, al = _block(author, ss, 0.035 * H, 0.6 * W, 1, strict) if author else (None, 0, [])
-        total = 0.15 * H + _heights(tf, len(tl)) + (0.05 * H + _heights(af, 1) if al else 0)
-        y = (H - total) / 2
-        _line(canvas, th, (cx, y - 0.05 * H), "“", ts, qf, 0, "accent", align, W)
-        boundary()
-        y = put(tl, tf, ttr, y + 0.15 * H, "title", th.subtitle_style if th.subtitle_style in T.STYLES else ts)
-        if al:
-            boundary()
-            put([("— " + author)], af, astr, y + 0.05 * H, "sub", ss)
-    elif layout == "list":
-        its = [T.clean(i, th.caption_style) for i in items]
-        if not 1 <= len(its) <= MAX_ITEMS or any(len(i) > MAX_ITEM_CHARS or not i for i in its):
-            raise ValueError(f"a list card needs 1-{MAX_ITEMS} items of at most {MAX_ITEM_CHARS} characters")
-        tf, ttr, tl = _block(title, ts, 0.085 * H, maxw, 2, strict)
-        rows = []
-        for it in its:
-            f, tr, ls = _block(it, ss, 0.052 * H, 0.66 * W, 1, strict)
-            rows.append((f, tr, ls[0]))
-        gap = 0.032 * H
-        total = _heights(tf, len(tl)) + 0.05 * H + sum(_heights(r[0], 1) + gap for r in rows)
-        y = (H - total) / 2
-        y = put(tl, tf, ttr, y, "title", ts) + 0.05 * H
-        left = (W * 0.5 - 0.33 * W) if align == "center" else ml
-        acc = c_(cp["accent"])
-        for f, tr, ln in rows:
-            boundary()
-            d = ImageDraw.Draw(canvas)                                             # a new layer per row: draw on the current one
-            hh = sum(f.getmetrics())
-            rr = 0.011 * H
-            d.ellipse([left, y + hh * 0.5 - rr, left + 2 * rr, y + hh * 0.5 + rr], fill=acc)
-            _line(canvas, th, (left + 0.045 * H + 2 * rr, y), ln, ss, f, tr, cp["list_role"], "left", W)
-            y += hh * 1.1 + gap
-    elif layout == "bento":                                                        # up to 4 tiles "figure | label" in the template's own panel style
-        its = [T.clean(i, th.caption_style) for i in items]
-        if not 1 <= len(its) <= 4 or any(not i or len(i) > 50 for i in its):
-            raise ValueError("a bento card needs 1-4 items of the form 'figure | label' (at most 50 characters each; the figure up to 10)")
-        tiles = []
-        for i in its:
-            fig_, _, lab_ = (p_.strip() for p_ in i.partition("|")) if "|" in i else ("", "", i)
-            if len(fig_) > 10:
-                raise ValueError(f"bento figure '{fig_}' is longer than 10 characters")
-            tiles.append((fig_, lab_))
-        tf, ttr, tl = _block(title, ts, 0.075 * H, maxw, 1, strict)
-        put(tl, tf, ttr, cp["bento"]["title_y"] * H, "title", ts)
-        boundary()
-        gx0, gx1, gy0, gy1, gap = 0.08 * W, 0.92 * W, cp["bento"]["top"] * H, cp["bento"]["bottom"] * H, 0.025 * H
-        gw, gh = gx1 - gx0, gy1 - gy0
-        n_ = len(tiles)
-        if n_ == 1:
-            rects = [(gx0, gy0, gx1, gy1)]
-        elif n_ == 2:
-            rects = [(gx0, gy0, gx0 + (gw - gap) / 2, gy1), (gx0 + (gw + gap) / 2, gy0, gx1, gy1)]
-        elif n_ == 3:
-            rects = [(gx0, gy0, gx0 + (gw - gap) / 2, gy1), (gx0 + (gw + gap) / 2, gy0, gx1, gy0 + (gh - gap) / 2), (gx0 + (gw + gap) / 2, gy0 + (gh + gap) / 2, gx1, gy1)]
-        else:
-            cw_, ch_ = (gw - gap) / 2, (gh - gap) / 2
-            rects = [(gx0 + i * (cw_ + gap), gy0 + j * (ch_ + gap), gx0 + i * (cw_ + gap) + cw_, gy0 + j * (ch_ + gap) + ch_) for j in range(2) for i in range(2)]
-        for k, ((fig_, lab_), rect) in enumerate(zip(tiles, rects)):
-            tcol, scol, eff = _tile(canvas, rect, th, H, f"bento|{k}|{fig_}|{lab_}")
-            pad = 0.03 * H
-            iw, ih = rect[2] - rect[0] - 2 * pad, rect[3] - rect[1] - 2 * pad
-            fpx, lpx = min(0.2 * H, ih * 0.55), min(0.05 * H, ih * 0.3)
-            for _ in range(6):                                                     # shrink until the figure and the label fit the tile's height
-                ff, ftr, fl = _block(fig_, ts, fpx, iw, 1, strict) if fig_ else (None, 0, [])
-                lf, ltr, ll = _block(lab_, ss, lpx, iw, 2, strict)
-                if (sum(ff.getmetrics()) * 1.05 if fig_ else 0) + sum(lf.getmetrics()) * 1.1 * len(ll) <= ih:
-                    break
-                fpx, lpx = fpx * 0.88, lpx * 0.88
-            y = rect[1] + pad
-            if fig_:
-                canvas.alpha_composite(shapes.text_layer(canvas.size, (rect[0] + pad, y), fl[0], ts, ff, ftr, tcol, eff))
-                y += sum(ff.getmetrics()) * 1.05
-            for ln in ll:
-                canvas.alpha_composite(shapes.text_layer(canvas.size, (rect[0] + pad, y), ln, ss, lf, ltr, scol, eff))
-                y += sum(lf.getmetrics()) * 1.1
-            boundary()
-    else:                                                                          # stat: a big figure and its label
-        fig = T.clean(number if number else title, th.title_style)
-        label = subtitle if subtitle else (title if number else "")
-        if not fig or len(fig) > 12:
-            raise ValueError("a stat card needs a short figure (number) of at most 12 characters")
-        nf, ntr, nl = _block(fig, ts, 0.30 * H, 0.8 * W, 1, strict)
-        lf, lstr, ll = _block(label, ss, 0.052 * H, 0.7 * W, 2, strict) if label else (None, 0, [])
-        total = _heights(nf, 1) + (0.01 * H + _heights(lf, len(ll)) if ll else 0)
-        y = (H - total) / 2
-        y = put(nl, nf, ntr, y, cp["stat_role"], ts)
-        if ll:
-            boundary()
-            put(ll, lf, lstr, y - 0.03 * H, "sub", ss)
+    def rule(self, x, y, w):
+        _decor_rule(self.canvas, self.th, x, y, w, self.align, self.H)
+
+    def tile(self, rect, key):
+        return _tile(self.canvas, rect, self.th, self.H, key)
+
+
+def render_card(layout, W, H, th, title="", subtitle="", items=(), number="", author="", strict=True, split=False):
+    """Full-frame card as an RGBA PIL image, drawn by the card_layout plugin `layout`. Raises ValueError (with a message to show verbatim) if
+    text does not fit. split=True returns (background, [foreground layers]) instead: one transparent layer per element group (title, rule,
+    subtitle, each list row or bento tile) so the card can be animated; compositing them over the background gives the same card."""
+    lay = registry.get("card_layout", layout, None)
+    if lay is None:
+        raise ValueError(f"layout must be one of {registry.names('card_layout')}")
+    title, subtitle, author = (T.clean(title, th.title_style) if title else ""), (T.clean(subtitle, th.caption_style) if subtitle else ""), (T.clean(author, th.caption_style) if author else "")
+    if not title and lay.needs_title:
+        raise ValueError("a card needs a title")
+    c = Ctx(W, H, th, split, title, subtitle, items, number, author, strict)
+    lay.draw(c)
     if split:
-        layers.append(canvas)
-        return background(W, H, th), layers
-    return canvas
+        c.layers.append(c.canvas)
+        return background(W, H, th), c.layers
+    return c.canvas
 
 
 # ------------------------------------------------------------------------------------------------ png + mp4

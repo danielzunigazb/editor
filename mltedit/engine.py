@@ -137,7 +137,16 @@ def _check_finite(v, where):
 
 
 ANIMATABLE = ("text", "image", "pip", "graphic", "lower_third", "callout")
-CALLOUT_PRESETS = ("none", "fade", "pop", "zoom", "draw")
+
+
+def callout_presets():
+    """Animation presets a callout accepts (the preset plugins flagged callout=True)."""
+    return tuple(n for n in animmod.PRESETS if animmod.preset(n).callout)
+
+
+def _off_video(spec):
+    """Presets in an anim spec that cannot run on a video layer (on_video=False, e.g. crop reveals of a still)."""
+    return [v for v in (spec or {}).values() if isinstance(v, str) and animmod.PRESETS and v in animmod.PRESETS and not animmod.preset(v).on_video]
 MAX_AUDIOS = S.max_audios                         # audio ops in a project
 MAX_AUDIO_TRACKS = S.max_audio_tracks                    # clips playing at the same time (each overlapping layer is an MLT track; clips that never overlap share one)
 DUCK_RAMP_S = 0.3                       # how fast the music dips/recovers around speech
@@ -207,8 +216,9 @@ def layout(ops):
         where = f"op {n} ({k})"
         if o.get("anim") and k not in ANIMATABLE:
             raise ValueError(f"{where}: anim is not supported on '{k}' (use it on {', '.join(ANIMATABLE)}); a silently ignored animation would be worse")
-        if k == "pip" and "wipe" in (o.get("anim") or {}).values():
-            raise ValueError(f"{where}: anim 'wipe' is not available on pip (it crops a still layer); use slide, pop, zoom or fade")
+        if k == "pip" and _off_video(o.get("anim")):
+            ok = [n for n in animmod.PRESETS if animmod.preset(n).on_video and not animmod.preset(n).callout_only and not animmod.preset(n).still]
+            raise ValueError(f"{where}: anim '{_off_video(o.get('anim'))[0]}' is not available on pip (it crops a still layer); use {', '.join(ok)}")
         if k == "add":
             src = o.get("src")
             if src not in CLIP_LEN:
@@ -563,11 +573,13 @@ def _anim(o, where):
                 spec = {**spec, **{x: round(spec[x] * k, 3) for x in ("in_s", "out_s") if spec.get(x)}}
     spec = animmod.validate(spec, where, dur)
     if spec and o.get("op") == "callout":
-        bad = [v for v in (spec["in"], spec["out"]) if v not in CALLOUT_PRESETS]
+        allowed = callout_presets()
+        bad = [v for v in (spec["in"], spec["out"]) if v not in allowed]
         if bad or spec["keys"] or spec["rotate"] or spec["scale"]:
-            raise ValueError(f"{where}: a callout takes in/out among {CALLOUT_PRESETS} (no keys, rotate or scale: it follows its own track)")
-    elif spec and "draw" in (spec["in"], spec["out"]):
-        raise ValueError(f"{where}: anim 'draw' is for callouts only")
+            raise ValueError(f"{where}: a callout takes in/out among {allowed} (no keys, rotate or scale: it follows its own track)")
+    elif spec and any(animmod.preset(v).callout_only for v in (spec["in"], spec["out"])):
+        only = next(v for v in (spec["in"], spec["out"]) if animmod.preset(v).callout_only)
+        raise ValueError(f"{where}: anim '{only}' is for callouts only")
     return spec
 
 

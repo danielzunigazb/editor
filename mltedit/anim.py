@@ -13,38 +13,59 @@ An `anim` spec (all keys optional):
 The result is sampled per frame and written as MLT keyframes, so every easing is exact (no reliance on MLT's interpolation modes)."""
 import math
 
-EASES = ("linear", "in", "out", "inout", "back", "bounce")
-PRESETS = ("none", "fade", "slide-left", "slide-right", "slide-top", "slide-bottom", "pop", "zoom", "spin", "drop", "wipe", "rise", "draw")
+from . import registry
+from .config import S
+
 KEY_FIELDS = {"t", "x", "y", "scale", "rotate", "opacity"}
 SPEC_KEYS = {"in", "out", "in_s", "out_s", "ease_in", "ease_out", "keys", "keys_ease", "rotate", "scale"}
-DEFAULT_EASE_IN = {"pop": "back", "drop": "bounce", "spin": "back", "wipe": "linear"}
 MAX_KEYS = 60
 
 
+class Preset:
+    """An entrance/exit preset (plugins/anim). transform(p, x, y, w, h, W, H) -> (dx, dy, scale, rotation, opacity multiplier) at appearance
+    progress p (0 = hidden, 1 = at rest).
+      timing   "item" = takes the item's own fade time by default, else in_s/out_s default to 0.5 / 0.4 s
+      reveal   "" | "wipe" | "draw": the preset is a crop the engine animates (wipe_keys / draw_keys), not a transform
+      ease_in / ease_out  default easings (an exit never uses an overshooting easing);  still: True for 'none' (nothing to sample)
+      callout  usable on callouts (scaled about the ring);  callout_only: only on callouts;  on_video: usable on picture-in-picture"""
+    def __init__(self, transform, timing="", reveal="", ease_in="out", ease_out="in", still=False, callout=False, callout_only=False, on_video=True):
+        self.transform, self.timing, self.reveal, self.ease_in, self.ease_out, self.still = transform, timing, reveal, ease_in, ease_out, still
+        self.callout, self.callout_only, self.on_video = callout, callout_only, on_video
+
+
+class Easing:
+    """fn(p) for p in [0, 1]; overshoots = may leave 0..1 on the way (not used for exits, which must end exactly hidden)."""
+    def __init__(self, fn, overshoots=False):
+        self.fn, self.overshoots = fn, overshoots
+
+
+def __getattr__(name):                       # PRESETS / EASES follow the registered plugins
+    if name == "PRESETS":
+        return registry.names("anim_preset")
+    if name == "EASES":
+        return registry.names("easing")
+    raise AttributeError(name)
+
+
+def preset(name):
+    return registry.get("anim_preset", name)
+
+
+def _exit_ease(name, pre):
+    return name if name is not None and not registry.get("easing", name).overshoots else pre.ease_out
+
+
+def _times(a, fade_s):
+    in_s = a["in_s"] if a["in_s"] is not None else (fade_s if preset(a["in"]).timing == "item" else 0.5)
+    out_s = a["out_s"] if a["out_s"] is not None else (fade_s if preset(a["out"]).timing == "item" else 0.4)
+    return in_s, out_s
+
+
 def ease(name, p):
-    """Easing of progress p in [0, 1] -> [0, 1] (back/bounce may overshoot 1 on the way)."""
-    p = min(max(p, 0.0), 1.0)
-    if name == "linear":
-        return p
-    if name == "in":
-        return p * p
-    if name == "out":
-        return 1 - (1 - p) ** 2
-    if name == "inout":
-        return 3 * p * p - 2 * p ** 3
-    if name == "back":
-        c1 = 1.70158; c3 = c1 + 1
-        return 1 + c3 * (p - 1) ** 3 + c1 * (p - 1) ** 2
-    if name == "bounce":
-        n1, d1 = 7.5625, 2.75
-        if p < 1 / d1:
-            return n1 * p * p
-        if p < 2 / d1:
-            p -= 1.5 / d1; return n1 * p * p + 0.75
-        if p < 2.5 / d1:
-            p -= 2.25 / d1; return n1 * p * p + 0.9375
-        p -= 2.625 / d1; return n1 * p * p + 0.984375
-    raise ValueError(f"unknown easing '{name}'; choose one of {EASES}")
+    """Easing of progress p in [0, 1] -> [0, 1] (some, e.g. back/bounce, overshoot 1 on the way)."""
+    if not registry.has("easing", name):
+        raise ValueError(f"unknown easing '{name}'; choose one of {registry.names('easing')}")
+    return registry.get("easing", name).fn(min(max(p, 0.0), 1.0))
 
 
 def validate(spec, where, dur):
@@ -58,9 +79,9 @@ def validate(spec, where, dur):
         raise ValueError(f"{where}: unknown anim key(s) {sorted(extra)}; allowed: {sorted(SPEC_KEYS)}")
     out = {}
     for k in ("in", "out"):
-        v = spec.get(k, "fade")
-        if v not in PRESETS:
-            raise ValueError(f"{where}: anim.{k} must be one of {PRESETS}")
+        v = spec.get(k, S.anim_default_preset)
+        if not registry.has("anim_preset", v):
+            raise ValueError(f"{where}: anim.{k} must be one of {registry.names('anim_preset')}")
         out[k] = v
     for k in ("in_s", "out_s"):
         v = spec.get(k)
@@ -69,8 +90,8 @@ def validate(spec, where, dur):
         out[k] = None if v is None else float(v)
     for k in ("ease_in", "ease_out", "keys_ease"):
         v = spec.get(k)
-        if v is not None and v not in EASES:
-            raise ValueError(f"{where}: anim.{k} must be one of {EASES}")
+        if v is not None and not registry.has("easing", v):
+            raise ValueError(f"{where}: anim.{k} must be one of {registry.names('easing')}")
         out[k] = v
     for k, lo, hi in (("rotate", -720, 720), ("scale", 0.05, 10)):
         v = spec.get(k)
@@ -102,32 +123,7 @@ def validate(spec, where, dur):
 
 def _preset(name, p, x, y, w, h, W, H):
     """(dx, dy, scale, rotation, opacity multiplier) of a preset at appearance progress p (0 = hidden, 1 = at rest)."""
-    q = 1 - p
-    if name == "none":
-        return 0.0, 0.0, 1.0, 0.0, 1.0
-    if name == "fade":
-        return 0.0, 0.0, 1.0, 0.0, min(max(p, 0.0), 1.0)
-    if name == "slide-left":
-        return -q * (x + w), 0.0, 1.0, 0.0, min(1.0, p * 4)
-    if name == "slide-right":
-        return q * (W - x), 0.0, 1.0, 0.0, min(1.0, p * 4)
-    if name == "slide-bottom":                                    # names are SIDES OF THE SCREEN: in = comes from that side, out = leaves toward it
-        return 0.0, q * (H - y), 1.0, 0.0, min(1.0, p * 4)
-    if name in ("slide-top", "drop"):
-        return 0.0, -q * (y + h), 1.0, 0.0, min(1.0, p * 4)
-    if name == "draw":                                            # callouts: the reveal is a crop growing from the ring (draw_keys); nothing else moves
-        return 0.0, 0.0, 1.0, 0.0, 1.0
-    if name == "rise":                                            # drifts up 6% of the frame height while it fades in (as an exit it sinks)
-        return 0.0, q * 0.06 * H, 1.0, 0.0, min(max(p, 0.0), 1.0)
-    if name == "wipe":                                            # position/size/opacity stay put: the reveal is a crop (wipe_keys)
-        return 0.0, 0.0, 1.0, 0.0, 1.0
-    if name == "pop":
-        return 0.0, 0.0, 0.55 + 0.45 * p, 0.0, min(1.0, max(p, 0.0) * 3)
-    if name == "zoom":
-        return 0.0, 0.0, 1.6 - 0.6 * p, 0.0, min(max(p, 0.0), 1.0)
-    if name == "spin":
-        return 0.0, 0.0, 0.4 + 0.6 * p, -200.0 * q, min(1.0, max(p, 0.0) * 2)
-    raise ValueError(name)
+    return preset(name).transform(p, x, y, w, h, W, H)
 
 
 def _keys_at(keys, t, ease_name):
@@ -153,25 +149,24 @@ def transform_at(a, f, n, fps, rect, W, H, fade_s):
     """Rect, opacity multiplier and rotation of an animated item at frame f (0..n-1) of its n frames."""
     x, y, w, h = rect
     t, total = f / fps, (n - 1) / fps
-    in_s = a["in_s"] if a["in_s"] is not None else (fade_s if a["in"] == "fade" else 0.5)
-    out_s = a["out_s"] if a["out_s"] is not None else (fade_s if a["out"] == "fade" else 0.4)
+    in_s, out_s = _times(a, fade_s)
     if in_s + out_s > total > 0:                                  # never longer than the item: shrink both
         k = total / (in_s + out_s); in_s, out_s = in_s * k, out_s * k
     dx = dy = rot = 0.0
     sc, op = 1.0, 1.0
-    if in_s > 0 and t < in_s and a["in"] != "none":
-        p = ease(a["ease_in"] or DEFAULT_EASE_IN.get(a["in"], "out"), t / in_s)      # back/bounce may overshoot 1: that is the point
+    if in_s > 0 and t < in_s and not preset(a["in"]).still:
+        p = ease(a["ease_in"] or preset(a["in"]).ease_in, t / in_s)      # back/bounce may overshoot 1: that is the point
         d = _preset(a["in"], p, x, y, w, h, W, H)
         dx, dy, sc, rot, op = dx + d[0], dy + d[1], sc * d[2], rot + d[3], op * d[4]
     tail = total - t
-    if out_s > 0 and tail < out_s and a["out"] != "none":
+    if out_s > 0 and tail < out_s and not preset(a["out"]).still:
         q = max(tail, 0.0) / out_s                                # 1 at the start of the exit, 0 at the very end
-        p = 1 - ease(a["ease_out"] if a["ease_out"] not in (None, "back", "bounce") else "in", 1 - q)
+        p = 1 - ease(_exit_ease(a["ease_out"], preset(a["out"])), 1 - q)
         d = _preset(a["out"], p, x, y, w, h, W, H)
         dx, dy, sc, rot, op = dx + d[0], dy + d[1], sc * d[2], rot + d[3], op * d[4]
     cx, cy = x + w / 2 + dx, y + h / 2 + dy
     if a["keys"]:
-        k = _keys_at(a["keys"], t, a["keys_ease"] or "inout")
+        k = _keys_at(a["keys"], t, a["keys_ease"] or S.anim_keys_ease)
         if "x" in k:
             cx += k["x"] * W - (x + w / 2)
         if "y" in k:
@@ -187,14 +182,13 @@ def sample(a, rect, W, H, n, fps, fade_s, base_op=1.0):
     """Keyframes for an animated item of n frames: [(frame, (x, y, w, h), opacity, rotation_deg)], every frame inside the entrance/exit
     windows and the keys' span, just the ends elsewhere. Linear interpolation between samples then reproduces the easing."""
     total = (n - 1) / fps
-    in_s = a["in_s"] if a["in_s"] is not None else (fade_s if a["in"] == "fade" else 0.5)
-    out_s = a["out_s"] if a["out_s"] is not None else (fade_s if a["out"] == "fade" else 0.4)
+    in_s, out_s = _times(a, fade_s)
     if in_s + out_s > total > 0:
         k = total / (in_s + out_s); in_s, out_s = in_s * k, out_s * k
     frames = {0, max(0, n - 1)}
-    if a["in"] != "none":
+    if not preset(a["in"]).still:
         frames |= set(range(0, min(n, int(math.ceil(in_s * fps)) + 1)))
-    if a["out"] != "none":
+    if not preset(a["out"]).still:
         frames |= set(range(max(0, n - 1 - int(math.ceil(out_s * fps))), n))
     if a["keys"]:
         f0, f1 = int(round(a["keys"][0]["t"] * fps)), min(n - 1, int(round(a["keys"][-1]["t"] * fps)))
@@ -217,69 +211,75 @@ def pivot_fix(rect, rot):
     return (cx - (w / 2 * c - h / 2 * s), cy - (w / 2 * s + h / 2 * c), w, h)
 
 
+def _reveal(a, kind):
+    """(entrance is a `kind` reveal, exit is a `kind` reveal) for kind 'wipe' / 'draw'."""
+    return preset(a["in"]).reveal == kind, preset(a["out"]).reveal == kind
+
+
 def wipe_keys(a, n, fps, fade_s):
-    """Crop keyframes for an item whose entrance and/or exit is 'wipe': [(frame, lo, hi)], the visible span as fractions (0-1) of the item's
-    width. Entrance: hi grows 0 -> 1 (revealed left to right). Exit: lo grows 0 -> 1 (erased left to right). [] when nothing wipes.
+    """Crop keyframes for an item whose entrance and/or exit is a 'wipe' reveal: [(frame, lo, hi)], the visible span as fractions (0-1) of the
+    item's width. Entrance: hi grows 0 -> 1 (revealed left to right). Exit: lo grows 0 -> 1 (erased left to right). [] when nothing wipes.
     Sampled on every frame of the two windows, plus the ends, so MLT's linear interpolation between keys reproduces the easing."""
-    if "wipe" not in (a["in"], a["out"]):
+    win, wout = _reveal(a, "wipe")
+    if not (win or wout):
         return []
     total = (n - 1) / fps
-    in_s = a["in_s"] if a["in_s"] is not None else (fade_s if a["in"] == "fade" else 0.5)
-    out_s = a["out_s"] if a["out_s"] is not None else (fade_s if a["out"] == "fade" else 0.4)
+    in_s, out_s = _times(a, fade_s)
     if in_s + out_s > total > 0:
         k = total / (in_s + out_s); in_s, out_s = in_s * k, out_s * k
-    e_in = a["ease_in"] or "linear"
-    e_out = a["ease_out"] if a["ease_out"] not in (None, "back", "bounce") else "linear"
+    e_in = a["ease_in"] or preset(a["in"]).ease_in
+    e_out = _exit_ease(a["ease_out"], preset(a["out"]))
 
     def span(f):
         t, lo, hi = f / fps, 0.0, 1.0
-        if a["in"] == "wipe" and in_s > 0 and t < in_s:
+        if win and in_s > 0 and t < in_s:
             hi = min(max(ease(e_in, t / in_s), 0.0), 1.0)
         tail = total - t
-        if a["out"] == "wipe" and out_s > 0 and tail < out_s:
+        if wout and out_s > 0 and tail < out_s:
             lo = min(max(ease(e_out, 1 - max(tail, 0.0) / out_s), 0.0), 1.0)
         lo = min(lo, 0.998)
         return lo, min(max(hi, lo + 0.002), 1.0)                    # a zero-width crop is not valid for MLT
 
     frames = {0, max(0, n - 1)}
-    if a["in"] == "wipe":
+    if win:
         frames |= set(range(0, min(n, int(math.ceil(in_s * fps)) + 2)))
-    if a["out"] == "wipe":
+    if wout:
         frames |= set(range(max(0, n - 2 - int(math.ceil(out_s * fps))), n))
     return [(f, *span(f)) for f in sorted(frames)]
 
 
 def _windows(a, n, fps, fade_s):
     total = (n - 1) / fps
-    in_s = a["in_s"] if a["in_s"] is not None else (fade_s if a["in"] == "fade" else 0.5)
-    out_s = a["out_s"] if a["out_s"] is not None else (fade_s if a["out"] == "fade" else 0.4)
+    in_s, out_s = _times(a, fade_s)
     if in_s + out_s > total > 0:
         k = total / (in_s + out_s); in_s, out_s = in_s * k, out_s * k
     return in_s, out_s
 
 
 def draw_keys(a, n, fps, fade_s):
-    """Callout 'draw': [(frame, p)] with p = how much of the callout has unfolded from its ring (0.02-1). Entrance grows 0 -> 1, exit shrinks 1 -> 0. [] without draw."""
-    if "draw" not in (a["in"], a["out"]):
+    """Callout 'draw' reveal: [(frame, p)] with p = how much of the callout has unfolded from its ring (0.02-1). Entrance grows 0 -> 1, exit
+    shrinks 1 -> 0. [] without a draw reveal."""
+    din, dout = _reveal(a, "draw")
+    if not (din or dout):
         return []
     in_s, out_s = _windows(a, n, fps, fade_s)
     total = (n - 1) / fps
-    e_in = a["ease_in"] or "out"
-    e_out = a["ease_out"] if a["ease_out"] not in (None, "back", "bounce") else "in"
+    e_in = a["ease_in"] or preset(a["in"]).ease_in
+    e_out = _exit_ease(a["ease_out"], preset(a["out"]))
 
     def p_at(f):
         t, p = f / fps, 1.0
-        if a["in"] == "draw" and in_s > 0 and t < in_s:
+        if din and in_s > 0 and t < in_s:
             p = ease(e_in, t / in_s)
         tail = total - t
-        if a["out"] == "draw" and out_s > 0 and tail < out_s:
+        if dout and out_s > 0 and tail < out_s:
             p = min(p, 1 - ease(e_out, 1 - max(tail, 0.0) / out_s))
         return min(max(p, 0.02), 1.0)
 
     frames = {0, max(0, n - 1)}
-    if a["in"] == "draw":
+    if din:
         frames |= set(range(0, min(n, int(math.ceil(in_s * fps)) + 2)))
-    if a["out"] == "draw":
+    if dout:
         frames |= set(range(max(0, n - 2 - int(math.ceil(out_s * fps))), n))
     return [(f, p_at(f)) for f in sorted(frames)]
 
@@ -288,9 +288,9 @@ def callout_keys(a, n, fps, fade_s):
     """Callout pop/zoom/fade: [(frame, scale, opacity)] to apply about the ring on every frame of the entrance/exit windows (+ both ends)."""
     in_s, out_s = _windows(a, n, fps, fade_s)
     frames = {0, max(0, n - 1)}
-    if a["in"] != "none":
+    if not preset(a["in"]).still:
         frames |= set(range(0, min(n, int(math.ceil(in_s * fps)) + 1)))
-    if a["out"] != "none":
+    if not preset(a["out"]).still:
         frames |= set(range(max(0, n - 1 - int(math.ceil(out_s * fps))), n))
     out = []
     for f in sorted(frames):
