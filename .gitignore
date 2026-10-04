@@ -9,3 +9,4 @@ media_user/
 .venv_det/
 .venv_stt/
 assets_cache/
+assets_stage/
