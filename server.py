@@ -115,7 +115,7 @@ def bind(st, scale=1.0):
     live.CACHE = os.path.join(HOME, "cache")
 
 
-OVERLAYS = ("pip", "text", "subtitles", "image", "graphic", "lower_third")
+OVERLAYS = ("pip", "text", "subtitles", "image", "graphic", "lower_third", "callout")
 
 
 def _validate(st, op):
@@ -207,6 +207,18 @@ def _b_add_image(path, start_s, dur_s, position="center", scale=0.3, opacity=1.0
             "pos": position, "scale": scale, "opacity": opacity}
 
 
+def _b_add_callout(title, track, subtitle="", start_s=None, dur_s=None, side="auto", fade_s=0.3):
+    if not isinstance(track, list) or not track or not all(isinstance(p, (list, tuple)) and len(p) == 3 for p in track):
+        raise ValueError("track must be a list of [t_s, x, y] points (timeline seconds; x, y = fractions 0-1 of the frame)")
+    t0 = track[0][0]
+    start = t0 if start_s is None else start_s
+    dur = (track[-1][0] - start if dur_s is None else dur_s)
+    if dur_s is None and dur <= 0:
+        dur = 2.0                                          # a single point: show it for a couple of seconds
+    return {"op": "callout", "title": title, "subtitle": subtitle, "path": [list(p) for p in track], "start": start,
+            "dur": dur, "side": side, "fade": fade_s}
+
+
 BUILDERS = {n[3:]: f for n, f in list(globals().items()) if n.startswith("_b_")}
 
 
@@ -232,6 +244,8 @@ def summary(st, full=False):
             d["image"] = os.path.basename(L["path"])
         elif L["kind"] == "graphic":
             d["graphic"] = L["gk"]
+        elif L["kind"] == "callout":
+            d["callout"] = L["title"]
         else:
             d["source"] = L["src"]
         layers.append(d)
@@ -422,12 +436,25 @@ def add_image(path: str, start_s: float, dur_s: float, position: str = "center",
 
 
 @mcp.tool()
+def add_callout(title: str, track: list[list[float]], subtitle: str = "", start_s: float | None = None,
+                dur_s: float | None = None, side: str = "auto", fade_s: float = 0.3) -> dict:
+    """Pin a name label to a point of the picture: a gold ring on the exact spot, a thin staff and a glass flag with
+    `title` (and optional `subtitle`). `track` = [[t_s, x, y], ...]: where the point is at each moment (t_s in TIMELINE
+    seconds, increasing; x, y = fractions of the frame, 0,0 = top-left, 1,1 = bottom-right). With several points the ring
+    glides linearly between them (use it to follow a moving object); one point = fixed. start_s/dur_s default to
+    the first/last point (dur 2 s for one point). side: auto (flag placed so it stays on screen) | ne | nw | se | sw.
+    Title max 40 characters, subtitle 60, single lines. Coordinates usually come from detect.py (an external object
+    detector), not from guessing."""
+    return commit(_b_add_callout(title, track, subtitle, start_s, dur_s, side, fade_s))
+
+
+@mcp.tool()
 def apply_ops(ops: list[dict]) -> dict:
     """Apply several edits in ONE call (all or nothing). Each item is {"tool": "<edit tool name>", ...that tool's
     arguments}, e.g. [{"tool":"add_clip","source":"A","end_s":3}, {"tool":"add_clip","source":"B"},
     {"tool":"crossfade","first_index":0,"dur_s":0.5}, {"tool":"add_text","text":"Hola","start_s":0.5,"dur_s":2}].
     Allowed tools: add_clip, cut_clip, crossfade, set_fades, add_pip, add_text, add_subtitles, add_graphic,
-    add_lower_third, add_image (import_clip and new_project are separate calls). Items are validated in order against
+    add_lower_third, add_image, add_callout (import_clip and new_project are separate calls). Items are validated in order against
     the timeline as the previous items leave it; if ANY item is invalid nothing is applied and the error names the
     item. Up to 50 items. Returns the final timeline (check `warnings`: it flags overlays that may overlap on screen).
     Prefer this to many single calls: it is the same result with far fewer round trips."""

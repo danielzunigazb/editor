@@ -175,3 +175,98 @@ def render(kind, W, H, cache_dir, **params):
     img.save(tmp, format="PNG")
     os.replace(tmp, out)
     return out
+
+
+# ---------------------------------------------------------------- callout: a label pinned to a point of the picture
+CALLOUT_TITLE_MAX, CALLOUT_SUB_MAX = 40, 60
+CALLOUT_SIDES = ("auto", "ne", "nw", "se", "sw")      # where the flag sits relative to the pinned point
+
+
+def callout(W, H, title, subtitle="", side="ne", strict=True):
+    """A gold ring on the exact point + a thin staff + a glass flag with the name. Returns (RGBA image, ax, ay):
+    the image is SMALL (not frame-sized) and (ax, ay) is where the ring centre is inside it, so the editor can place
+    the image with its ring on any x,y of the frame. side: ne/nw/se/sw = flag up-right, up-left, down-right, down-left."""
+    if side not in CALLOUT_SIDES[1:]:
+        raise ValueError(f"callout side must be one of {CALLOUT_SIDES[1:]} (or 'auto' in the editor)")
+    title = T.clean(title, "luxury")
+    subtitle = T.clean(subtitle, "modern") if subtitle else ""
+    if "\n" in title or "\n" in subtitle:
+        raise ValueError("callout title and subtitle must be single lines")
+    if not title or len(title) > CALLOUT_TITLE_MAX or len(subtitle) > CALLOUT_SUB_MAX:
+        raise ValueError(f"callout: title 1-{CALLOUT_TITLE_MAX} characters, subtitle max {CALLOUT_SUB_MAX}")
+    S = SS * 2
+    h_ = H * S
+    max_w = 0.30 * W * S
+    ft = _fit(title, "luxury", 0.030 * h_, max_w)
+    fs = _fit(subtitle, "modern", 0.0135 * h_, max_w, 0.16) if subtitle else None
+    if ft is None or (subtitle and fs is None):
+        if strict:
+            raise ValueError("callout text is too long to fit; shorten the title or subtitle")
+        ft = ft or (T.make_font("luxury", 0.030 * h_ * T.MIN_SHRINK), 0)
+        fs = fs or (T.make_font("modern", 0.0135 * h_ * T.MIN_SHRINK), 0)
+    (tf, ttr), sub = ft, (fs if subtitle else None)
+    sub_txt = subtitle.upper()
+    tw = T.text_width(title, tf, ttr)
+    sw = T.text_width(sub_txt, sub[0], sub[1]) if sub else 0
+    th, sh = sum(tf.getmetrics()), (sum(sub[0].getmetrics()) if sub else 0)
+    pad = 0.011 * h_
+    gapv = 0.006 * h_ if sub else 0
+    ph, pw = th + gapv + sh + 2 * pad, max(tw, sw) + 2 * pad
+    R, dot = 0.0085 * h_, 0.0028 * h_                 # ring radius, centre dot
+    stem = 0.035 * h_                                  # staff beyond the flag
+    m = 0.004 * h_
+    lw = max(2, int(round(0.0016 * h_)))
+    right, up = side[1] == "e", side[0] == "n"
+    iw = int(R + m + pw + m)
+    ih = int(ph + stem + 2 * R + 2 * m)
+    ax = (R + m) if right else (iw - R - m)
+    ay = (ih - R - m) if up else (R + m)
+    img = Image.new("RGBA", (iw, ih), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    gold = GOLD + (255,)
+    fx0 = ax if right else ax - pw                     # flag rectangle, attached to the staff
+    fy0 = 0 if up else ih - ph
+    d.rectangle([ax - lw / 2, (0 if up else ay + R), ax + lw / 2, (ay - R if up else ih)], fill=gold)      # staff
+    d.rounded_rectangle([fx0, fy0, fx0 + pw, fy0 + ph], radius=0.006 * h_, fill=(8, 8, 11, 175), outline=GOLD + (120,), width=max(1, lw // 2))
+    d.ellipse([ax - R - lw, ay - R - lw, ax + R + lw, ay + R + lw], outline=(0, 0, 0, 120), width=lw)   # dark halo: legible on bright ground
+    d.ellipse([ax - R, ay - R, ax + R, ay + R], outline=gold, width=lw)
+    d.ellipse([ax - dot, ay - dot, ax + dot, ay + dot], fill=gold)
+    tx = fx0 + pad
+    mask = Image.new("L", (iw, ih), 0)
+    T.draw_tracked(ImageDraw.Draw(mask), tx, fy0 + pad, title, tf, ttr, 255)
+    grad = Image.new("RGBA", (iw, ih), (0, 0, 0, 0)); grad.paste(T.gradient(iw, int(th), T.GOLD), (0, int(fy0 + pad)))
+    grad.putalpha(mask)
+    img = Image.alpha_composite(img, grad)
+    if sub:
+        sm = Image.new("L", (iw, ih), 0)
+        T.draw_tracked(ImageDraw.Draw(sm), tx, fy0 + pad + th + gapv, sub_txt, sub[0], sub[1], 255)
+        ivory = Image.new("RGBA", (iw, ih), (246, 236, 214, 255)); ivory.putalpha(sm)
+        img = Image.alpha_composite(img, ivory)
+    ow, oh = max(2, int(round(iw / S))), max(2, int(round(ih / S)))
+    img = img.resize((ow, oh), Image.LANCZOS)
+    return img, ax / S, ay / S
+
+
+def render_callout(W, H, title, subtitle, side, cache_dir):
+    """Cached PNG of a callout + its anchor. Returns (path, w, h, ax, ay)."""
+    import json
+    key = f"v1|{title}|{subtitle}|{side}|{W}|{H}"
+    base = os.path.join(cache_dir, f"callout_{hashlib.sha1(key.encode()).hexdigest()[:16]}")
+    try:
+        with open(base + ".json") as f:
+            meta = json.load(f)
+        if os.path.exists(base + ".png"):
+            return (base + ".png", *meta)
+    except (OSError, ValueError):
+        pass
+    img, ax, ay = callout(W, H, title, subtitle, side, strict=False)
+    os.makedirs(cache_dir, exist_ok=True)
+    tmp = base + f".{os.getpid()}.tmp"
+    img.save(tmp, format="PNG")
+    os.replace(tmp, base + ".png")
+    meta = [img.width, img.height, ax, ay]
+    tmp = base + f".{os.getpid()}.json.tmp"
+    with open(tmp, "w") as f:
+        json.dump(meta, f)
+    os.replace(tmp, base + ".json")
+    return (base + ".png", *meta)

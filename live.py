@@ -241,6 +241,27 @@ def layout(ops):
             layers.append({"kind": "image", "op": n, "start": float(o["start"]), "dur": float(o["dur"]),
                            "path": o["path"], "aspect": _image_aspect(o["path"], where), "pos": o.get("pos", "center"),
                            "scale": float(o.get("scale", 0.3)), "opacity": float(o.get("opacity", 1.0))})
+        elif k == "callout":
+            if o.get("side", "auto") not in graphics.CALLOUT_SIDES:
+                raise ValueError(f"{where}: side must be one of {graphics.CALLOUT_SIDES}")
+            if not (o.get("start", -1) >= 0 and 0 < o.get("dur", 0) <= 3600):
+                raise ValueError(f"{where}: needs start>=0 and 0 < dur <= 3600")
+            path, pts = o.get("path"), []
+            if not isinstance(path, list) or not 1 <= len(path) <= 240:
+                raise ValueError(f"{where}: path must be a list of 1-240 points [t_s, x, y] (x, y = fractions 0-1 of the frame)")
+            for i_, pt in enumerate(path):
+                if not (isinstance(pt, (list, tuple)) and len(pt) == 3 and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in pt)):
+                    raise ValueError(f"{where}: path point {i_} must be [t_s, x, y] with numbers")
+                if not (0 <= pt[1] <= 1 and 0 <= pt[2] <= 1):
+                    raise ValueError(f"{where}: path point {i_} x,y must be between 0 and 1 (fractions of the frame; 0,0 = top-left)")
+                if pts and pt[0] <= pts[-1][0]:
+                    raise ValueError(f"{where}: path times must increase (point {i_})")
+                pts.append((float(pt[0]), float(pt[1]), float(pt[2])))
+            title, sub = _clean(o.get("title"), where, "luxury"), (_clean(o["subtitle"], where, "modern") if o.get("subtitle") else "")
+            if not title or "\n" in title or "\n" in sub or len(title) > graphics.CALLOUT_TITLE_MAX or len(sub) > graphics.CALLOUT_SUB_MAX:
+                raise ValueError(f"{where}: callout needs a single-line title (1-{graphics.CALLOUT_TITLE_MAX} characters) and a subtitle of at most {graphics.CALLOUT_SUB_MAX}")
+            layers.append({"kind": "callout", "op": n, "start": float(o["start"]), "dur": float(o["dur"]), "title": title, "sub": sub,
+                           "side": o.get("side", "auto"), "path": pts, "fade": float(o.get("fade", 0.3))})
         else:
             raise ValueError(f"{where}: unknown op")
     for i, e in enumerate(entries):   # a clip must be long enough for the dissolves on both of its sides
@@ -352,6 +373,8 @@ def _label(L):
         return f"{'subtitle' if 'sub' in L else 'text'} {L['text'][:24]!r}"
     if L["kind"] == "graphic":
         return f"graphic {L['gk']}"
+    if L["kind"] == "callout":
+        return f"callout {L['title'][:24]!r}"
     return f"{L['kind']} {L.get('src') or os.path.basename(L.get('path', ''))}"
 
 
@@ -418,6 +441,12 @@ def check_new_op(op):
         except ValueError as e:
             raise ValueError(str(e))
         return
+    if k == "callout":
+        try:
+            graphics.callout(W, H, op["title"], op.get("subtitle", ""), "ne", strict=True)
+        except ValueError as e:
+            raise ValueError(str(e))
+        return
     if k == "text":
         texts, style, up = [(op.get("text"), op.get("size", 0.06))], op.get("style", "luxury"), op.get("uppercase")
     elif k == "subtitles":
@@ -433,6 +462,44 @@ def check_new_op(op):
 
 
 # ---------------------------------------------------------------- MLT build (the actual engine)
+def _callout_target(L, t):
+    """Pinned point (pixels) at timeline time t: linear between the path points, held before the first and after the last."""
+    p = L["path"]
+    if t <= p[0][0] or len(p) == 1:
+        return p[0][1] * W, p[0][2] * H
+    for (t0, x0, y0), (t1, x1, y1) in zip(p, p[1:]):
+        if t <= t1:
+            u = (t - t0) / (t1 - t0)
+            return (x0 + (x1 - x0) * u) * W, (y0 + (y1 - y0) * u) * H
+    return p[-1][1] * W, p[-1][2] * H
+
+
+def _callout_pos(L, t, ax, ay, w, h):
+    """Top-left of the callout image so that its ring sits exactly on the pinned point; kept inside the frame."""
+    px, py = _callout_target(L, t)
+    return min(max(px - ax, 0), W - w), min(max(py - ay, 0), H - h)
+
+
+def _callout_source(L):
+    """Render (cached) the callout image. side='auto' picks the first of ne/nw/se/sw whose flag stays fully inside the
+    frame along the whole path (so the ring never has to move off the point to keep the flag on screen); if none does,
+    the one that overflows least. Returns (png, w, h, ax, ay)."""
+    sides = ("ne", "nw", "se", "sw") if L["side"] == "auto" else (L["side"],)
+    best = None
+    for s in sides:
+        png, w, h, ax, ay = graphics.render_callout(W, H, L["title"], L["sub"], s, CACHE)
+        over = 0.0
+        for t_, x_, y_ in L["path"]:
+            px, py = x_ * W, y_ * H
+            x0, y0 = px - ax, py - ay
+            over = max(over, -x0, x0 + w - W, -y0, y0 + h - H, 0)
+        if best is None or over < best[0]:
+            best = (over, (png, w, h, ax, ay))
+        if over == 0:
+            break
+    return best[1]
+
+
 def build(ops):
     import mlt7
     m = layout(ops)
@@ -490,6 +557,8 @@ def build(ops):
                        else graphics.render(L["gk"], W, H, CACHE, **L["params"]))
             elif L["kind"] == "image":
                 src = os.path.abspath(os.path.expanduser(L["path"]))
+            elif L["kind"] == "callout":
+                src, cw, ch, cax, cay = _callout_source(L)
             else:
                 src = CLIPS[L["src"]]; has_pip = True
             crop = None
@@ -505,7 +574,13 @@ def build(ops):
                 lay.blank(s0 - cursor - 1)   # Playlist.blank(out) takes the OUT POINT: it creates out+1 frames
             lay.append(prod, first, first + n - 1)
             cursor = s0 + n
-            if L["kind"] in ("text", "graphic"):
+            if L["kind"] == "callout":
+                w, h, op, ramp = cw, ch, 1.0, min(fr(L["fade"]), (n - 1) // 2)
+                lo, hi = s0 + ramp, s0 + n - 1 - ramp
+                keys = sorted({s0, lo, hi, s0 + n - 1} | {f for f in (int(round(t_ * FPS)) for t_, _, _ in L["path"]) if lo < f < hi})
+                alpha = lambda f_: 0 if ramp and f_ in (s0, s0 + n - 1) else 1
+                pts = [(f_, "{:.2f} {:.2f} {} {} {}".format(*_callout_pos(L, f_ / FPS, cax, cay, w, h), w, h, alpha(f_))) for f_ in keys]
+            elif L["kind"] in ("text", "graphic"):
                 x, y, w, h = crop[1:] if crop else (0, 0, W, H)
                 op, ramp = L.get("opacity", 1.0), min(fr(L["fade"]), (n - 1) // 2)
             else:
@@ -515,9 +590,10 @@ def build(ops):
                 x = W * mg if "left" in L["pos"] else (W - w) / 2 if L["pos"] == "center" else W * (1 - mg) - w
                 y = H * mg if "top" in L["pos"] else (H - h) / 2 if L["pos"] == "center" else H * (1 - mg) - h
                 op, ramp = L["opacity"], min(6, (n - 1) // 2)
-            rect = lambda a: f"{x:.0f} {y:.0f} {w:.0f} {h:.0f} {a}"
-            pts = [(s0, rect(0 if ramp else op)), (s0 + ramp, rect(op)), (s0 + n - 1 - ramp, rect(op)),
-                   (s0 + n - 1, rect(0 if ramp else op))]
+            if L["kind"] != "callout":
+                rect = lambda a: f"{x:.0f} {y:.0f} {w:.0f} {h:.0f} {a}"
+                pts = [(s0, rect(0 if ramp else op)), (s0 + ramp, rect(op)), (s0 + n - 1 - ramp, rect(op)),
+                       (s0 + n - 1, rect(0 if ramp else op))]
             seen = set()
             for k, (pos, val) in enumerate(pts):         # drop duplicate positions (very short layers)
                 if pos in seen:
@@ -654,7 +730,7 @@ def svg_timeline(m):
         x0, x1 = sx(L["start"]), sx(L["start"] + L["dur"])
         y = rows[f"L{L['track']}"]
         label = {"pip": f"{L.get('src', '')} · PiP", "text": L.get("text", "").replace("\n", " ")[:22],
-                 "image": "imagen", "graphic": L.get("gk", "graphic")}[L["kind"]]
+                 "image": "imagen", "graphic": L.get("gk", "graphic"), "callout": L.get("title", "")[:22]}[L["kind"]]
         c = cls(L["src"]) if L["kind"] == "pip" else "ctext"
         out.append(f'<rect class="clip {c}" x="{x0:.1f}" y="{y}" width="{max(x1-x0, 2):.1f}" height="28" rx="3"/>'
                    f'<text class="clipT" x="{x0+7:.1f}" y="{y+18}">{html.escape(label)}</text>')

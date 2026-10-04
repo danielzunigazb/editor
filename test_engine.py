@@ -226,4 +226,38 @@ try: live.layout(too_many); e = None
 except ValueError as ex: e = str(ex)
 chk("layout rejects more than MAX_LAYERS overlays", e is not None and "limit" in e, e)
 
+# ---- callout: a label pinned to an x,y that moves; the ring must land on the requested point
+from PIL import ImageChops
+import graphics
+_W, _H = live.W, live.H
+live.W, live.H = 1280, 720          # native size of the test clips: no rescaling noise in the pixel diff
+live.CACHE = tempfile.mkdtemp(prefix="eng_callout_")
+def _still(ops_, t_):
+    p_, tr_, m_, tot_ = live.build(ops_); tr_.seek(int(round(t_ * live.FPS)))
+    return Image.frombytes("RGB", (live.W, live.H), bytes(tr_.get_frame().get_image(mlt7.mlt_image_rgb, live.W, live.H)))
+def _bbox(ops_, t_):
+    return ImageChops.difference(_still(ops_, t_), _still(BASE[:1], t_)).convert("L").point(lambda v: 255 if v > 20 else 0).getbbox()
+CO = {"op": "callout", "title": "Arco monumental", "subtitle": "Entrada", "path": [[1.0, 0.2, 0.5], [3.0, 0.6, 0.3]], "start": 0.5, "dur": 3.5, "side": "ne", "fade": 0.2}
+png_, cw_, ch_, cax_, cay_ = graphics.render_callout(live.W, live.H, "Arco monumental", "Entrada", "ne", live.CACHE)
+for t_ in (1.0, 2.0, 3.0):
+    u_ = min(max((t_ - 1) / 2, 0), 1); px_, py_ = (0.2 + 0.4 * u_) * live.W, (0.5 - 0.2 * u_) * live.H
+    exp_ = (px_ - cax_, py_ - cay_, px_ - cax_ + cw_, py_ - cay_ + ch_); bb_ = _bbox(BASE[:1] + [CO], t_)
+    chk(f"callout box at t={t_:g}s sits where the path says (+-3 px)", bb_ is not None and all(abs(a_ - b_) <= 3 for a_, b_ in zip(bb_, exp_)), (bb_, exp_))
+chk("callout leaves no residue after it ends", _bbox(BASE[:1] + [{**CO, "dur": 2.0}], 4.0) is None)
+edge = {**CO, "path": [[1.0, 0.97, 0.5]], "side": "auto", "dur": 2.0}
+bb_ = _bbox(BASE[:1] + [edge], 1.5)
+chk("side=auto flips the flag to the left near the right edge (flag fully on screen, ring still on the point)",
+    bb_ is not None and bb_[2] <= live.W and bb_[0] < 0.97 * live.W - 100, bb_)
+top = {**CO, "path": [[1.0, 0.5, 0.03]], "side": "auto", "dur": 2.0}
+bb_ = _bbox(BASE[:1] + [top], 1.5)
+chk("side=auto puts the flag below a point near the top edge", bb_ is not None and bb_[1] <= 0.03 * live.H + 3 and bb_[3] > 0.03 * live.H + 20, bb_)
+for label_, patch_, needle_ in [("an empty path", {"path": []}, "path"), ("x outside 0-1", {"path": [[1.0, 1.2, 0.5]]}, "between 0 and 1"),
+                                ("times that do not increase", {"path": [[2.0, 0.2, 0.5], [1.0, 0.3, 0.5]]}, "increase"),
+                                ("a point with 2 numbers", {"path": [[1.0, 0.2]]}, "[t_s, x, y]"), ("a long title", {"title": "x" * 41}, "title"),
+                                ("a NaN coordinate", {"path": [[1.0, float("nan"), 0.5]]}, "finite"), ("an unknown side", {"side": "up"}, "side")]:
+    try: live.layout(BASE + [{**CO, **patch_}]); e_ = None
+    except ValueError as ex: e_ = str(ex)
+    chk(f"callout rejects {label_}", e_ is not None and needle_ in e_, e_)
+live.W, live.H = _W, _H
+
 print(f"\n{len(SCENARIOS)+1+extra-bad} passed, {bad} failed"); sys.exit(1 if bad else 0)

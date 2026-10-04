@@ -46,7 +46,7 @@ async def main():
             tools = {t.name for t in (await s.list_tools()).tools}
             want = {"new_project", "import_clip", "list_sources", "add_clip", "cut_clip", "crossfade", "set_fades",
                     "add_pip", "get_timeline", "undo", "remove_op", "get_still", "get_contact_sheet",
-                    "render_preview", "export", "apply_ops", "list_styles", "add_text", "add_subtitles", "add_graphic", "add_lower_third", "add_image"}
+                    "render_preview", "export", "apply_ops", "list_styles", "add_text", "add_subtitles", "add_graphic", "add_lower_third", "add_image", "add_callout"}
             check("tools listed", want <= tools, f"missing {want - tools}")
 
             _, err = await call("add_clip", source="A")
@@ -542,6 +542,31 @@ async def main():
             check("cache pruning (age, size) and ffprobe timeout", r.returncode == 0 and "ok" in r.stdout, r.stderr[-400:] + r.stdout[-200:])
             check("renders leave no private FIFO directory behind", not glob.glob(os.path.join(tempfile.gettempdir(), "mltfifo_*")))
 
+
+            # =================== callout: a label pinned to an x,y point ===================
+            await clean_project()
+            await call("add_clip", source="A", end_s=4.0)
+            plain = await still_gray(1.5)
+            res, err = await call("add_callout", title="Arco monumental", subtitle="Entrada", track=[[1.0, 0.25, 0.6]], dur_s=2.0, side="ne")
+            check("add_callout accepts a fixed point and reports it as an overlay",
+                  err is None and res and res["overlays"][-1].get("callout") == "Arco monumental" and "ops" not in res, err or res)
+            pinned = await still_gray(1.5)
+            xs = [x for y in range(90) for x in range(160) if abs(plain[y * 160 + x] - pinned[y * 160 + x]) > 40]
+            ys = [y for y in range(90) for x in range(160) if abs(plain[y * 160 + x] - pinned[y * 160 + x]) > 40]
+            check("the flag hangs from the requested point (staff at x=0.25 -> flag left edge at 40 px; flag bottom ~4 px above y=0.6; at 160x90, +-4 px; the thin ring itself vanishes at that scale)",
+                  xs and 36 <= min(xs) <= 44 and 45 <= max(ys) <= 53, (xs and (min(xs), max(xs)), ys and (min(ys), max(ys))))
+            for label, kw, needle in [("x outside the frame", dict(track=[[1.0, 1.4, 0.5]]), "between 0 and 1"),
+                                      ("a path that goes back in time", dict(track=[[2.0, 0.2, 0.5], [1.0, 0.3, 0.5]]), "increase"),
+                                      ("a title that is too long", dict(track=[[1.0, 0.5, 0.5]], title="x" * 50), "title"),
+                                      ("an empty track", dict(track=[]), "track")]:
+                kw = {"title": "Edificio", "dur_s": 1.0, **kw}
+                _, err = await call("add_callout", **kw)
+                check(f"add_callout rejects {label}", err is not None and needle in err, err)
+            res, err = await call("apply_ops", ops=[{"tool": "add_callout", "title": "Edificio", "subtitle": "en construcción", "track": [[0.5, 0.3, 0.4], [2.5, 0.6, 0.45]]},
+                                                    {"tool": "add_callout", "title": "Fuente", "track": [[1.0, 0.8, 0.8]], "dur_s": 1.5}])
+            check("apply_ops takes moving and fixed callouts in one batch", err is None and res and res["applied"] == 2, err)
+            ex_c, err = await call("export", output_path=os.path.join(TMP, "callouts.mp4"), quality="draft")
+            check("a project with callouts exports", err is None and ex_c and abs(ex_c["duration_s"] - 4.0) < 0.05, err or ex_c)
             await call("add_clip", source="A")
 
             # ---- stability: many renders in one process (repeated Factory.init / profile creation)
