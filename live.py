@@ -247,8 +247,8 @@ def layout(ops):
             if not (o.get("start", -1) >= 0 and 0 < o.get("dur", 0) <= 3600):
                 raise ValueError(f"{where}: needs start>=0 and 0 < dur <= 3600")
             path, pts = o.get("path"), []
-            if not isinstance(path, list) or not 1 <= len(path) <= 240:
-                raise ValueError(f"{where}: path must be a list of 1-240 points [t_s, x, y] (x, y = fractions 0-1 of the frame)")
+            if not isinstance(path, list) or not 1 <= len(path) <= 600:
+                raise ValueError(f"{where}: path must be a list of 1-600 points [t_s, x, y] (x, y = fractions 0-1 of the frame)")
             for i_, pt in enumerate(path):
                 if not (isinstance(pt, (list, tuple)) and len(pt) == 3 and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in pt)):
                     raise ValueError(f"{where}: path point {i_} must be [t_s, x, y] with numbers")
