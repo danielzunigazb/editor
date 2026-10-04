@@ -53,12 +53,15 @@ def srt_time(t):
     return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
 
 
-def to_ops(cues, names, offset=0.0, size=0.05, position="bottom"):
-    """One add_subtitles per speaker (own colour). Cues are shifted by `offset` (timeline = audio time + offset)."""
+def to_ops(cues, names, offset=0.0, size=0.05, position="bottom", turn_gap=3.0):
+    """One add_subtitles per speaker (own colour). Cues are shifted by `offset` (timeline = audio time + offset).
+    When `names` has a name for a speaker, the first cue of each of that speaker's turns starts with "Name: "."""
     speakers = sorted({c["speaker"] for c in cues})
     ops = []
+    starts = {id(c) for i, c in enumerate(cues) if i == 0 or cues[i - 1]["speaker"] != c["speaker"] or c["start"] - cues[i - 1]["end"] > turn_gap}
     for i, s in enumerate(speakers):
-        mine = [{"start": round(c["start"] + offset, 3), "end": round(c["end"] + offset, 3), "text": c["text"]} for c in cues if c["speaker"] == s]
+        mine = [{"start": round(c["start"] + offset, 3), "end": round(c["end"] + offset, 3),
+                 "text": (f"{names[s]}: " if s in names and id(c) in starts else "") + c["text"]} for c in cues if c["speaker"] == s]
         ops.append({"tool": "add_subtitles", "cues": mine, "color": PALETTE[i % len(PALETTE)], "style": "champagne", "size": size,
                     "position": position, "box": True})
     return ops, speakers
