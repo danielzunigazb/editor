@@ -97,22 +97,22 @@ def overlay_follows_its_clip_when_an_earlier_clip_is_cut():
     return abs(overlay_start(tl, "text") - 4.0) < 0.05, overlay_start(tl, "text")
 
 
-@scenario(xfail="P1")
+@scenario()
 def op_ids_survive_removing_an_earlier_op():
     """The agent keeps the id of an op it made; removing another op must not change what that id means."""
     fresh()
     server.add_clip("A", 0, 4)
     server.add_text("first", 0.5, 1.0)
     r = server.add_text("second", 2.0, 1.0)
-    keep = r["ops"][-1]["id"] if "ops" in r and "id" in r["ops"][-1] else None
+    keep = r.get("op_id")
     if keep is None:
-        return False, "ops have no id"
+        return False, "the edit response has no op_id"
     server.remove_op(1)
     ops = server.get_timeline()["ops"]
     return any(o.get("id") == keep and o.get("text") == "second" for o in ops), ops
 
 
-@scenario(xfail="P1")
+@scenario()
 def a_stale_revision_is_refused():
     fresh()
     server.add_clip("A", 0, 3)

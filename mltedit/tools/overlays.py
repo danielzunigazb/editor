@@ -1,10 +1,10 @@
 """Overlay edits: pip, text, subtitles, graphics, lower thirds, images, callouts, and animating them."""
 
-from .. import engine as live
 from .. import ops as O
+from .. import project as P
 from .. import server as sv
 from ..render import text as textrender
-from . import builder, tool
+from . import builder, edit_tool
 
 def _theme_arg(theme):
     return None if theme in (None, "", "auto") else theme
@@ -75,7 +75,7 @@ def _b_add_callout(title, track, subtitle="", start_s=None, dur_s=None, side="au
             **({"size": size} if size != 1.0 else {}), **({"anim": anim} if anim else {})}
 
 
-@tool
+@edit_tool
 def add_pip(source: str, start_s: float, dur_s: float, position: str = "top-right",
             scale: float = 0.3, opacity: float = 1.0, source_in_s: float = 0.0, anim: dict | None = None) -> dict:
     """Overlay a picture-in-picture video on its own layer from start_s for dur_s (TIMELINE time).
@@ -85,7 +85,7 @@ def add_pip(source: str, start_s: float, dur_s: float, position: str = "top-righ
     return sv.commit(sv.BUILDERS["add_pip"](source, start_s, dur_s, position, scale, opacity, source_in_s, anim))
 
 
-@tool
+@edit_tool
 def add_text(text: str, start_s: float, dur_s: float, position: str = "bottom", size: float = 0.06,
              style: str = "auto", color: str = "", box: bool | None = None, uppercase: bool | None = None,
              ornament: str = "", fade_s: float = 0.15, anim: dict | None = None) -> dict:
@@ -101,7 +101,7 @@ def add_text(text: str, start_s: float, dur_s: float, position: str = "bottom", 
     return sv.commit(sv.BUILDERS["add_text"](text, start_s, dur_s, position, size, style, color, box, uppercase, ornament, fade_s, anim))
 
 
-@tool
+@edit_tool
 def add_subtitles(srt_path: str = "", cues: list[dict] | None = None, offset_s: float = 0.0,
                   position: str = "bottom", size: float = 0.05, style: str = "auto", color: str = "",
                   box: bool | None = None) -> dict:
@@ -113,7 +113,7 @@ def add_subtitles(srt_path: str = "", cues: list[dict] | None = None, offset_s: 
     return sv.commit(sv.BUILDERS["add_subtitles"](srt_path, cues, offset_s, position, size, style, color, box))
 
 
-@tool
+@edit_tool
 def add_graphic(kind: str, start_s: float, dur_s: float, amount: float | None = None, opacity: float = 1.0,
                 fade_s: float = 0.5, theme: str = "auto") -> dict:
     """Add a graphic overlay (drawn to match the video size) from start_s for dur_s (TIMELINE time).
@@ -122,7 +122,7 @@ def add_graphic(kind: str, start_s: float, dur_s: float, amount: float | None = 
     return sv.commit(sv.BUILDERS["add_graphic"](kind, start_s, dur_s, amount, opacity, fade_s, theme))
 
 
-@tool
+@edit_tool
 def add_lower_third(title: str, subtitle: str = "", start_s: float = 0.0, dur_s: float = 4.0,
                     align: str = "left", fade_s: float = 0.4, theme: str = "auto", anim: dict | None = None) -> dict:
     """Name/role caption panel at the bottom, drawn in the project's template (e.g. title "Señor Muñoz", subtitle "Director de Proyecto"). Single lines only (title max 60 chars,
@@ -130,7 +130,7 @@ def add_lower_third(title: str, subtitle: str = "", start_s: float = 0.0, dur_s:
     return sv.commit(sv.BUILDERS["add_lower_third"](title, subtitle, start_s, dur_s, align, fade_s, theme, anim))
 
 
-@tool
+@edit_tool
 def add_image(start_s: float, dur_s: float, path: str = "", position: str = "center", scale: float = 0.3,
               opacity: float = 1.0, icon: str = "", color: str = "", at: list[float] | None = None,
               plate: bool | None = None, theme: str = "auto", anim: dict | None = None) -> dict:
@@ -143,7 +143,7 @@ def add_image(start_s: float, dur_s: float, path: str = "", position: str = "cen
     return sv.commit(sv.BUILDERS["add_image"](start_s, dur_s, path, position, scale, opacity, icon, color, at, plate, theme, anim))
 
 
-@tool
+@edit_tool
 def add_callout(title: str, track: list[list[float]], subtitle: str = "", start_s: float | None = None,
                 dur_s: float | None = None, side: str = "auto", fade_s: float = 0.3, theme: str = "auto", size: float = 1.0,
                 anim: dict | None = None) -> dict:
@@ -159,10 +159,10 @@ def add_callout(title: str, track: list[list[float]], subtitle: str = "", start_
     return sv.commit(sv.BUILDERS["add_callout"](title, track, subtitle, start_s, dur_s, side, fade_s, theme, size, anim))
 
 
-@tool
-def animate(index: int, anim: dict | None = None) -> dict:
+@edit_tool
+def animate(index: int = -1, anim: dict | None = None, op_id: str = "") -> dict:
     """Animate an existing text, image/icon, picture-in-picture, lower third or graphic: `index` is its edit number (get_timeline; -1 = the last
-    edit). anim=null removes the animation. The same `anim` object is accepted by add_text/add_image/add_lower_third/add_pip.
+    edit) or give its stable `op_id`. anim=null removes the animation. The same `anim` object is accepted by add_text/add_image/add_lower_third/add_pip.
     anim = {"in": preset, "out": preset, "in_s": 0.5, "out_s": 0.4, "ease_in": e, "ease_out": e, "keys": [...], "keys_ease": e, "rotate": deg, "scale": k}
     presets: <<presets>> (slide-*: the SIDE of the screen: in = comes from it, out = leaves toward it; list_styles describes the rest).
     e: <<easings>>. keys = free motion between entrance and exit, each {"t": seconds from the item's start,
@@ -171,10 +171,14 @@ def animate(index: int, anim: dict | None = None) -> dict:
     {"keys": [{"t": 0, "x": 0.2, "y": 0.5}, {"t": 2, "x": 0.8, "y": 0.5}]} (glide across). Callouts accept only in/out among <<callout_presets>> (they follow their own track)."""
     with sv.locked():
         st = sv.load()
+        sv.check_revision(st)
         n = len(st["ops"])
-        i = index + n if index < 0 else index
-        if not 0 <= i < n:
-            raise ValueError(f"no op {index} (have {n})")
+        if op_id:
+            i = P.index_of(st, op_id)
+        else:
+            i = index + n if index < 0 else index
+            if not 0 <= i < n:
+                raise ValueError(f"no op {index} (have {n})")
         op = st["ops"][i]
         if op.get("op") not in O.animatable():
             raise ValueError(f"op {i} is a '{op.get('op')}': only {', '.join(O.animatable())} can be animated")
@@ -183,8 +187,6 @@ def animate(index: int, anim: dict | None = None) -> dict:
             new["anim"] = anim
         else:
             new.pop("anim", None)
-        sv.bind(st)
-        live.layout(st["ops"][:i] + [new] + st["ops"][i + 1:])      # raises, with a message naming the op, if the animation is not valid there
-        st["ops"][i] = new
-        sv.save(st)
-        return {"animated": i, **sv.summary(st)}
+        sv.replace_op(st, i, new)                                    # raises, with a message naming the op, if the animation is not valid there
+        sv.save(st, {"kind": "animate", "op": op["id"]})
+        return {"animated": i, "op_id": op["id"], **sv.summary(st)}

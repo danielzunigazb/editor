@@ -4,7 +4,7 @@ tools. Helpers shared by all tools (project state, locking, binding the engine) 
 
 Docstrings may use <<placeholders>> (see DOC_VARS): they are filled in from the registries when the server starts, so a tool never
 lists templates, transitions or presets by hand."""
-import importlib, pkgutil
+import functools, importlib, inspect, pkgutil
 
 from .. import registry
 
@@ -13,6 +13,27 @@ def tool(fn):
     """Register an MCP tool under its function name."""
     registry.register("tool", fn.__name__, fn)
     return fn
+
+
+def edit_tool(fn):
+    """Register an MCP tool that changes the project. It gets the arguments every edit takes:
+      expected_revision: the revision the agent made this edit against (see `revision` in every response); a stale one is refused with REVISION_CONFLICT.
+    They are passed to the server through a per-call context (server.CALL), so the tool body never sees them."""
+    sig = inspect.signature(fn)
+    extra = [inspect.Parameter("expected_revision", inspect.Parameter.POSITIONAL_OR_KEYWORD, default=None, annotation=int | None)]
+
+    @functools.wraps(fn)
+    def wrapper(*a, expected_revision=None, **kw):
+        from .. import server as sv
+        tok = sv.CALL.set({"tool": fn.__name__, "expected_revision": expected_revision})
+        try:
+            return fn(*a, **kw)
+        finally:
+            sv.CALL.reset(tok)
+    wrapper.__signature__ = sig.replace(parameters=list(sig.parameters.values()) + extra)
+    wrapper.__doc__ = (fn.__doc__ or "") + "\n    expected_revision: refuse the edit (REVISION_CONFLICT, nothing changed) if the project is no longer at this revision."
+    registry.register("tool", fn.__name__, wrapper)
+    return wrapper
 
 
 def builder(name):

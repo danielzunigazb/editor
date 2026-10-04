@@ -5,6 +5,7 @@ from ...ops import Op, op
 @op
 class Add(Op):
     name = "add"
+    makes_clip = True
 
     def layout(self, o, n, where, st):
         clip_len, fr = st.ctx.CLIP_LEN, st.fr
@@ -19,7 +20,7 @@ class Add(Op):
             dur_f = src_f - in_f
         if dur_f < 1:
             raise ValueError(f"{where}: range {start:g}-{end:g}s is shorter than one frame ({1 / st.fps:g}s)")
-        st.entries.append({"src": src, "in_f": in_f, "dur_f": dur_f})
+        st.entries.append({"src": src, "in_f": in_f, "dur_f": dur_f, "id": o.get("id")})
 
     def describe(self, o):
         return f"Agregar clip {o['src']}", f"add {o['src']}"

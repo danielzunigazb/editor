@@ -9,8 +9,8 @@ class Crossfade(Op):
     name = "crossfade"
 
     def layout(self, o, n, where, st):
-        a_, b_ = o["between"]
-        if b_ != a_ + 1 or a_ < 0 or b_ >= len(st.entries):
+        a_, b_ = (st.clip_index(r, where) for r in o["between"])
+        if b_ != a_ + 1:
             raise ValueError(f"{where}: needs two adjacent existing entries (have {len(st.entries)})")
         if o["dur"] <= 0:
             raise ValueError(f"{where}: dur must be > 0")
@@ -23,6 +23,22 @@ class Crossfade(Op):
         if not transitions.is_plain(style_) and o["dur"] < transitions.MIN_S:
             raise ValueError(f"{where}: a '{style_}' transition needs at least {transitions.MIN_S:g}s (dur is {o['dur']:g}s); use {S.default_transition} for a quick blend")
         st.xstyles[a_] = style_
+
+    def migrate_refs(self, o, clip_ids):
+        b = o.get("between", [])
+        if all(isinstance(x, int) and not isinstance(x, bool) and 0 <= x < len(clip_ids) for x in b):
+            return {**o, "between": [clip_ids[x] for x in b]}
+        return o
+
+    def resolve_refs(self, o, entries):
+        ids = [e.get("id") for e in entries]
+        a, b = o["between"]
+        a = ids[a] if isinstance(a, int) and not isinstance(a, bool) and 0 <= a < len(ids) and ids[a] else a
+        if isinstance(a, str) and a in ids and (b is None or b == a) and ids.index(a) + 1 < len(ids):
+            b = ids[ids.index(a) + 1]                          # only the first clip given: the next one is its partner
+        elif isinstance(b, int) and not isinstance(b, bool) and 0 <= b < len(ids) and ids[b]:
+            b = ids[b]
+        return {**o, "between": [a, b]}
 
     def describe(self, o):
         st_ = o.get("style") or ""

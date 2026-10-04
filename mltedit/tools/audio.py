@@ -4,7 +4,7 @@ import json, os, re, subprocess
 from .. import assets as assets_lib
 from .. import engine as live
 from .. import server as sv
-from . import builder, tool
+from . import builder, edit_tool
 
 def _probe_audio(path):
     """Duration (s) of the audio in `path` (an audio file, or a video with an audio track). ValueError if it has none."""
@@ -80,7 +80,7 @@ def _speech_intervals(st):
     return [(round(a, 3), round(b, 3)) for a, b in merged if b - a >= 0.4]
 
 
-@tool
+@edit_tool
 def add_audio(start_s: float = 0.0, dur_s: float | None = None, path: str = "", source_in_s: float = 0.0, volume_db: float = -14.0,
               fade_in_s: float | None = None, fade_out_s: float | None = None, loop: bool = False, duck_under: list[list[float]] | None = None,
               duck_auto: bool | None = None, duck_db: float = -12.0, asset: str = "") -> dict:

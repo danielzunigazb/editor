@@ -10,23 +10,30 @@ from .. import anim, cards, registry
 from .. import engine as live
 from .. import server as sv
 from ..render import text as textrender
-from . import tool
+from .. import project as P
+from . import edit_tool, tool
 
 # ------------------------------------------------------------------ tools: project / sources
-@tool
+@edit_tool
 def new_project(width: int = 1280, height: int = 720, fps: int = 25, motion: bool = False) -> dict:
     """Start an empty project (discards the current timeline and imported sources).
     width/height/fps define the final export format; previews are rendered at half size.
     motion: switch on the template's own motion (default animations, transitions via style="auto"); off by default."""
     if not (64 <= width <= 7680 and 64 <= height <= 4320 and 1 <= fps <= 120):
         raise ValueError("width 64-7680, height 64-4320, fps 1-120")
-    st = {**json.loads(json.dumps(sv.DEFAULT)), "width": width, "height": height, "fps": fps, **({"motion": True} if motion else {})}
+    st = P.migrate({**json.loads(json.dumps(sv.DEFAULT)), "width": width, "height": height, "fps": fps, **({"motion": True} if motion else {})})
     with sv.locked():
-        sv.save(st)
-    return {"ok": True, "format": f"{width}x{height}@{fps}", **({"motion": True} if motion else {})}
+        try:
+            prev = sv.load()
+        except RuntimeError:                                   # an unreadable file is exactly what new_project is for
+            prev = {}
+        sv.check_revision(prev)
+        st["revision"] = prev.get("revision", 0)               # revisions never go back, so a stale expected_revision still notices the reset
+        rev = sv.save(st, {"kind": "new_project"})
+    return {"ok": True, "revision": rev, "format": f"{width}x{height}@{fps}", **({"motion": True} if motion else {})}
 
 
-@tool
+@edit_tool
 def import_clip(path: str, id: str = "") -> dict:
     """Register a video file as a source and return its id. Use the id in add_clip / add_pip.
     `id` is optional (letters/digits/_ ); default is S1, S2, ..."""
@@ -38,14 +45,15 @@ def import_clip(path: str, id: str = "") -> dict:
     info = sv._probe(path)                                     # slow (spawns ffprobe): done outside the lock
     with sv.locked():
         st = sv.load()
+        sv.check_revision(st)
         sid = id or f"S{len(st['sources']) + 1}"
         if sid in st["sources"]:
             raise ValueError(f"source id '{sid}' already exists")
         if len(st["sources"]) >= sv.MAX_SOURCES:
             raise ValueError(f"the project already has {sv.MAX_SOURCES} sources (the limit)")
         st["sources"][sid] = {"path": path, **info}
-        sv.save(st)
-    return {"id": sid, **info}
+        rev = sv.save(st, {"kind": "import", "source": sid})
+    return {"id": sid, "revision": rev, **info}
 
 
 @tool
@@ -68,7 +76,7 @@ def list_styles() -> dict:
             **({"problems": registry.problems()} if registry.problems() else {})}
 
 
-@tool
+@edit_tool
 def set_template(name: str, accent: str = "", motion: bool | None = None) -> dict:
     """Choose the project's design template: <<templates>> (see list_styles).
     Everything that does not name its own style (text, subtitles, lower thirds, labels, cards) follows it, so switching
@@ -82,6 +90,8 @@ def set_template(name: str, accent: str = "", motion: bool | None = None) -> dic
         spec["accent"], note = None, base.options["accent_locked"]
     with sv.locked():
         st = sv.load()
+        sv.check_revision(st)
+        old = {"theme": st.get("theme"), "motion": st.get("motion")}
         st["theme"] = spec
         if motion is not None:
             st["motion"] = bool(motion)
@@ -92,7 +102,8 @@ def set_template(name: str, accent: str = "", motion: bool | None = None) -> dic
             except ValueError as e:
                 raise ValueError(f"op {i} would not fit in the '{name}' template: {e}; nothing was changed")
         live.layout(st["ops"])
-        sv.save(st)
+        sv.push_undo(st, {"k": "set", "fields": old})
+        sv.save(st, {"kind": "set_template", "template": name})
         return {"template": name, "accent": live.THEME.accent, **({"note": note} if note else {}), **sv.summary(st)}
 
 
@@ -110,14 +121,15 @@ def list_assets(kind: str = "icon", theme: str = "", mood: str = "", license: st
     return {"kind": kind, "count": total, "shown": len(items), "items": items}
 
 
-@tool
+@edit_tool
 def apply_ops(ops: list[dict]) -> dict:
     """Apply several edits in ONE call (all or nothing). Each item is {"tool": "<edit tool name>", ...that tool's
     arguments}, e.g. [{"tool":"add_clip","source":"A","end_s":3}, {"tool":"add_clip","source":"B"},
     {"tool":"crossfade","first_index":0,"dur_s":0.5}, {"tool":"add_text","text":"Hola","start_s":0.5,"dur_s":2}].
     Allowed tools: <<edit_tools>> (import_clip, new_project, add_card and duck_auto are separate calls). Items are validated in order against
     the timeline as the previous items leave it; if ANY item is invalid nothing is applied and the error names the
-    item. Up to 50 items. Returns the final timeline (check `warnings`: it flags overlays that may overlap on screen).
+    item. Up to 50 items. Returns the final timeline (check `warnings`: it flags overlays that may overlap on screen) and `op_ids`.
+    One `undo` takes back the whole batch.
     Prefer this to many single calls: it is the same result with far fewer round trips."""
     if not isinstance(ops, list) or not 1 <= len(ops) <= 50:
         raise ValueError("ops must be a list of 1-50 items")
@@ -127,8 +139,10 @@ def apply_ops(ops: list[dict]) -> dict:
 
 def _apply_ops(ops):
     st = sv.load()
+    sv.check_revision(st)
     if len(st["ops"]) + len(ops) > sv.MAX_OPS:
         raise ValueError(f"this batch would take the project past {sv.MAX_OPS} edits (it has {len(st['ops'])})")
+    made = []
     for i, spec in enumerate(ops):
         if not isinstance(spec, dict) or not isinstance(spec.get("tool"), str):
             raise ValueError(f"item {i}: needs a 'tool' key naming an edit tool; nothing was applied")
@@ -137,7 +151,7 @@ def _apply_ops(ops):
         if fn is None:
             raise ValueError(f"item {i}: unknown tool '{tool}'; allowed: {', '.join(sorted(sv.BUILDERS))}; nothing was applied")
         try:
-            op = fn(**{k: v for k, v in spec.items() if k != "tool"})
+            op = sv.prepare(st, fn(**{k: v for k, v in spec.items() if k != "tool"}))
             sv._validate(st, op)
         except TypeError as e:
             import inspect
@@ -146,42 +160,109 @@ def _apply_ops(ops):
         except ValueError as e:
             raise ValueError(f"item {i} ({tool}): {e}; nothing was applied")
         st["ops"].append(op)                       # in memory only until every item has passed
-    sv.save(st)
-    return {"applied": len(ops), **sv.summary(st)}
+        made.append(op["id"])
+    sv.push_undo(st, {"k": "batch", "patches": [{"k": "pop", "id": i} for i in reversed(made)]})
+    sv.save(st, {"kind": "apply_ops", "ops": made})
+    return {"applied": len(ops), "op_ids": made, **sv.summary(st)}
 
 
 @tool
 def get_timeline() -> dict:
-    """Current timeline: entries with start/end times, crossfades, fades, overlays (pip/text/subtitles/image, with their
-    track), warnings (overlays trimmed or hidden by later cuts) and the full op list
-    (each op has an index usable with remove_op)."""
+    """Current timeline: `revision`, entries (each with a stable `id`) with start/end times, crossfades, fades, overlays
+    (pip/text/subtitles/image, with their track), warnings (overlays trimmed or hidden by later cuts) and the full op list
+    (each op has a stable `id` and an `index`; both work with remove_op/update_op)."""
     return sv.summary(sv.load(), full=True)
 
 
-@tool
-def undo() -> dict:
-    """Remove the last edit."""
-    with sv.locked():
-        st = sv.load()
-        if not st["ops"]:
-            raise ValueError("nothing to undo")
-        removed = st["ops"].pop()
-        sv.save(st)
-        return {"removed": removed, **sv.summary(st, full=True)}
+def _describe_patch(p, inv):
+    k = p["k"]
+    if k == "pop":
+        return {"removed": inv["op"]}
+    if k == "insert":
+        return {"restored": p["op"]}
+    if k == "replace":
+        return {"reverted": p["id"]}
+    if k == "set":
+        return {"reverted": list(p["fields"])}
+    return {"steps": len(p["patches"])}
 
 
-@tool
-def remove_op(index: int) -> dict:
-    """Remove edit number `index` (see get_timeline). Rejected, with nothing changed, if later edits
-    depend on it (e.g. removing an add_clip that a later cut refers to)."""
+def _step(name, src, dst):
+    """undo/redo: apply the top patch of stack `src`, check the project is still valid, put the inverse on `dst`."""
     with sv.locked():
         st = sv.load()
-        if not 0 <= index < len(st["ops"]):
-            raise ValueError(f"no op {index} (have {len(st['ops'])})")
+        sv.check_revision(st)
+        if not st[src]:
+            raise ValueError(f"nothing to {name}")
+        patch = st[src].pop()
+        inv = P.apply_patch(st, patch)
         sv.bind(st)
-        rest = st["ops"][:index] + st["ops"][index + 1:]
+        live.layout(st["ops"])                              # raises if the result is not valid: nothing is saved
+        st[dst].append(inv)
+        sv.save(st, {"kind": name})
+        return {**_describe_patch(patch, inv), **sv.summary(st, full=True)}
+
+
+@edit_tool
+def undo() -> dict:
+    """Take back the last change: an added edit, a removed one, an animation change, a template change or a whole apply_ops batch.
+    `redo` puts it back. Up to 200 steps."""
+    return _step("undo", "undo", "redo")
+
+
+@edit_tool
+def redo() -> dict:
+    """Put back what `undo` took back (until a new edit is made)."""
+    return _step("redo", "redo", "undo")
+
+
+def _op_index(st, index, op_id, what):
+    if op_id:
+        return P.index_of(st, op_id)
+    n = len(st["ops"])
+    if index is None:
+        raise ValueError(f"{what}: give an op_id or an index")
+    i = index + n if index < 0 else index
+    if not 0 <= i < n:
+        raise ValueError(f"no op {index} (have {n})")
+    return i
+
+
+@edit_tool
+def remove_op(index: int | None = None, op_id: str = "") -> dict:
+    """Remove an edit by its `op_id` (stable; see get_timeline) or its `index`. Rejected, with nothing changed, if later edits
+    depend on it (e.g. removing an add_clip that a later cut refers to). `undo` brings it back."""
+    with sv.locked():
+        st = sv.load()
+        sv.check_revision(st)
+        i = _op_index(st, index, op_id, "remove_op")
+        sv.bind(st)
+        rest = st["ops"][:i] + st["ops"][i + 1:]
         live.layout(rest)          # raises if the remaining ops are no longer valid
-        removed = st["ops"][index]
+        removed = st["ops"][i]
         st["ops"] = rest
-        sv.save(st)
+        sv.push_undo(st, {"k": "insert", "index": i, "op": removed})
+        sv.save(st, {"kind": "remove_op", "op": removed["id"]})
         return {"removed": removed, **sv.summary(st, full=True)}
+
+
+@edit_tool
+def update_op(op_id: str, patch: dict) -> dict:
+    """Change fields of an existing edit by its stable `op_id` (see get_timeline): `patch` is merged into the op (a null value deletes the field).
+    The op kind and id cannot change. The whole timeline is validated again; if the change is not valid nothing is changed and the error says why.
+    `undo` takes it back. Example: update_op("op_1a2b3c", {"start": 2.0, "dur": 3.0})."""
+    if not isinstance(patch, dict) or not patch:
+        raise ValueError("patch must be a non-empty object")
+    if {"op", "id"} & set(patch):
+        raise ValueError("the op kind and id cannot be changed")
+    with sv.locked():
+        st = sv.load()
+        sv.check_revision(st)
+        i = P.index_of(st, op_id)
+        new = {**st["ops"][i], **{k: v for k, v in patch.items() if v is not None}}
+        for k, v in patch.items():
+            if v is None:
+                new.pop(k, None)
+        sv.replace_op(st, i, new)
+        sv.save(st, {"kind": "update_op", "op": op_id})
+        return {"updated": op_id, **sv.summary(st, full=True)}

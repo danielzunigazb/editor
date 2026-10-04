@@ -8,7 +8,7 @@ Edits are cheap and validated instantly (pure-python timeline model); rendering 
 Run (stdio):  .venv/bin/python server.py          [MLT_EDITOR_HOME=<project dir>]
 Needs the apt binding (python3-mlt) -> use the venv built with --system-site-packages on python3.12.
 """
-import contextlib, fcntl, io, json, os, subprocess, sys, time
+import contextvars, io, json, os, subprocess, sys, time
 
 # ---- stdout hygiene: MLT/ffmpeg/LADSPA may print to fd 1, which would corrupt the stdio protocol.
 _real = os.dup(1)
@@ -47,6 +47,7 @@ _ensure_display()
 from . import engine as live  # noqa: E402  (engine: layout/build/render)
 from . import themes  # noqa: E402
 from . import ops as O  # noqa: E402
+from . import project as P  # noqa: E402
 from . import assets as assets_lib  # noqa: E402
 from mcp.server.fastmcp import FastMCP  # noqa: E402
 
@@ -73,36 +74,54 @@ def _safe_path(path, what, must_exist=True):
     return p
 
 
-@contextlib.contextmanager
+CALL = contextvars.ContextVar("mlt_call", default=None)    # per tool call: tool name, expected_revision, ... (set by tools.edit_tool)
+
+
+def _call():
+    return CALL.get() or {}
+
+
 def locked():
-    """Exclusive cross-process lock around a read-modify-write of project.json (two server processes or a CLI
-    sharing one project would otherwise lose each other's edits). Blocking, released on exit or process death."""
-    with open(LOCK, "a+") as f:
-        fcntl.flock(f, fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(f, fcntl.LOCK_UN)
+    """Exclusive cross-process lock around a read-modify-write of project.json (see project.locked)."""
+    return P.locked(LOCK)
 
 
 def load():
-    if not os.path.exists(PROJECT):
-        return json.loads(json.dumps(DEFAULT))
-    try:
-        with open(PROJECT) as f:
-            st = json.load(f)
-        assert isinstance(st, dict) and {"sources", "ops", "width", "height", "fps"} <= set(st)
-        return st
-    except (ValueError, AssertionError, OSError) as e:
-        raise RuntimeError(f"project file {PROJECT} is unreadable ({e}); fix or delete it, or call new_project")
+    return P.load(PROJECT, DEFAULT)
 
 
-def save(st):
-    tmp = f"{PROJECT}.{os.getpid()}.tmp"
-    with open(tmp, "w") as f:
-        json.dump(st, f, indent=1)
-        f.flush(); os.fsync(f.fileno())               # a crash must leave the old file or the new one, never half
-    os.replace(tmp, PROJECT)
+def save(st, event=None):
+    """Persist (atomic, revision + 1, journal line). `event` describes the change in the journal; the tool name is added."""
+    c = _call()
+    ev = {"kind": "save", **(event or {})}
+    if c.get("tool"):
+        ev["tool"] = c["tool"]
+    if c.get("request_id"):
+        ev["request_id"] = c["request_id"]
+    return P.save(PROJECT, st, ev)
+
+
+def check_revision(st):
+    """The edit says which revision it was made against (expected_revision); refuse it, changing nothing, if the project moved on."""
+    exp = _call().get("expected_revision")
+    if exp is not None and exp != st.get("revision", 0):
+        raise ValueError(f"REVISION_CONFLICT: the project is at revision {st.get('revision', 0)} but this edit was made against revision {exp}; "
+                         f"call get_timeline to see the current state and make the edit again; nothing was changed")
+
+
+def push_undo(st, patch):
+    st["undo"].append(patch)
+    st["redo"] = []                                         # a new edit ends the redo branch
+
+
+def prepare(st, op):
+    """The op as it will be stored: with an id, and its references to clips as clip ids."""
+    bind(st)
+    plug = O.get_op(op.get("op"))
+    op = {**op, "id": op.get("id") or P.new_op_id({o.get("id") for o in st["ops"]})}
+    if plug is not None:
+        op = plug.resolve_refs(op, live.layout(st["ops"])["entries"])
+    return op
 
 
 def bind(st, scale=1.0):
@@ -133,12 +152,27 @@ def commit(op):
     """Validate the op against the whole timeline, then persist (under the project lock). Nothing is saved on error."""
     with locked():
         st = load()
+        check_revision(st)
         if len(st["ops"]) >= MAX_OPS:
             raise ValueError(f"the project already has {MAX_OPS} edits (the limit); export it or start a new project")
+        op = prepare(st, op)
         _validate(st, op)
         st["ops"].append(op)
-        save(st)
-        return summary(st)
+        push_undo(st, {"k": "pop", "id": op["id"]})
+        save(st, {"kind": "commit", "op": op["id"]})
+        return {"op_id": op["id"], **summary(st)}
+
+
+def replace_op(st, i, new):
+    """Swap the op at position i for `new` (keeping its id): the whole timeline is validated again and the undo patch is recorded. Raises
+    ValueError, leaving st as it was."""
+    bind(st)                                                   # export resolution: text-fit is checked at full size
+    old = st["ops"][i]
+    new = {**new, "id": old["id"]}
+    live.layout(st["ops"][:i] + [new] + st["ops"][i + 1:])
+    live.check_new_op(new)
+    st["ops"][i] = new
+    push_undo(st, {"k": "replace", "id": old["id"], "op": old})
 
 
 BUILDERS = {}                       # filled by tools.install(): one op builder per edit tool (the tools and apply_ops share them)
@@ -173,10 +207,11 @@ def summary(st, full=False):
              "track": L["track"], **O.get_layer(L["kind"]).summary(L)}
         layers.append(d)
     out = {
+        "revision": st.get("revision", 0),
         "template": live.THEME.name,
         **({"motion": True} if live.MOTION else {}),
         "duration_s": round(m["total"], 3),
-        "entries": [{"index": i, "source": e["src"], "source_in_s": round(e["in"], 3),
+        "entries": [{"index": i, "id": e.get("id"), "source": e["src"], "source_in_s": round(e["in"], 3),
                      "start_s": round(e["start"], 3), "end_s": round(e["start"] + e["dur"], 3)}
                     for i, e in enumerate(m["entries"])],
         "crossfades": [{"between": [a, a + 1], "dur_s": d} for a, d in sorted(m["xfades"].items())],
@@ -193,6 +228,7 @@ def summary(st, full=False):
     if full:
         out["ops"] = [{"index": i, **({k: v for k, v in o.items() if k != "cues"}), **({"cues": len(o["cues"])} if "cues" in o else {})}
                       for i, o in enumerate(st["ops"])]
+        out["can_undo"], out["can_redo"] = len(st.get("undo", [])), len(st.get("redo", []))
     return out
 
 

@@ -14,6 +14,7 @@ class Op:
     """Base for op plugins. Subclasses set `name` and implement layout()."""
     name = ""
     order = 100                                  # position in lists shown to the LLM (lower first, then by name)
+    makes_clip = False                           # adds an entry to the base track (an entry's id is the id of the op that made it)
     animatable = False                           # accepts an `anim` spec
     timed = False                                # has a `start` on the timeline (an overlay or audio): it must begin before the timeline ends
 
@@ -33,6 +34,15 @@ class Op:
         if self.timed and o["start"] >= total - 1e-6:
             return (f"{o['op']} starts at {o['start']:g}s but the timeline is only {total:g}s long "
                     f"(add the clips first, or start it earlier)")
+
+    def migrate_refs(self, o, clip_ids):
+        """v1 -> v2: the op with its clip positions replaced by clip ids (`clip_ids` = ids of the entries made by the ops before it)."""
+        return o
+
+    def resolve_refs(self, o, entries):
+        """The op with its references to base-track clips turned into clip ids (`entries` = the layout's entries, each with an `id`). Used when
+        the op is committed, so what is stored never depends on positions that later edits shift."""
+        return o
 
     def assets(self, o):
         """Library asset ids the op uses (for credit lines)."""
@@ -150,3 +160,14 @@ class LayoutState:
     def __init__(self, ctx):
         self.ctx, self.fps, self.fr = ctx, ctx.FPS, ctx.fr
         self.entries, self.xfades, self.xstyles, self.fade, self.layers, self.audios = [], {}, {}, None, [], []
+
+    def clip_index(self, ref, where, what="clip"):
+        """Position in the base track of a clip given as an entry position (int) or as the id of the `add` op that made it (str)."""
+        if isinstance(ref, str):
+            for i, e in enumerate(self.entries):
+                if e.get("id") == ref:
+                    return i
+            raise ValueError(f"{where}: no clip with id '{ref}' (clips: {[e.get('id') for e in self.entries]})")
+        if not isinstance(ref, int) or isinstance(ref, bool) or not 0 <= ref < len(self.entries):
+            raise ValueError(f"{where}: no timeline entry {ref} (have {len(self.entries)})")
+        return ref

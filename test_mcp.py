@@ -413,7 +413,8 @@ async def main():
                 await call("new_project", width=1280, height=720, fps=25)
                 for n in "ab":
                     await call("import_clip", path=M(n), id=n.upper())
-            strip = lambda tl: {k: v for k, v in tl.items() if k not in ("applied", "ops")}   # edit responses are compact: no op list
+            strip = lambda tl: {**{k: v for k, v in tl.items() if k not in ("applied", "ops", "op_ids", "op_id", "revision", "can_undo", "can_redo")},
+                                **({"entries": [{k: v for k, v in e.items() if k != "id"} for e in tl["entries"]]} if "entries" in tl else {})}   # compact responses; ids are random and revisions count saves, neither is part of the timeline
             await clean_project()
             res, err = await call("apply_ops", ops=LUX)
             check("apply_ops builds a 9-edit luxury project in ONE call", err is None and res and res["applied"] == 9 and abs(res["duration_s"] - 7.2) < 1e-6, err)
@@ -779,9 +780,8 @@ async def main():
             res, err = await call("add_audio", path=music, start_s=0.0, dur_s=30.0, loop=True, volume_db=-20.0, duck_auto=False)
             check("motion on: duck_auto=false still turns it off", err is None and res and max(res["audio"], key=lambda a_: a_["op"])["ducked"] == 0, err or res)
             await call("set_template", name="luxury", motion=False)
-            for _ in range(4):                                         # remove the four items added here so the next checks see the project as before
+            for _ in range(8):                                         # undo takes back every change, template switches included: 6 audio items + 2 template changes
                 await call("undo")
-            await call("undo"); await call("undo")
             tl_a, _ = await call("get_timeline")
             check("undo removes the audio items", tl_a and tl_a["audio"] == [], tl_a and tl_a["audio"])
             for label, kw, needle in [("no file", dict(), "path"), ("a picture (no audio stream)", dict(path=img_path), "no audio stream"), ("a missing file", dict(path="/no/such.wav"), "not found"),

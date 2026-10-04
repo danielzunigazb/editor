@@ -5,9 +5,9 @@ from .. import cards
 from .. import themes
 from .. import engine as live
 from .. import server as sv
-from . import tool
+from . import edit_tool
 
-@tool
+@edit_tool
 def add_card(layout: str, title: str = "", subtitle: str = "", items: list[str] | None = None, number: str = "",
              author: str = "", dur_s: float = 4.0, push: bool = False, append: bool = True, theme: str = "auto", animate: bool | None = None) -> dict:
     """Make a full-screen card in the project's template and (append=true) add it to the END of the main track.
@@ -20,6 +20,7 @@ def add_card(layout: str, title: str = "", subtitle: str = "", items: list[str] 
         raise ValueError("dur_s must be between 0.5 and 30 seconds")
     with sv.locked():
         st = sv.load()
+        sv.check_revision(st)
         sv.bind(st)
         th = themes.get(live._theme_key({"theme": theme}, "add_card"))
         if layout not in cards.LAYOUTS:
@@ -47,8 +48,9 @@ def add_card(layout: str, title: str = "", subtitle: str = "", items: list[str] 
         if append:
             if len(st["ops"]) >= sv.MAX_OPS:
                 raise ValueError(f"the project already has {sv.MAX_OPS} edits (the limit)")
-            op = sv.BUILDERS["add_clip"](sid)
+            op = sv.prepare(st, sv.BUILDERS["add_clip"](sid))
             sv._validate(st, op)
             st["ops"].append(op)
-        sv.save(st)
-        return {"card": sid, "duration_s": st["sources"][sid]["duration_s"], "appended": append, **sv.summary(st)}
+            sv.push_undo(st, {"k": "pop", "id": op["id"]})
+        sv.save(st, {"kind": "add_card", "source": sid, **({"op": op["id"]} if append else {})})
+        return {"card": sid, "duration_s": st["sources"][sid]["duration_s"], "appended": append, **({"op_id": op["id"]} if append else {}), **sv.summary(st)}
