@@ -361,6 +361,20 @@ async def main():
             check("set_template(motion=true) switches the project's motion on", err is None and res and res.get("motion") is True, err or res)
             res, err = await call("set_template", name="arcade", motion=False)
             check("set_template(motion=false) switches it off again", err is None and res and "motion" not in res, err or res)
+            # animated cards: with motion on a card is not a still picture any more
+            await call("new_project", width=1280, height=720, fps=25, motion=True)
+            await call("set_template", name="playful")
+            res, err = await call("add_card", layout="title", title="Hola", subtitle="Mundo", dur_s=3.0)
+            g0, g1, g2 = await still_gray(0.0), await still_gray(0.45), await still_gray(2.6)
+            check("motion on: add_card animates (the first frame is bare background, the end has the text)", err is None and g0 and g2 and sum(abs(a - b) for a, b in zip(g0, g2)) / len(g0) > 1.5, err)
+            check("motion on: the card is still arriving at 0.45 s and settled by 2.6 s", g1 and sum(abs(a - b) for a, b in zip(g1, g2)) / len(g1) > 0.5)
+            await call("new_project", width=1280, height=720, fps=25)
+            await call("set_template", name="playful")
+            await call("add_card", layout="title", title="Hola", subtitle="Mundo", dur_s=3.0)
+            s0, s2 = await still_gray(0.0), await still_gray(2.6)
+            check("motion off (the default): the card is a still picture, identical at 0 s and 2.6 s", s0 and s2 and sum(abs(a - b) for a, b in zip(s0, s2)) / len(s0) < 0.3)
+            res, err = await call("add_card", layout="title", title="Hola", subtitle="Mundo", dur_s=3.0, animate=True)
+            check("animate=true forces it even with motion off", err is None and res, err)
 
             # =================== apply_ops (batch) and on-screen collision warnings ===================
             LUX = [{"tool": "add_clip", "source": "A", "end_s": 4.0}, {"tool": "add_clip", "source": "B", "end_s": 4.0},

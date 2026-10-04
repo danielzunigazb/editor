@@ -460,6 +460,29 @@ for label_, op_, needle_ in [("an animation on a callout", {"op": "callout", "ti
     try: live.layout(BASE + [op_]); e_ = None
     except ValueError as ex: e_ = str(ex)
     chk(f"layout rejects {label_}", e_ is not None and needle_ in e_, e_)
+# ---- template motion (opt-in): ops that name no anim get the template's own; nothing changes while the project's motion is off
+import themes  # noqa: E811
+TXT_ = {"op": "text", "text": "Hola mundo", "start": 0.5, "dur": 3.0, "pos": "center", "size": 0.08}
+LT_ = {"op": "lower_third", "title": "Ana", "subtitle": "Dirección", "start": 0.5, "dur": 3.0}
+IM_ = {**IMG}
+SUB_ = {"op": "subtitles", "cues": [{"start": 1.0, "end": 2.0, "text": "x"}]}
+def _anims(ops_):
+    return [L.get("anim") for L in live.layout(BASE + ops_)["layers"]]
+live.MOTION = False
+chk("motion off: text, lower third and image stay on the original fade path (anim None)", all(a_ is None for a_ in _anims([TXT_, LT_, IM_])), _anims([TXT_, LT_, IM_]))
+live.MOTION = True
+for n_ in themes.NAMES:
+    live.THEME = themes.get(n_)
+    got_ = _anims([TXT_, LT_, IM_])
+    want_ = [live.THEME.motion["text"]["in"], live.THEME.motion["lower_third"]["in"], live.THEME.motion["image"]["in"]]
+    chk(f"motion on, {n_}: text / lower third / image enter with {want_}", [a_ and a_["in"] for a_ in got_] == want_, got_)
+live.THEME = themes.get("playful")
+chk("motion on: an explicit anim wins over the template's", _anims([{**TXT_, "anim": {"in": "zoom"}}])[0]["in"] == "zoom")
+chk("motion on: anim={} still means no animation", _anims([{**TXT_, "anim": {}}]) == [None])
+chk("motion on: subtitles are never animated", all(a_ is None for a_ in _anims([SUB_])))
+short_ = _anims([{**TXT_, "dur": 0.6}])[0]
+chk("motion on: the template's times are squeezed to fit a short item (no 'longer than the item' error)", short_ is not None and (short_["in_s"] or 0) + (short_["out_s"] or 0) <= 0.8 * 0.6 + 1e-6, short_)
+live.MOTION, live.THEME = False, themes.get(None)
 live.W, live.H = _W, _H
 
 

@@ -32,6 +32,7 @@ class Theme:
     card_bg: str = "gradient"         # cards.py background generator
     moods: tuple = ()                 # music moods that suit it (assets manifest)
     sfx: tuple = ()                   # sound-effect tags that suit it
+    motion: dict = field(default_factory=dict, compare=False)   # {overlay kind: anim spec} used when the project's motion is on and the op names no anim
     transition: str = "dissolve"       # default style of crossfade(style="auto") when the project's motion is on (transitions.py)
     swatches: tuple = field(default=(), compare=False)
 
@@ -102,7 +103,35 @@ THEMES = {t.name: t for t in (
 TRANSITIONS = {"luxury": "dissolve", "corporate": "wipe-right", "academic": "dissolve", "sketch": "iris-in", "tech": "blinds-v", "minimal": "dissolve", "playful": "iris-out",
                "neobrutalism": "slide-left", "terracotta": "dissolve", "cinema": "dissolve", "terminal": "blinds-h", "arcade": "blinds-v", "riso": "diagonal",
                "saas": "slide-up", "glass": "dissolve"}
-THEMES = {n: replace(t, transition=TRANSITIONS[n]) for n, t in THEMES.items()}
+def _m(lt, tx, im, pip=None):
+    return {"lower_third": lt, "text": tx, "image": im, "pip": pip or {"in": "fade", "out": "fade", "in_s": 0.4, "out_s": 0.4}}
+
+
+MOTION = {   # the template's own character: how its overlays arrive and leave (anim specs, see anim.py); explicit anim on an op always wins
+    "luxury": _m({"in": "slide-left", "out": "fade", "in_s": 0.8, "out_s": 0.6, "ease_in": "out"}, {"in": "fade", "out": "fade", "in_s": 0.7, "out_s": 0.6}, {"in": "zoom", "out": "fade", "in_s": 0.7, "out_s": 0.5}),
+    "corporate": _m({"in": "slide-left", "out": "slide-left", "in_s": 0.45, "out_s": 0.35}, {"in": "rise", "out": "fade", "in_s": 0.5, "out_s": 0.35}, {"in": "fade", "out": "fade", "in_s": 0.4, "out_s": 0.3}),
+    "academic": _m({"in": "fade", "out": "fade", "in_s": 0.6, "out_s": 0.5}, {"in": "fade", "out": "fade", "in_s": 0.6, "out_s": 0.5}, {"in": "fade", "out": "fade", "in_s": 0.5, "out_s": 0.4}),
+    "sketch": _m({"in": "pop", "out": "zoom", "in_s": 0.45, "out_s": 0.3}, {"in": "pop", "out": "fade", "in_s": 0.4, "out_s": 0.3}, {"in": "spin", "out": "zoom", "in_s": 0.5, "out_s": 0.3}),
+    "tech": _m({"in": "wipe", "out": "wipe", "in_s": 0.4, "out_s": 0.3}, {"in": "wipe", "out": "fade", "in_s": 0.5, "out_s": 0.3}, {"in": "zoom", "out": "zoom", "in_s": 0.3, "out_s": 0.25}),
+    "minimal": _m({"in": "rise", "out": "fade", "in_s": 0.6, "out_s": 0.5, "ease_in": "out"}, {"in": "fade", "out": "fade", "in_s": 0.8, "out_s": 0.6}, {"in": "fade", "out": "fade", "in_s": 0.6, "out_s": 0.5}),
+    "playful": _m({"in": "drop", "out": "zoom", "in_s": 0.6, "out_s": 0.3}, {"in": "pop", "out": "pop", "in_s": 0.45, "out_s": 0.3}, {"in": "spin", "out": "pop", "in_s": 0.55, "out_s": 0.3}),
+    "neobrutalism": _m({"in": "slide-left", "out": "slide-left", "in_s": 0.3, "out_s": 0.25, "ease_in": "back"}, {"in": "slide-bottom", "out": "slide-bottom", "in_s": 0.3, "out_s": 0.25}, {"in": "pop", "out": "zoom", "in_s": 0.3, "out_s": 0.25}),
+    "terracotta": _m({"in": "rise", "out": "fade", "in_s": 0.7, "out_s": 0.5}, {"in": "fade", "out": "fade", "in_s": 0.7, "out_s": 0.5}, {"in": "zoom", "out": "fade", "in_s": 0.6, "out_s": 0.4}),
+    "cinema": _m({"in": "fade", "out": "fade", "in_s": 0.9, "out_s": 0.8}, {"in": "fade", "out": "fade", "in_s": 1.0, "out_s": 0.8}, {"in": "fade", "out": "fade", "in_s": 0.8, "out_s": 0.7}),
+    "terminal": _m({"in": "wipe", "out": "wipe", "in_s": 0.35, "out_s": 0.25}, {"in": "wipe", "out": "wipe", "in_s": 0.6, "out_s": 0.3}, {"in": "pop", "out": "fade", "in_s": 0.2, "out_s": 0.2, "ease_in": "linear"}),
+    "arcade": _m({"in": "wipe", "out": "wipe", "in_s": 0.4, "out_s": 0.3}, {"in": "wipe", "out": "wipe", "in_s": 0.5, "out_s": 0.3}, {"in": "drop", "out": "zoom", "in_s": 0.5, "out_s": 0.25}),
+    "riso": _m({"in": "slide-right", "out": "slide-right", "in_s": 0.4, "out_s": 0.3}, {"in": "rise", "out": "fade", "in_s": 0.5, "out_s": 0.3}, {"in": "spin", "out": "zoom", "in_s": 0.5, "out_s": 0.3}),
+    "saas": _m({"in": "rise", "out": "fade", "in_s": 0.4, "out_s": 0.3}, {"in": "rise", "out": "fade", "in_s": 0.45, "out_s": 0.3}, {"in": "fade", "out": "fade", "in_s": 0.3, "out_s": 0.25}),
+    "glass": _m({"in": "rise", "out": "fade", "in_s": 0.6, "out_s": 0.5}, {"in": "fade", "out": "fade", "in_s": 0.7, "out_s": 0.5}, {"in": "zoom", "out": "fade", "in_s": 0.6, "out_s": 0.4}),
+}
+CARD_MOTION = {   # how a card's element groups arrive: (enter seconds, stagger seconds, rise = start offset in frame heights (+ below, - above), dx = start offset in frame widths)
+    "luxury": (0.9, 0.22, 0.02, 0.0), "corporate": (0.5, 0.12, 0.03, 0.0), "academic": (0.7, 0.18, 0.0, 0.0), "sketch": (0.5, 0.15, 0.05, 0.0),
+    "tech": (0.4, 0.10, 0.0, -0.04), "minimal": (0.8, 0.20, 0.015, 0.0), "playful": (0.55, 0.14, -0.05, 0.0), "neobrutalism": (0.35, 0.10, 0.0, -0.06),
+    "terracotta": (0.8, 0.20, 0.02, 0.0), "cinema": (1.1, 0.30, 0.0, 0.0), "terminal": (0.3, 0.10, 0.0, -0.03), "arcade": (0.35, 0.12, -0.04, 0.0),
+    "riso": (0.5, 0.12, 0.0, 0.06), "saas": (0.45, 0.10, 0.03, 0.0), "glass": (0.7, 0.16, 0.025, 0.0)}
+for _n, _spec in CARD_MOTION.items():
+    MOTION[_n]["card"] = dict(zip(("enter_s", "stagger_s", "rise", "dx"), _spec))
+THEMES = {n: replace(t, transition=TRANSITIONS[n], motion=MOTION[n]) for n, t in THEMES.items()}
 DEFAULT = "luxury"
 NAMES = tuple(THEMES)
 

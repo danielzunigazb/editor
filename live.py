@@ -529,8 +529,18 @@ def _clean(text, where, style="classic"):
 
 
 def _anim(o, where):
-    """Normalised animation spec of an op (None = static: the original fade ramps)."""
-    return animmod.validate(o.get("anim"), where, o.get("dur") if isinstance(o.get("dur"), (int, float)) else None)
+    """Normalised animation spec of an op (None = static: the original fade ramps). With the project's motion on, an op that names no
+    anim (None) gets its template's own; anim={} still means "no animation". The template's times are squeezed to fit short items."""
+    dur = o.get("dur") if isinstance(o.get("dur"), (int, float)) else None
+    spec = o.get("anim")
+    if spec is None and MOTION:
+        spec = dict(THEME.motion.get(o.get("op"), {})) or None
+        if spec and dur:
+            tot = (spec.get("in_s") or 0) + (spec.get("out_s") or 0)
+            if tot > 0.8 * dur:
+                k = 0.8 * dur / tot
+                spec = {**spec, **{x: round(spec[x] * k, 3) for x in ("in_s", "out_s") if spec.get(x)}}
+    return animmod.validate(spec, where, dur)
 
 
 def _theme_key(o, where):

@@ -1,7 +1,7 @@
 """Animation of overlays: entrance/exit presets, free keyframes, constant tilt/scale. Pure functions (no MLT), so they are unit-testable.
 
 An `anim` spec (all keys optional):
-  in / out        preset for the entrance / exit: none | fade | slide-left | slide-right | slide-top | slide-bottom | pop | zoom | spin | drop | wipe
+  in / out        preset for the entrance / exit: none | fade | slide-left | slide-right | slide-top | slide-bottom | pop | zoom | spin | drop | wipe | rise
                   (wipe = revealed left to right like typing; as an exit it is erased left to right. Not for pip: it crops the item with MLT's qtcrop)
                   (slide-* name the SIDE OF THE SCREEN: as an entrance the item comes from that side, as an exit it leaves toward it)
   in_s / out_s    how long they take (default: fade = the item's own fade, others 0.5 s in / 0.4 s out)
@@ -13,7 +13,7 @@ The result is sampled per frame and written as MLT keyframes, so every easing is
 import math
 
 EASES = ("linear", "in", "out", "inout", "back", "bounce")
-PRESETS = ("none", "fade", "slide-left", "slide-right", "slide-top", "slide-bottom", "pop", "zoom", "spin", "drop", "wipe")
+PRESETS = ("none", "fade", "slide-left", "slide-right", "slide-top", "slide-bottom", "pop", "zoom", "spin", "drop", "wipe", "rise")
 KEY_FIELDS = {"t", "x", "y", "scale", "rotate", "opacity"}
 SPEC_KEYS = {"in", "out", "in_s", "out_s", "ease_in", "ease_out", "keys", "keys_ease", "rotate", "scale"}
 DEFAULT_EASE_IN = {"pop": "back", "drop": "bounce", "spin": "back", "wipe": "linear"}
@@ -114,6 +114,8 @@ def _preset(name, p, x, y, w, h, W, H):
         return 0.0, q * (H - y), 1.0, 0.0, min(1.0, p * 4)
     if name in ("slide-top", "drop"):
         return 0.0, -q * (y + h), 1.0, 0.0, min(1.0, p * 4)
+    if name == "rise":                                            # drifts up 6% of the frame height while it fades in (as an exit it sinks)
+        return 0.0, q * 0.06 * H, 1.0, 0.0, min(max(p, 0.0), 1.0)
     if name == "wipe":                                            # position/size/opacity stay put: the reveal is a crop (wipe_keys)
         return 0.0, 0.0, 1.0, 0.0, 1.0
     if name == "pop":
