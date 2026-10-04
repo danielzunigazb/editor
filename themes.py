@@ -32,6 +32,7 @@ class Theme:
     card_bg: str = "gradient"         # cards.py background generator
     moods: tuple = ()                 # music moods that suit it (assets manifest)
     sfx: tuple = ()                   # sound-effect tags that suit it
+    transition: str = "dissolve"       # default style of crossfade(style="auto") when the project's motion is on (transitions.py)
     swatches: tuple = field(default=(), compare=False)
 
 
@@ -97,6 +98,11 @@ THEMES = {t.name: t for t in (
           title_style="glass-title", subtitle_style="glass-body", caption_style="glass-body", shape="frost", radius=0.02, stroke=0.0014,
           decor="frame", card_bg="blobs", moods=("ambient", "soft", "electronic"), sfx=("chime", "whoosh", "ding")),
 )}
+# per-template default transition (used by crossfade(style="auto") in projects with motion on)
+TRANSITIONS = {"luxury": "dissolve", "corporate": "wipe-right", "academic": "dissolve", "sketch": "iris-in", "tech": "blinds-v", "minimal": "dissolve", "playful": "iris-out",
+               "neobrutalism": "slide-left", "terracotta": "dissolve", "cinema": "dissolve", "terminal": "blinds-h", "arcade": "blinds-v", "riso": "diagonal",
+               "saas": "slide-up", "glass": "dissolve"}
+THEMES = {n: replace(t, transition=TRANSITIONS[n]) for n, t in THEMES.items()}
 DEFAULT = "luxury"
 NAMES = tuple(THEMES)
 

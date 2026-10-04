@@ -18,6 +18,7 @@ Needs X11 for the qtblend transition: run under xvfb-run.
 import base64, html, json, os, subprocess, sys, time
 
 import anim as animmod
+import transitions
 import graphics
 import icons
 import textrender
@@ -33,6 +34,7 @@ CLIP_LEN = {"A": 6.0, "B": 5.0, "C": 4.0}
 W, H, FPS = 640, 360, 25
 CACHE = os.path.join(LIVE, "cache")     # rendered text PNGs (server points this at the project dir)
 MAX_LAYER_TRACKS = 6
+MOTION = False                           # project flag (server.bind): template-specific default animations / transitions on
 THEME = themes.get(None)                 # active template (server.bind sets it from the project); luxury = the original look
 _BBOX = {}                              # cropped-overlay cache: png path -> (cropped path, x, y, w, h) or None
 
@@ -184,7 +186,7 @@ def layout(ops):
     # seconds drifted (40 entries of 0.1 s: layout said 100 frames, MLT built 80) and overlays landed on the wrong frame.
     fps = FPS
     fr = lambda s_: int(round(s_ * fps))
-    entries, xfades, fade, layers, audios = [], {}, None, [], []
+    entries, xfades, xstyles, fade, layers, audios = [], {}, {}, None, [], []
     for n, o in enumerate(ops):
         k = o.get("op")
         where = f"op {n} ({k})"
@@ -225,6 +227,12 @@ def layout(ops):
             if fr(o["dur"]) < 1:
                 raise ValueError(f"{where}: dur {o['dur']:g}s is shorter than one frame ({1 / fps:g}s)")
             xfades[a_] = fr(o["dur"])               # frames
+            style_ = transitions.validate(o.get("style", "dissolve"), where)
+            if style_ == "auto":                    # the template's own transition, only when the project's motion is on
+                style_ = THEME.transition if MOTION else "dissolve"
+            if style_ != "dissolve" and o["dur"] < transitions.MIN_S:
+                raise ValueError(f"{where}: a '{style_}' transition needs at least {transitions.MIN_S:g}s (dur is {o['dur']:g}s); use dissolve for a quick blend")
+            xstyles[a_] = style_
         elif k == "fade":
             fade = {"in": float(o.get("in", 0.0)), "out": float(o.get("out", 0.0))}
             if fade["in"] < 0 or fade["out"] < 0:
@@ -437,7 +445,7 @@ def layout(ops):
     kept.sort(key=lambda L: (L["start"], L["op"], L.get("sub", 0)))
     warnings.extend(_collisions(kept))
     first_pip = next((L for L in kept if L["kind"] == "pip"), None)
-    return {"entries": entries, "xfades": xfades, "xfades_f": xfades_f, "fade": fade, "layers": kept, "pip": first_pip, "audios": heard,
+    return {"entries": entries, "xfades": xfades, "xfades_f": xfades_f, "xstyles": xstyles, "fade": fade, "layers": kept, "pip": first_pip, "audios": heard,
             "warnings": warnings, "total": total, "total_f": total_f}
 
 
@@ -679,7 +687,7 @@ def build(ops):
     done = 0
     for a in sorted(m["xfades_f"]):
         n = m["xfades_f"][a]
-        base.mix(a + done, n, mlt7.Transition(p, "luma"))
+        base.mix(a + done, n, transitions.apply(mlt7, p, m["xstyles"].get(a, "dissolve"), W, H, CACHE, n))
         base.mix_add(a + done, mlt7.Transition(p, "mix"))
         done += 1
 
@@ -892,7 +900,9 @@ def describe(o):
     if k == "cut":
         return f"Cortar la entrada {o['clip']} en {o['at']:g} s", f"cut #{o['clip']} @ {o['at']:g}s"
     if k == "crossfade":
-        return f"Fundido cruzado de {o['dur']:g} s entre {o['between'][0]} y {o['between'][1]}", f"xfade {o['between'][0]}-{o['between'][1]} {o['dur']:g}s"
+        st_ = o.get("style", "dissolve")
+        return (f"Fundido cruzado de {o['dur']:g} s entre {o['between'][0]} y {o['between'][1]}" + ("" if st_ == "dissolve" else f" ({st_})"),
+                f"xfade {o['between'][0]}-{o['between'][1]} {o['dur']:g}s" + ("" if st_ == "dissolve" else f" {st_}"))
     if k == "fade":
         return f"Fade desde negro ({o['in']:g} s) y a negro ({o['out']:g} s)", f"fade in {o['in']:g} out {o['out']:g}"
     if k == "text":

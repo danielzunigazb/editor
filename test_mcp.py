@@ -343,6 +343,24 @@ async def main():
             check("add_subtitles rejects non-numeric times with a clear message", err is not None and "numbers" in err, err)
             _, err = await call("crossfade", first_index=0, dur_s=0.01)
             check("crossfade shorter than a frame is rejected through the server", err is not None, err)
+            await call("new_project", width=1280, height=720, fps=25)
+            for n_ in "ab":
+                await call("import_clip", path=M(n_), id=n_.upper())
+            await call("add_clip", source="A", end_s=3.0); await call("add_clip", source="B", end_s=3.0)
+            res, err = await call("crossfade", first_index=0, dur_s=1.0, style="wipe-right")
+            check("crossfade(style=wipe-right) is accepted and keeps the duration (3 + 3 - 1 s)", err is None and res and abs(res["duration_s"] - 5.0) < 0.05, err or res)
+            tl_, _ = await call("get_timeline")
+            check("the timeline text names the transition style", tl_ is not None and any("wipe-right" in str(o) for o in tl_.get("ops", [])), tl_ and tl_.get("ops"))
+            _, err = await call("crossfade", first_index=0, dur_s=1.0, style="spin")
+            check("crossfade rejects an unknown style naming the choices", err is not None and "wipe-right" in err, err)
+            _, err = await call("crossfade", first_index=0, dur_s=0.1, style="iris-out")
+            check("crossfade rejects a 0.1 s iris", err is not None and "0.2" in err, err)
+            ls_, err = await call("list_styles")
+            check("list_styles lists the transition styles", err is None and ls_ and "slide-left" in ls_.get("transitions", []), err)
+            res, err = await call("set_template", name="arcade", motion=True)
+            check("set_template(motion=true) switches the project's motion on", err is None and res and res.get("motion") is True, err or res)
+            res, err = await call("set_template", name="arcade", motion=False)
+            check("set_template(motion=false) switches it off again", err is None and res and "motion" not in res, err or res)
 
             # =================== apply_ops (batch) and on-screen collision warnings ===================
             LUX = [{"tool": "add_clip", "source": "A", "end_s": 4.0}, {"tool": "add_clip", "source": "B", "end_s": 4.0},

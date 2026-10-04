@@ -47,6 +47,7 @@ def _ensure_display():
 _ensure_display()
 import live  # noqa: E402  (engine: layout/build/render)
 import themes  # noqa: E402
+import transitions  # noqa: E402
 import cards  # noqa: E402
 import icons  # noqa: E402
 import assets_lib  # noqa: E402
@@ -118,6 +119,7 @@ def bind(st, scale=1.0):
     live.FPS = st["fps"]
     live.CACHE = os.path.join(HOME, "cache")
     live.THEME = themes.get(st.get("theme"))              # projects saved before templates existed have no theme: luxury, as always
+    live.MOTION = bool(st.get("motion"))                  # opt-in: projects saved before it existed behave exactly as they did
 
 
 OVERLAYS = ("pip", "text", "subtitles", "image", "graphic", "lower_third", "callout", "audio")
@@ -162,8 +164,8 @@ def _b_cut_clip(index, at_s):
     return {"op": "cut", "clip": index, "at": at_s}
 
 
-def _b_crossfade(first_index, dur_s=1.0):
-    return {"op": "crossfade", "between": [first_index, first_index + 1], "dur": dur_s}
+def _b_crossfade(first_index, dur_s=1.0, style="dissolve"):
+    return {"op": "crossfade", "between": [first_index, first_index + 1], "dur": dur_s, **({"style": style} if style != "dissolve" else {})}
 
 
 def _b_set_fades(fade_in_s=0.0, fade_out_s=0.0):
@@ -336,6 +338,7 @@ def summary(st, full=False):
         layers.append(d)
     out = {
         "template": live.THEME.name,
+        **({"motion": True} if live.MOTION else {}),
         "duration_s": round(m["total"], 3),
         "entries": [{"index": i, "source": e["src"], "source_in_s": round(e["in"], 3),
                      "start_s": round(e["start"], 3), "end_s": round(e["start"] + e["dur"], 3)}
@@ -382,15 +385,16 @@ def _probe(path):
 
 # ------------------------------------------------------------------ tools: project / sources
 @mcp.tool()
-def new_project(width: int = 1280, height: int = 720, fps: int = 25) -> dict:
+def new_project(width: int = 1280, height: int = 720, fps: int = 25, motion: bool = False) -> dict:
     """Start an empty project (discards the current timeline and imported sources).
-    width/height/fps define the final export format; previews are rendered at half size."""
+    width/height/fps define the final export format; previews are rendered at half size.
+    motion: switch on the template's own motion (default animations, transitions via style="auto"); off by default."""
     if not (64 <= width <= 7680 and 64 <= height <= 4320 and 1 <= fps <= 120):
         raise ValueError("width 64-7680, height 64-4320, fps 1-120")
-    st = {**json.loads(json.dumps(DEFAULT)), "width": width, "height": height, "fps": fps}
+    st = {**json.loads(json.dumps(DEFAULT)), "width": width, "height": height, "fps": fps, **({"motion": True} if motion else {})}
     with locked():
         save(st)
-    return {"ok": True, "format": f"{width}x{height}@{fps}"}
+    return {"ok": True, "format": f"{width}x{height}@{fps}", **({"motion": True} if motion else {})}
 
 
 @mcp.tool()
@@ -437,10 +441,12 @@ def cut_clip(index: int, at_s: float) -> dict:
 
 
 @mcp.tool()
-def crossfade(first_index: int, dur_s: float = 1.0) -> dict:
-    """Dissolve (video) and crossfade (audio) between entry `first_index` and the next one.
-    The two entries overlap by dur_s, so the timeline gets shorter by dur_s."""
-    return commit(_b_crossfade(first_index, dur_s))
+def crossfade(first_index: int, dur_s: float = 1.0, style: str = "dissolve") -> dict:
+    """Transition (video) and crossfade (audio) between entry `first_index` and the next one. The two entries overlap by dur_s, so the
+    timeline gets shorter by dur_s. style: dissolve | wipe-right|left|up|down | iris-out|in | blinds-v|h | diagonal | clock |
+    slide-left|right|up|down (the new clip travels over the old one) | auto (the template's own, only when the project's motion is on).
+    Anything but dissolve needs dur_s >= 0.2."""
+    return commit(_b_crossfade(first_index, dur_s, style))
 
 
 @mcp.tool()
@@ -469,14 +475,15 @@ def list_styles() -> dict:
             "default_title_style": live.THEME.title_style, "default_subtitle_style": live.THEME.subtitle_style,
             "graphics": {k: f"amount = {graphics.AMOUNT[k][0]}, {graphics.AMOUNT[k][1]}-{graphics.AMOUNT[k][2]} "
                             f"(default {graphics.AMOUNT[k][3]})" for k in graphics.KINDS},
-            "lower_third": "name + role panel with a gold side bar (add_lower_third)"}
+            "lower_third": "name + role panel with a gold side bar (add_lower_third)", "transitions": list(transitions.STYLES)}
 
 
 @mcp.tool()
-def set_template(name: str, accent: str = "") -> dict:
+def set_template(name: str, accent: str = "", motion: bool | None = None) -> dict:
     """Choose the project's design template: luxury | corporate | academic | sketch | tech | minimal | playful (see list_styles).
     Everything that does not name its own style (text, subtitles, lower thirds, labels, cards) follows it, so switching
     restyles the whole edit; edits are kept. accent: optional #RRGGBB brand colour replacing the template's signature colour.
+    motion: true/false switches the template's own motion (default animations and the style="auto" transition) for the whole project; omit to keep it.
     Rejected, changing nothing, if an existing text would not fit in the new template's type."""
     spec = {"name": name, "accent": accent or None}
     themes.get(spec)                                       # validates name and colour
@@ -486,6 +493,8 @@ def set_template(name: str, accent: str = "") -> dict:
     with locked():
         st = load()
         st["theme"] = spec
+        if motion is not None:
+            st["motion"] = bool(motion)
         bind(st)
         for i, o in enumerate(st["ops"]):
             try:
@@ -765,7 +774,7 @@ def _state_key(st, scale):
             stt = os.stat(p); files.append((p, stt.st_mtime_ns, stt.st_size))
         except OSError:
             files.append((p, None, None))
-    return json.dumps([st["ops"], st["width"], st["height"], st["fps"], scale, files, st.get("theme")], sort_keys=True)
+    return json.dumps([st["ops"], st["width"], st["height"], st["fps"], scale, files, st.get("theme"), bool(st.get("motion"))], sort_keys=True)
 
 
 def _built(st, scale):
