@@ -4,7 +4,7 @@ tools. Helpers shared by all tools (project state, locking, binding the engine) 
 
 Docstrings may use <<placeholders>> (see DOC_VARS): they are filled in from the registries when the server starts, so a tool never
 lists templates, transitions or presets by hand."""
-import functools, importlib, inspect, pkgutil
+import functools, hashlib, importlib, inspect, json, pkgutil
 
 from .. import errors, registry
 
@@ -30,27 +30,43 @@ def tool(fn):
 def edit_tool(fn=None, *, anchor=False):
     """Register an MCP tool that changes the project. It gets the arguments every edit takes:
       expected_revision: the revision the agent made this edit against (see `revision` in every response); a stale one is refused with REVISION_CONFLICT.
+      dry_run: true = change nothing, answer with what the edit WOULD do (a diff: ops added/removed/changed, things moved or hidden, the new duration,
+               warnings that appear or go away); the real call is then the same call without dry_run.
+      request_id: a name for this edit. Making the same call again with the same request_id (a retry after a timeout) applies nothing a second time and
+               answers {"replayed": true, ...}; the same id on a different call is an error.
     With anchor=True (overlay and audio edits) also:
       anchor: "clip" (default) = the edit is anchored to the clip that is on screen at start_s and moves with it when earlier clips are cut, trimmed,
               moved or removed; "timeline" = it stays at that timeline time whatever happens to the clips.
     They are passed to the server through a per-call context (server.CALL), so the tool body never sees them."""
     def deco(fn):
         sig = inspect.signature(fn)
-        extra = ([inspect.Parameter("anchor", inspect.Parameter.POSITIONAL_OR_KEYWORD, default="clip", annotation=str)] if anchor else []) + \
-                [inspect.Parameter("expected_revision", inspect.Parameter.POSITIONAL_OR_KEYWORD, default=None, annotation=int | None)]
+        P_ = inspect.Parameter
+        extra = ([P_("anchor", P_.POSITIONAL_OR_KEYWORD, default="clip", annotation=str)] if anchor else []) + \
+                [P_("expected_revision", P_.POSITIONAL_OR_KEYWORD, default=None, annotation=int | None),
+                 P_("dry_run", P_.POSITIONAL_OR_KEYWORD, default=False, annotation=bool),
+                 P_("request_id", P_.POSITIONAL_OR_KEYWORD, default=None, annotation=str | None)]
 
         @functools.wraps(fn)
-        def wrapper(*a, expected_revision=None, **kw):
+        def wrapper(*a, expected_revision=None, dry_run=False, request_id=None, **kw):
             from .. import server as sv
-            tok = sv.CALL.set({"tool": fn.__name__, "expected_revision": expected_revision, "anchor": kw.pop("anchor", None) if anchor else None})
+            args = json.dumps([fn.__name__, [str(x) for x in a], {k: kw[k] for k in sorted(kw)}], default=str, sort_keys=True)
+            ctx = {"tool": fn.__name__, "expected_revision": expected_revision, "anchor": kw.pop("anchor", None) if anchor else None, "dry_run": bool(dry_run),
+                   "request_id": request_id, "args": hashlib.sha1(args.encode()).hexdigest()[:16]}
+            tok = sv.CALL.set(ctx)
             try:
-                return fn(*a, **kw)
+                before = sv.load() if dry_run else None
+                result = fn(*a, **kw)
+                return sv.dry_run_report(before, ctx, result) if dry_run else result
+            except sv.Replayed as rp:
+                return rp.result
             except ValueError as e:
                 raise errors.as_edit_error(e) from None
             finally:
                 sv.CALL.reset(tok)
         wrapper.__signature__ = sig.replace(parameters=list(sig.parameters.values()) + extra)
-        doc = (fn.__doc__ or "") + "\n    expected_revision: refuse the edit (REVISION_CONFLICT, nothing changed) if the project is no longer at this revision."
+        doc = (fn.__doc__ or "") + ("\n    expected_revision: refuse the edit (REVISION_CONFLICT, nothing changed) if the project is no longer at this revision."
+                                    "\n    dry_run: true = change nothing and report what this call would do (a diff). request_id: retrying with the same id applies nothing twice."
+                                    "\n    Errors are `CODE: message` plus a JSON line; codes: <<error_codes>>.")
         if anchor:
             doc += ("\n    anchor: \"clip\" (default) = the edit follows the clip on screen at start_s (it moves when earlier clips are cut, trimmed, moved or removed); "
                     "\"timeline\" = it stays at that timeline time.")
@@ -87,7 +103,7 @@ def _doc_vars():
         "templates": " | ".join(themes.NAMES), "transitions": " | ".join(transitions.STYLES), "default_transition": S.default_transition,
         "presets": " | ".join(anim.PRESETS), "easings": " | ".join(anim.EASES), "graphics": " | ".join(graphics.KINDS),
         "callout_presets": " | ".join(n for n in anim.PRESETS if anim.preset(n).callout), "layouts": " | ".join(cards.LAYOUTS),
-        "edit_tools": ", ".join(registry.names("builder")),
+        "edit_tools": ", ".join(registry.names("builder")), "error_codes": ", ".join(errors.CODES),
     }
 
 

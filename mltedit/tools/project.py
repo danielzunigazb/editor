@@ -32,6 +32,8 @@ def new_project(width: int = 1280, height: int = 720, fps: int = 25, motion: boo
             prev = {}
         sv.check_revision(prev)
         st["revision"] = prev.get("revision", 0)               # revisions never go back, so a stale expected_revision still notices the reset
+        if not sv.dry_run():
+            P.rotate_journal(sv.HISTORY)
         rev = sv.save(st, {"kind": "new_project"})
     return {"ok": True, "revision": rev, "format": f"{width}x{height}@{fps}", **({"motion": True} if motion else {})}
 
@@ -56,7 +58,7 @@ def import_clip(path: str, id: str = "") -> dict:
             raise ValueError(f"the project already has {sv.MAX_SOURCES} sources (the limit)")
         st["sources"][sid] = {"path": path, "sig": P.file_sig(path), **info}
         rev = sv.save(st, {"kind": "import", "source": sid})
-        proxy = proxies.ensure(sv.HOME, st["sources"][sid])            # in the background: the edit does not wait for it
+        proxy = "none" if sv.dry_run() else proxies.ensure(sv.HOME, st["sources"][sid])      # in the background: the edit does not wait for it
     return {"id": sid, "revision": rev, **({"proxy": proxy} if proxy != "none" else {}), **info}
 
 
@@ -85,7 +87,8 @@ def refresh_source(id: str) -> dict:
         live.layout(st["ops"])                                  # raises if an edit no longer fits the new file: nothing is saved
         sv.push_undo(st, {"k": "set", "fields": {"sources": old}})
         sv.save(st, {"kind": "refresh_source", "source": id})
-        proxies.ensure(sv.HOME, st["sources"][id])
+        if not sv.dry_run():
+            proxies.ensure(sv.HOME, st["sources"][id])
         return {"refreshed": id, **sv.summary(st)}
 
 

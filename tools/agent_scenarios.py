@@ -3,7 +3,7 @@
 A scenario that needs a feature that does not exist yet is marked xfail("P3"): it must FAIL until that phase lands, then it must PASS and the
 mark is removed (an unexpected pass is reported as XPASS and fails the run, so a finished feature cannot keep a stale mark).
 Usage: tools/agent_scenarios.py [name ...]    Exit code 1 on FAIL or XPASS."""
-import os, sys, tempfile
+import json, os, shutil, sys, tempfile, time
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
@@ -122,7 +122,7 @@ def a_stale_revision_is_refused():
     return e is not None and "REVISION_CONFLICT" in e, e
 
 
-@scenario(xfail="P6")
+@scenario()
 def dry_run_changes_nothing_and_reports_the_result():
     fresh()
     server.add_clip("A", 0, 3)
@@ -131,7 +131,7 @@ def dry_run_changes_nothing_and_reports_the_result():
     return n == 1 and r is None, (r, n)
 
 
-@scenario(xfail="P6")
+@scenario()
 def a_retry_with_the_same_request_id_adds_one_edit():
     fresh()
     server.add_clip("A", 0, 3)
@@ -146,6 +146,213 @@ def errors_carry_a_stable_code():
     fresh()
     e = err(server.add_clip, "A", 0, 99)
     return e is not None and "OUT_OF_RANGE" in e, e
+
+
+def ids_of(kind):
+    return [o["id"] for o in server.get_timeline()["ops"] if o["op"] == kind]
+
+
+def two_clips_with_text(start=5.0):
+    fresh()
+    server.add_clip("A", 0, 4)
+    server.add_clip("B", 0, 4)
+    return server.add_text("on B", start, 1.0)["op_id"]
+
+
+@scenario()
+def dry_run_diff_shows_what_would_move():
+    tid = two_clips_with_text()
+    rev = server.get_timeline()["revision"]
+    r = server.cut_clip(0, 3.0, dry_run=True)
+    moved = [m["id"] for m in r.get("diff", {}).get("moved", [])]
+    tl = server.get_timeline()
+    return tid in moved and tl["revision"] == rev and tl["duration_s"] == 8.0 and r["duration_s"] == 7.0, r
+
+
+@scenario()
+def dry_run_of_a_bad_edit_still_fails_with_its_code():
+    fresh()
+    server.add_clip("A", 0, 3)
+    e = err(server.add_text, "x", 99, 1, dry_run=True)
+    return e is not None and "TIMELINE_CONFLICT" in str(e), e
+
+
+@scenario()
+def a_request_id_reused_for_a_different_edit_is_refused():
+    fresh()
+    server.add_clip("A", 0, 3)
+    server.add_text("one", 0.5, 1.0, request_id="r9")
+    e = err(server.add_text, "two", 1.5, 1.0, request_id="r9")
+    ok_ = e is not None and "already used by a different call" in str(e)
+    try:
+        trailer = json.loads(str(e).splitlines()[-1])
+    except ValueError:
+        trailer = {}
+    return ok_ and trailer.get("code") == "INVALID_ARGUMENT" and server.get_timeline()["op_count"] == 2, e
+
+
+@scenario()
+def a_replayed_edit_names_the_op_it_made_and_leaves_the_revision_alone():
+    fresh()
+    server.add_clip("A", 0, 3)
+    first = server.add_text("once", 0.5, 1.0, request_id="r1")
+    rev = server.get_timeline()["revision"]
+    again = server.add_text("once", 0.5, 1.0, request_id="r1")
+    return again.get("replayed") and again["op_ids"] == [first["op_id"]] and server.get_timeline()["revision"] == rev, again
+
+
+@scenario()
+def after_a_revision_conflict_the_agent_reads_and_retries():
+    fresh()
+    server.add_clip("A", 0, 3)
+    rev = server.get_timeline()["revision"]
+    server.add_text("other agent", 0.5, 1.0)
+    e = err(server.add_text, "mine", 1.5, 1.0, expected_revision=rev)
+    rev2 = server.get_timeline()["revision"]
+    e2 = err(server.add_text, "mine", 1.5, 1.0, expected_revision=rev2)
+    return e is not None and "REVISION_CONFLICT" in str(e) and e2 is None, (e, e2)
+
+
+@scenario()
+def one_undo_takes_back_a_whole_batch():
+    fresh()
+    server.add_clip("A", 0, 3)
+    server.apply_ops([{"tool": "add_text", "text": "a", "start_s": 0.5, "dur_s": 1}, {"tool": "add_text", "text": "b", "start_s": 1.5, "dur_s": 1}])
+    server.undo()
+    return server.get_timeline()["op_count"] == 1, server.get_timeline()["op_count"]
+
+
+@scenario()
+def query_finds_the_id_and_update_op_changes_it():
+    fresh()
+    server.add_clip("A", 0, 4)
+    server.add_text("hello", 1.0, 1.0)
+    found = server.query(at_s=1.5)["overlays"]
+    if not found:
+        return False, found
+    server.update_op(found[0]["op_id"], {"text": "changed"})
+    return next(o for o in server.get_timeline()["ops"] if o["id"] == found[0]["op_id"])["text"] == "changed", found
+
+
+@scenario()
+def describe_project_stays_short_for_a_big_project():
+    fresh()
+    server.add_clip("A", 0, 6)
+    server.apply_ops([{"tool": "add_text", "text": f"t{i}", "start_s": 0.1 * i, "dur_s": 0.1} for i in range(1, 40)])
+    short, full = server.describe_project()["text"], server.describe_project(budget="full")["text"]
+    return len(short.splitlines()) <= 14 and len(full.splitlines()) > len(short.splitlines()) and "more" in short or "+" in short, (len(short.splitlines()), len(full.splitlines()))
+
+
+@scenario()
+def query_confirms_the_overlay_followed_the_cut():
+    two_clips_with_text(5.0)
+    server.cut_clip(0, 3.0)
+    at = server.query(at_s=4.5)
+    return any(o["kind"] == "text" for o in at["overlays"]) and not any(o["kind"] == "text" for o in server.query(at_s=5.9)["overlays"]) or False, at["overlays"]
+
+
+@scenario()
+def removing_a_clip_with_overlays_is_refused_then_cascade_clears_them():
+    tid = two_clips_with_text()
+    clip_b = server.get_timeline()["entries"][1]["id"]
+    e = err(server.remove_op, op_id=clip_b)
+    server.remove_op(op_id=clip_b, cascade=True)
+    ids = [o["id"] for o in server.get_timeline()["ops"]]
+    return e is not None and tid in str(e) and tid not in ids and clip_b not in ids, e
+
+
+@scenario()
+def trimming_the_head_of_an_earlier_clip_keeps_the_overlay_on_its_frame():
+    two_clips_with_text(5.0)
+    clip_a = server.get_timeline()["entries"][0]["id"]
+    server.trim_clip(0, 1.0, 4.0, clip_id=clip_a)                 # A loses its first second: B starts 1 s earlier
+    q = server.query(at_s=4.5)
+    b = next(c for c in q["clips"] if c["source"] == "B")
+    return any(o["kind"] == "text" for o in q["overlays"]) and abs(b["source_time_s"] - 1.5) < 0.05, q
+
+
+@scenario()
+def moving_a_clip_carries_its_overlay():
+    two_clips_with_text(5.0)
+    clip_b = server.get_timeline()["entries"][1]["id"]
+    server.move_clip(1, 0, clip_id=clip_b)
+    q = server.query(at_s=1.5)
+    return any(o["kind"] == "text" for o in q["overlays"]) and q["clips"][0]["source"] == "B", q
+
+
+@scenario()
+def an_invalid_update_leaves_everything_as_it_was():
+    fresh()
+    server.add_clip("A", 0, 4)
+    tid = server.add_text("keep", 1.0, 1.0)["op_id"]
+    rev = server.get_timeline()["revision"]
+    e = err(server.update_op, tid, {"dur": -1})
+    return e is not None and "OUT_OF_RANGE" in str(e) and server.get_timeline()["revision"] == rev, e
+
+
+@scenario()
+def undo_and_redo_keep_the_same_ids():
+    fresh()
+    server.add_clip("A", 0, 4)
+    tid = server.add_text("a", 1.0, 1.0)["op_id"]
+    server.add_text("b", 2.0, 1.0)
+    server.undo(); server.undo(); server.redo(); server.redo()
+    return tid in ids_of("text") and len(ids_of("text")) == 2, ids_of("text")
+
+
+@scenario()
+def a_background_export_finishes_and_reports_like_the_blocking_one():
+    fresh()
+    server.add_clip("A", 0, 2)
+    out = os.path.join(tempfile.mkdtemp(prefix="scen_exp_"), "bg.mp4")
+    j = server.export(out, quality="draft", background=True)
+    for _ in range(300):
+        s = server.job_status(j["job_id"])
+        if s["state"] != "running":
+            break
+        time.sleep(0.3)
+    return s["state"] == "done" and s["result"]["path"] == out and os.path.exists(out) and abs(s["result"]["duration_s"] - 2.0) < 0.1, s
+
+
+@scenario()
+def cancelling_a_job_leaves_no_partial_file():
+    fresh()
+    server.add_clip("A", 0, 6)
+    out = os.path.join(tempfile.mkdtemp(prefix="scen_cx_"), "cancel.mp4")
+    j = server.export(out, quality="high", background=True)
+    time.sleep(0.5)
+    r = server.cancel_job(j["job_id"])
+    time.sleep(0.3)
+    return r["state"] == "cancelled" and not os.path.exists(out) and server.job_status(j["job_id"])["state"] == "cancelled", r
+
+
+@scenario()
+def a_missing_source_blocks_rendering_with_a_code():
+    server.new_project(640, 360, 25)
+    gone = os.path.join(tempfile.mkdtemp(prefix="scen_gone_"), "gone.mp4")
+    shutil.copy(A, gone)
+    server.import_clip(gone, "G")
+    server.add_clip("G", 0, 2)
+    os.remove(gone)
+    e = err(server.export, os.path.join(tempfile.mkdtemp(), "x.mp4"), quality="draft")
+    return e is not None and "SOURCE_MISSING" in str(e) and not server.verify_sources()["ok"], e
+
+
+@scenario()
+def a_batch_error_names_the_item_and_keeps_the_code():
+    fresh()
+    server.add_clip("A", 0, 3)
+    e = err(server.apply_ops, [{"tool": "add_text", "text": "ok", "start_s": 0.5, "dur_s": 1}, {"tool": "add_text", "text": "late", "start_s": 50, "dur_s": 1}])
+    return e is not None and "item 1" in str(e) and "TIMELINE_CONFLICT" in str(e) and server.get_timeline()["op_count"] == 1, e
+
+
+@scenario()
+def a_failed_edit_does_not_use_up_its_request_id():
+    fresh()
+    server.add_clip("A", 0, 3)
+    e1 = err(server.add_text, "late", 50, 1, request_id="fix-me")
+    e2 = err(server.add_text, "on time", 1.0, 1, request_id="fix-me")
+    return e1 is not None and e2 is None and server.get_timeline()["op_count"] == 2, (e1, e2)
 
 
 def main(names):

@@ -3,6 +3,7 @@ import hashlib, json, os, re, subprocess, time
 
 from .. import assets as assets_lib
 from .. import engine as live
+from .. import jobs
 from .. import ops as O
 from .. import project as P
 from .. import server as sv
@@ -142,31 +143,31 @@ def get_contact_sheet(count: int = 6) -> Image:
     return Image(data=_serve(_cached(st, 0.25, f"sheet|{count}"), make), format="png")
 
 
-@tool
-def render_preview() -> dict:
-    """Render the whole edit to a small half-resolution mp4 (with audio) for quick playback.
-    Returns its path and how long rendering took."""
-    st = sv.load()
-    sv.require_fresh(st)
-    if not st["ops"]:
-        raise ValueError("the timeline is empty; add_clip first")
+def do_preview(st):
+    """Render the whole edit at half size to HOME/preview.mp4 (runs in this process or in a job)."""
     sv.bind(st, 0.5)
     p, tr, m, total = live.build(st["ops"])
     out = os.path.join(sv.HOME, "preview.mp4")
     t0 = time.perf_counter()
     live.render(p, tr, out)
-    return {"path": out, "duration_s": round(m["total"], 3), "size_kb": os.path.getsize(out) // 1024,
-            "render_s": round(time.perf_counter() - t0, 2)}
+    return {"path": out, "duration_s": round(m["total"], 3), "size_kb": os.path.getsize(out) // 1024, "render_s": round(time.perf_counter() - t0, 2)}
 
 
 @tool
-def export(output_path: str, quality: str = "high", overwrite: bool = False, master: str = "") -> dict:
-    """Export the final video: MLT composes the timeline at full project resolution and the ffmpeg CLI
-    does the H.264/AAC encode. output_path must end in .mp4 or .mov. An existing file is NOT replaced unless
-    overwrite=true. quality: 'high' (CRF 20, preset medium) or 'draft' (CRF 28, ultrafast).
-    master: '' (default) or 'loudnorm' = normalise the sound to -16 LUFS integrated / -1.5 dB true peak. The result reports the loudness measured on the
-    exported file (loudness_lufs, true_peak_db).
-    Blocking; can take about as long as the video itself at 1080p."""
+def render_preview(background: bool = False) -> dict:
+    """Render the whole edit to a small half-resolution mp4 (with audio) for quick playback.
+    Returns its path and how long rendering took. background=true: start it as a job and answer at once with a job_id (see job_status, cancel_job)."""
+    st = sv.load()
+    sv.require_fresh(st)
+    if not st["ops"]:
+        raise ValueError("the timeline is empty; add_clip first")
+    if background:
+        return jobs.start(sv.HOME, "preview", st, {})
+    return do_preview(st)
+
+
+def check_export(output_path, quality, overwrite, master):
+    """The checks of an export, done before anything is rendered (and before a job is started). Returns (project, output path)."""
     if master not in ("", "loudnorm"):
         raise ValueError("master must be '' or 'loudnorm'")
     if quality not in ("high", "draft"):
@@ -182,6 +183,11 @@ def export(output_path: str, quality: str = "high", overwrite: bool = False, mas
         raise ValueError(f"output_path is a directory: {out}")
     if os.path.exists(out) and not overwrite:
         raise ValueError(f"{out} already exists; choose another name or pass overwrite=true")
+    return st, out
+
+
+def do_export(st, out, quality, master):
+    """Render the final video (runs in this process or in a job)."""
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     sv.bind(st, 1.0)
     p, tr, m, total = live.build(st["ops"])
@@ -199,6 +205,40 @@ def export(output_path: str, quality: str = "high", overwrite: bool = False, mas
     elif os.path.exists(credit_path):                        # a stale file from an earlier export of this name would lie
         os.remove(credit_path)
     return res
+
+
+@tool
+def export(output_path: str, quality: str = "high", overwrite: bool = False, master: str = "", background: bool = False) -> dict:
+    """Export the final video: MLT composes the timeline at full project resolution and the ffmpeg CLI
+    does the H.264/AAC encode. output_path must end in .mp4 or .mov. An existing file is NOT replaced unless
+    overwrite=true. quality: 'high' (CRF 20, preset medium) or 'draft' (CRF 28, ultrafast).
+    master: '' (default) or 'loudnorm' = normalise the sound to -16 LUFS integrated / -1.5 dB true peak. The result reports the loudness measured on the
+    exported file (loudness_lufs, true_peak_db).
+    Blocking by default (about as long as the video itself at 1080p). background=true: the checks run now, the render runs as a job (of the project as it
+    is at this moment) and the answer is a job_id; poll job_status, stop it with cancel_job - for long exports that would outlast a tool-call timeout."""
+    st, out = check_export(output_path, quality, overwrite, master)
+    if background:
+        return jobs.start(sv.HOME, "export", st, {"out": out, "quality": quality, "master": master})
+    return do_export(st, out, quality, master)
+
+
+@tool
+def job_status(job_id: str) -> dict:
+    """State of a background job (export or render_preview with background=true): running | done | failed | cancelled, how long it has run, and the
+    result (the same fields the blocking call returns) when done, or the error when failed."""
+    return jobs.status(sv.HOME, job_id)
+
+
+@tool
+def cancel_job(job_id: str) -> dict:
+    """Stop a running background job; the half-written output file is removed. A finished job is left as it is."""
+    return jobs.cancel(sv.HOME, job_id)
+
+
+@tool
+def list_jobs() -> dict:
+    """The background jobs of this project (newest first) with their state."""
+    return {"jobs": jobs.list_all(sv.HOME)}
 
 
 def _loudness(path):

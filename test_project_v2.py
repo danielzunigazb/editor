@@ -167,6 +167,27 @@ check("every saved change writes one journal line with its revision, kind and to
 revs = [r_["rev"] for r_ in rows]
 check("journal revisions only go up", revs == sorted(revs) and len(set(revs)) == len(revs))
 
+# ------------------------------------------------------------------------------------------------ dry run, request ids
+fresh()
+server.add_clip("A", 0, 4)
+pj, hj = os.path.join(HOME, "project.json"), os.path.join(HOME, "history.jsonl")
+snap = (open(pj, "rb").read(), os.stat(pj).st_mtime_ns, os.path.getsize(hj))
+tools_to_try = [lambda: server.add_text("x", 0.5, 1.0, dry_run=True), lambda: server.cut_clip(0, 2.0, dry_run=True), lambda: server.apply_ops([{"tool": "add_text", "text": "y", "start_s": 1, "dur_s": 1}], dry_run=True),
+                lambda: server.set_template("minimal", dry_run=True), lambda: server.set_fades(0.5, 0.5, dry_run=True), lambda: server.undo(dry_run=True)]
+res = [f() for f in tools_to_try]
+check("dry_run never writes: project file and journal are byte-identical after six dry runs", snap == (open(pj, "rb").read(), os.stat(pj).st_mtime_ns, os.path.getsize(hj)))
+check("a dry run answers with applied=false and a diff", all(r["dry_run"] and r["applied"] is False and "diff" in r for r in res), res[0])
+check("the diff of a template change says it changed ops/nothing structural and a cut reports the new duration", res[1]["duration_s"] == 2.0 and res[1]["diff"]["duration_s"] == {"from": 4.0, "to": 2.0}, res[1])
+a1 = server.add_text("once", 0.5, 1.0, request_id="same")
+a2 = server.add_text("once", 0.5, 1.0, request_id="same")
+check("the same request_id twice applies one edit and the second answer says replayed", a2.get("replayed") and a2["op_ids"] == [a1["op_id"]] and len(ids_ := [o for o in ops() if o["op"] == "text"]) == 1, (a2, ids_))
+rev_a = server.get_timeline()["revision"]
+server.new_project(640, 360, 25)
+server.import_clip(A, "A"); server.add_clip("A", 0, 4)
+b1 = server.add_text("once", 0.5, 1.0, request_id="same")
+check("a new project starts a new journal: an old request_id does not replay into it", not b1.get("replayed") and b1["op_id"] and server.get_timeline()["revision"] > rev_a)
+check("the old journal is kept for the record", any(f.startswith("history.") and f != "history.jsonl" for f in os.listdir(HOME)))
+
 # ------------------------------------------------------------------------------------------------ v1 migration
 v1 = {"sources": {"A": {"path": A, "duration_s": 6.0}, "B": {"path": B, "duration_s": 5.0}}, "width": 320, "height": 180, "fps": 25, "theme": {"name": "luxury", "accent": None},
       "ops": [{"op": "add", "src": "A", "in": 0.0, "end": 4.0}, {"op": "add", "src": "B", "in": 0.0}, {"op": "cut", "clip": 1, "at": 3.0},

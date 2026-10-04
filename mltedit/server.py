@@ -93,23 +93,93 @@ def load():
     return P.load(PROJECT, DEFAULT)
 
 
+HISTORY = os.path.join(HOME, "history.jsonl")
+
+
+class Replayed(Exception):
+    """An edit with a request_id that was already applied: carries the answer instead of applying it twice."""
+    def __init__(self, result):
+        super().__init__("replayed")
+        self.result = result
+
+
 def save(st, event=None):
-    """Persist (atomic, revision + 1, journal line). `event` describes the change in the journal; the tool name is added."""
+    """Persist (atomic, revision + 1, journal line). `event` describes the change in the journal; the tool name is added.
+    In a dry run (dry_run=true on the tool call) nothing is written: the would-be project is kept in the call context for the report."""
     c = _call()
+    if c.get("dry_run"):
+        c["state"] = json.loads(json.dumps(st))
+        return st.get("revision", 0) + 1
     ev = {"kind": "save", **(event or {})}
     if c.get("tool"):
         ev["tool"] = c["tool"]
     if c.get("request_id"):
-        ev["request_id"] = c["request_id"]
+        ev["request_id"], ev["args"] = c["request_id"], c.get("args")
     return P.save(PROJECT, st, ev)
 
 
+def dry_run():
+    return bool(_call().get("dry_run"))
+
+
 def check_revision(st):
-    """The edit says which revision it was made against (expected_revision); refuse it, changing nothing, if the project moved on."""
+    """Called by every edit once it holds the project lock and has loaded the project:
+    * request_id: if an edit with this id was already applied, answer with that instead of applying it again (an agent that retries after a timeout
+      must not duplicate its edit); the same id on a DIFFERENT call is an error
+    * expected_revision: refuse the edit, changing nothing, if the project moved on."""
+    rid = _call().get("request_id")
+    if rid and not dry_run():
+        for row in reversed(P.read_journal(HISTORY, last=5000)):
+            if row.get("request_id") == rid:
+                if row.get("args") != _call().get("args"):
+                    raise EditError("INVALID_ARGUMENT", f"request_id '{rid}' was already used by a different call ({row.get('tool')} at revision {row['rev']}); use a new id for a new edit",
+                                    field="request_id")
+                raise Replayed({"replayed": True, "request_id": rid, "applied_at_revision": row["rev"], "tool": row.get("tool"),
+                                "op_ids": row.get("ops") or ([row["op"]] if row.get("op") else []), "note": "this edit was already applied; nothing was done again", **summary(st)})
     exp = _call().get("expected_revision")
     if exp is not None and exp != st.get("revision", 0):
         raise EditError("REVISION_CONFLICT", f"the project is at revision {st.get('revision', 0)} but this edit was made against revision {exp}; "
                         f"call get_timeline to see the current state and make the edit again; nothing was changed", hint="get_timeline")
+
+
+def diff_states(before, after):
+    """What a would-be project changes compared with the current one: ops added / removed / changed (by id), things that moved on the timeline,
+    the duration, and the warnings that appear or disappear."""
+    b, a = summary(before, full=True), summary(after, full=True)
+    bo, ao = {o["id"]: o for o in b["ops"]}, {o["id"]: o for o in a["ops"]}
+    strip = lambda o: {k: v for k, v in o.items() if k != "index"}            # noqa: E731
+    out = {"ops_added": [{"id": i, "op": ao[i]["op"]} for i in ao if i not in bo], "ops_removed": [{"id": i, "op": bo[i]["op"]} for i in bo if i not in ao],
+           "ops_changed": [{"id": i, "fields": sorted(k for k in set(ao[i]) | set(bo[i]) if k != "index" and ao[i].get(k) != bo[i].get(k))} for i in ao if i in bo and strip(ao[i]) != strip(bo[i])]}
+    bid = {i: o["id"] for i, o in enumerate(b["ops"])}
+    aid = {i: o["id"] for i, o in enumerate(a["ops"])}
+    moved = []
+    for key in ("overlays", "audio"):
+        bs = {bid[x["op"]]: x for x in b[key] if x["op"] in bid}
+        for x in a[key]:
+            i = aid.get(x["op"])
+            if i in bs and (bs[i]["start_s"], bs[i]["end_s"]) != (x["start_s"], x["end_s"]):
+                moved.append({"id": i, "from": [bs[i]["start_s"], bs[i]["end_s"]], "to": [x["start_s"], x["end_s"]]})
+    shown = lambda s, ids: {ids[x["op"]] for k in ("overlays", "audio") for x in s[k] if x["op"] in ids}       # noqa: E731
+    out["moved"] = moved
+    out["hidden"] = sorted(shown(b, bid) - shown(a, aid) - {i for i in bo if i not in ao})
+    be, ae = {e["id"]: e for e in b["entries"]}, {e["id"]: e for e in a["entries"]}
+    out["clips_moved"] = [{"id": i, "from": [be[i]["start_s"], be[i]["end_s"]], "to": [ae[i]["start_s"], ae[i]["end_s"]]} for i in ae if i in be and (be[i]["start_s"], be[i]["end_s"]) != (ae[i]["start_s"], ae[i]["end_s"])]
+    out["duration_s"] = {"from": b["duration_s"], "to": a["duration_s"]} if b["duration_s"] != a["duration_s"] else None
+    out["warnings_new"] = [w for w in a["warnings"] if w not in b["warnings"]]
+    out["warnings_gone"] = [w for w in b["warnings"] if w not in a["warnings"]]
+    return {k: v for k, v in out.items() if v}
+
+
+def dry_run_report(before, ctx, result):
+    """The answer to a dry run: nothing was saved; here is what the edit would do."""
+    after = ctx.get("state")
+    base = {"dry_run": True, "applied": False, "revision": before.get("revision", 0)}
+    if after is None:
+        return {**base, "diff": {}, "note": "this call would not change the project"}
+    a = summary(after)
+    return {**base, "diff": diff_states(before, after), "duration_s": a["duration_s"], "op_count": a["op_count"], "warnings": a["warnings"],
+            **({"would_be_op_id": result["op_id"]} if isinstance(result, dict) and result.get("op_id") else {}),
+            **({"would_be_op_ids": result["op_ids"]} if isinstance(result, dict) and result.get("op_ids") else {})}
 
 
 def push_undo(st, patch):

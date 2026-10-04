@@ -113,6 +113,12 @@ def read_journal(path, last=None):
     return rows[-last:] if last else rows
 
 
+def rotate_journal(path):
+    """A new project starts a new journal (request ids of the old one must not replay into it); the old one is kept next to it for the record."""
+    if os.path.exists(path) and os.path.getsize(path):
+        os.replace(path, f"{path[:-6]}.{int(time.time())}.jsonl")
+
+
 def clean_stale_tmp(path):
     """Remove `<project>.<pid>.tmp` files left by a process that died between writing and renaming."""
     d, base = os.path.dirname(path) or ".", os.path.basename(path)
