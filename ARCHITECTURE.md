@@ -103,3 +103,30 @@ No contienen lógica.
 | `golden.py` | 15 renders de la plantilla luxury idénticos al original |
 | `test_modularity.py` | agregar/quitar plantillas, plugins externos, pack roto, quitar transición/op, y que no haya nombres ni rutas escritos en el código |
 | `test_engine`, `test_mcp`, `test_text`, `test_anim`, `test_transitions`, `test_cards_anim`, `test_assets` | comportamiento del motor y de las herramientas |
+
+## Proyecto v2, anclaje y revisiones (`mltedit/project/`)
+
+`project.json` (schema 2): `sources`, `ops`, formato, `theme`, `motion`, más `revision`, `undo`, `redo`.
+* **Ids estables.** Cada op tiene `id` (`op_` + 6 hex); un clip de la pista base se identifica con el id de su op `add`. `cut`, `crossfade`, `trim`, `move` y los anclajes guardan ids de clip, nunca posiciones: borrar o insertar antes no cambia a qué apunta nada. Los proyectos v1 se migran en memoria de forma determinista (mismos ids siempre) y producen exactamente el mismo timeline.
+* **Revisión.** Cada guardado suma 1 y añade una línea a `history.jsonl` (auditoría: la verdad es `project.json`, escrito de forma atómica). Las herramientas de edición aceptan `expected_revision` (si el proyecto cambió: `REVISION_CONFLICT`, sin cambios), `dry_run` (no escribe; responde con un diff) y `request_id` (un reintento no aplica nada dos veces). `new_project` abre un journal nuevo.
+* **Undo/redo** son pilas de parches (`pop`, `insert`, `replace`, `set`, `batch`); aplicar un parche devuelve su inverso. Un `apply_ops` o un `remove_op` con cascade se deshace de una vez.
+* **Anclaje.** Los overlays y el audio se anclan por defecto al fotograma de la FUENTE del clip que está en pantalla en `start_s` (el clip entrante gana dentro de una transición): `{"clip": id, "src_f": n}`; `anchor="timeline"` los deja en tiempo absoluto; un sfx de `crossfade` sigue a su transición. `core/timeline.resolve` recalcula el inicio desde donde está el clip AHORA; si el momento anclado se recortó, el edit se oculta con un aviso `ANCHOR_LOST`. Subtítulos, `path` de un callout e intervalos de ducking se mueven con su edit. `trim_clip`, `move_clip`, `move_op` y `remove_op(cascade | reanchor="timeline")` operan sobre esto.
+
+## Validación determinista
+
+`errors.EditError` (un `ValueError` con código estable + una línea JSON) llega al agente en todos los fallos; una op mal formada es `INVALID_ARGUMENT`, nunca `KeyError`. Las ops se guardan **normalizadas** (`Op.defaults`) y con los hechos del mundo medidos al hacer commit (`Op.freeze`: aspecto de imagen, firma de archivos), así que `layout()` es puro y no lee el disco. `layout_hash(proyecto)` identifica un timeline. `verify_sources` / `refresh_source`: un archivo ausente bloquea los renders (`SOURCE_MISSING`); uno cambiado avisa. `test_determinism.py` (hypothesis) comprueba que ninguna secuencia de llamadas escapa del catálogo de errores, que el layout es idempotente y que da los mismos bytes en procesos distintos.
+
+## Previews: proxies, caché y visor
+
+* **Proxies** (`media/proxy.py`): las fuentes más altas que `proxy_height` (540) obtienen en segundo plano una copia H.264 intra-only (mismo número de cuadros y fps, audio conservado, rename atómico, nombrada por la identidad actual del archivo). Stills, hoja de contactos y `render_preview` la usan; `export` siempre lee los originales. Un still espera hasta `proxy_wait_s` a un proxy pendiente para que lo que se ve no dependa del azar.
+* **Caché de stills** en disco, con clave = `layout_hash` + firmas de archivo + escala + uso de proxy; poda LRU.
+* **Visor** (`open_viewer`): servidor HTTP en 127.0.0.1 con token aleatorio; HLS con segmentos de 2 s nombrados por un hash de lo que puede cambiar sus píxeles (`preview/segments.py`); un proceso worker (`preview/worker.py`) renderiza cada segmento cuando se pide (`tractor.set_in_and_out`, verificado idéntico al render completo) y el siguiente por adelantado; el audio es un solo encode continuo cortado en partes HLS (sin costuras). Una edición re-renderiza solo los segmentos cuyo hash cambió; la página (hls.js local) recarga al mismo tiempo de reproducción cuando cambia la revisión.
+
+## Para agentes
+
+`query(at_s | start_s..end_s)` dice qué hay en pantalla/audible con ids y anclajes; `describe_project(budget)` resume sin volcar todo. `export` y `render_preview` aceptan `background=true` (proceso aparte sobre una instantánea del proyecto; `job_status`, `cancel_job`, `list_jobs`) y devuelven `qa`: el archivo renderizado se revisa (`mltedit/qa.py`) buscando cortes duros inesperados y destellos de un cuadro; un corte entre dos clips sin crossfade es lo pedido y no se reporta. La semántica común de las herramientas de edición está una vez en las instrucciones del servidor, no repetida en cada docstring.
+
+## Operación
+
+`MLT_LOG=json` (por defecto) escribe una línea JSON por llamada a herramienta en stderr (herramienta, ms, ids, revisión, código de error); `MLT_LOG=off` la silencia. `./ci.sh` corre todo lo que debe estar en verde (pyflakes, snapshot, golden y todas las suites; `BENCH=1` añade el benchmark de preview). `pyproject.toml` empaqueta `mltedit` con el comando `mltedit-server`; instalado, `MLT_DATA_ROOT` debe apuntar a la carpeta con `fonts/` y `assets/`.
+

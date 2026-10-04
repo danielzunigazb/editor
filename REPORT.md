@@ -885,6 +885,48 @@ Una versión intermedia de `summary()` agrupaba los callouts como subtítulos (a
 - Los tipos de revelado de animación (`wipe`, `draw`) se implementan en `anim.py` (`wipe_keys`/`draw_keys`) y un preset elige cuál usa: agregar un tercer *tipo de revelado* requiere código en `anim.py`; agregar presets que usen los existentes, no.
 - Los nombres de op y de capa que `engine.py` conoce son solo los de los plugins registrados; las herramientas MCP siguen siendo una función por edición (agregar un op nuevo exige también su herramienta en `tools/`, si se quiere exponerlo con argumentos propios; `apply_ops` lo toma de su `@builder`).
 
+## 23. Nivel producción: anclaje, validación determinista, proxies, visor y fiabilidad para agentes (añadido a petición del usuario)
+
+**Pedido:** «llevar este proyecto a nivel producción: prioriza timeline anchoring, proxies/cache para preview fluido, validación determinista y edición confiable por agentes LLM». Decisiones del usuario: overlays anclados al clip por defecto (los proyectos viejos se migran como absolutos); «preview fluido» = stills/hoja de contactos rápidos para el agente y un visor en vivo para una persona. Plan por fases con criterios de éxito: P0–P7, un commit por fase, siempre con `snapshot.py` 686/686 y `golden.py` 15/15.
+
+**Gaps encontrados al analizar el código:** ops referenciadas por posición (borrar o insertar desplazaba todo); sin revisiones ni journal (un reintento duplicaba ediciones, un cambio ajeno pasaba inadvertido); overlays y audio en segundos absolutos («do NOT move if you later edit earlier clips») y sin `trim`/`move` de clips; `layout()` dependía del disco (aspecto de imágenes) y de los defaults del código, errores sin código; preview siempre desde los originales (still en frío a 4K: 4.3 s; hoja de contactos 7.9 s; `render_preview` 20 s); sin `dry_run`, idempotencia, consulta puntual ni export en segundo plano.
+
+**Resultados medidos (4 CPUs, esta máquina):**
+| | antes | después |
+|---|---|---|
+| still tras una edición, 4K / 1080p | 4.31 s / 1.24 s | 0.37 s / 0.25 s |
+| otro still de la misma edición, 4K / 1080p | 0.43 s / 0.15 s | 0.13 s / 0.09 s |
+| hoja de contactos de 6, 4K / 1080p | 7.9 s / 2.2 s | 0.67 s / 0.57 s |
+| `render_preview`, 4K / 1080p | 20.4 s / 5.0 s | 3.8 s / 1.4 s |
+| visor: primer segmento listo | n/a | 1.2 s |
+| visor: edición de 60 s a 540p, todos los segmentos | n/a | 14.0 s (4.3x tiempo real; 0.45 s por segmento de 2 s) |
+| una edición validada con 200 clips + 50 textos (`layout` puro 1.7 ms) | n/d | 18 ms |
+| esquema + docs de las herramientas | 28 herramientas, ~6.5k tokens | 42 herramientas, ~11.5k tokens (14.9k antes de acortar los docstrings) |
+Un still repetido sale de la caché sin MLT. Los números de antes están en `tests_data/bench_baseline.json`, los de después en `tests_data/bench_p4.json` (`tools/bench_preview.py`).
+
+**Qué se hizo.**
+- **P1 modelo v2:** ids estables, clips por id, `revision`, `history.jsonl`, `expected_revision`, undo/redo por parches (un batch = un paso), `update_op`, `remove_op` por id; migración v1 determinista. `kill -9` justo antes del rename deja la revisión anterior entera (test con proceso real).
+- **P2 validación determinista:** `EditError` con códigos (catálogo de 14) y línea JSON; ops normalizadas y con hechos congelados (`layout` no lee el disco); `layout_hash`; `verify_sources`/`refresh_source`. Hypothesis: 3 838 llamadas aleatorias (valores absurdos incluidos) sin que escape nada que no sea `EditError`, y encontró un bug real (`OverflowError` con `start=inf`).
+- **P3 anclaje:** por defecto al fotograma de la fuente del clip en pantalla; `trim_clip`, `move_clip`, `move_op`, `remove_op(cascade|reanchor)`. Matriz de 6 operaciones × 7 tipos de overlay/audio comprobada contra el cuadro de la fuente, más píxeles reales (`test_anchoring`, 89 checks).
+- **P4 proxies y caché:** ver tabla. El proxy conserva número de cuadros y fps (PSNR 42.4 dB contra el original reducido; en MLT, el cuadro correcto da 24.0 dB frente a 17.7 dB del siguiente).
+- **P5 visor:** HLS con segmentos por hash, worker aparte, audio continuo; una edición dentro de un segmento re-renderiza exactamente ese (3 se reusan); sin clic en las uniones de audio (segunda diferencia 0.0002 = la del tono puro).
+- **P6 agentes:** `dry_run` con diff, `request_id`, `query`, `describe_project`, `background=true` + `job_status`/`cancel_job`/`list_jobs`; 30 escenarios de agente (11 al empezar, 6 en xfail).
+- **P7:** logs JSON por llamada, `pyproject.toml` (`mltedit-server`), `ci.sh` (4 min 39 s, todo en verde).
+- **QA automático del render** (a raíz de una crítica externa que el usuario compartió): `export` y `render_preview` devuelven `qa` con cortes duros inesperados y destellos de un cuadro (`mltedit/qa.py`).
+
+**Evaluación con un modelo real** (`tools/agent_eval.py`, `claude -p` con el servidor como única herramienta; `tests_data/agent_eval.json`): 14 corridas, 4 tareas, versión anterior (commit a13a39e) frente a la nueva. **Todas correctas en ambas versiones y 0 errores de herramienta en ambas.** Donde sí hay diferencia: «acortar el clip A de un proyecto ya hecho manteniendo lo anclado a B» necesita 2 llamadas / 3 turnos en la nueva y 6–7 llamadas / 7–8 turnos en la anterior (hay que borrar y recolocar a mano). En las otras 3 tareas el número de turnos es igual y el costo no mejora (más esquema de herramientas); el costo de una corrida depende sobre todo del estado de la caché de prompts, así que **no** lo presento como diferencia. Una corrida piloto mostró un error del propio modelo (leyó los ids de un batch desplazados una posición, lo deshizo y lo rehízo): por eso `apply_ops` ahora responde `made: [{item, tool, op_id}]`.
+
+**No cumplido / no verificado — dicho claramente.**
+- El criterio «menos errores por tarea que la base» **no se pudo demostrar**: ambas versiones tuvieron 0 errores en estas tareas (cortas, con clips sintéticos). Solo se midió el ahorro de llamadas en la tarea de editar un proyecto terminado.
+- n muy pequeño (1–2 corridas por tarea, un solo modelo, clips de prueba); no hay clips reales de cámara en este contenedor.
+- **Reproducción real en un navegador:** el Chromium disponible no tiene H.264, así que no se comprobó que el video avance en un navegador. Sí se comprobó, en Chromium, que la página lista las ediciones con sus ids, dibuja el timeline y se actualiza sola, y que `ffmpeg` reproduce el HLS completo (video + audio) sin errores, con exactamente los cuadros del timeline. Safari/Chrome/Firefox reales: no probados.
+- `export` en segundo plano informa estado y resultado, **no porcentaje de progreso**.
+- Sin probar: 4K con el visor, sesiones de 20+ clips con el modelo, el costo de un `still` tras editar con 200 clips (la validación sí: 18 ms), varios proyectos a la vez en un mismo proceso, instalación del paquete en una máquina limpia (se comprobó que el paquete construido importa y registra sus herramientas).
+- El anclaje fija el INICIO: la duración de un overlay no se adapta si el clip cambia de largo (un marco que cubría todo el video no cubre más tras alargar el timeline).
+- El QA de render revisa el archivo exportado/preview, no los stills; no mide sincronía A/V ni color.
+- No hay planner declarativo («quiero un video de 30 s con esta estructura»): `apply_ops` + `dry_run` + `describe_project` cubren el bucle plan–verificación, pero el LLM sigue decidiendo cada op.
+- Sin cambios (decisión del usuario, no del agente): las 15 plantillas, la biblioteca de audio y los iconos siguen; el reporte externo los considera excesivos para un POC.
+
 ## 10. Archivos
 
 - `legacy/poc.py`: el POC (gen/build/bench/preview/export/measure).
@@ -900,3 +942,4 @@ Una versión intermedia de `summary()` agrupaba los callouts como subtítulos (a
 - `transitions.py`, `tools/qa_frames.py`, `test_transitions.py`, `test_cards_anim.py`: transiciones, QA de movimiento y sus pruebas (sección 21).
 - `media/`, `out/`: clips y resultados generados (ignorados por git; se regeneran con `gen` y `export`).
 - `mltedit/`, `ARCHITECTURE.md`, `data/`, `test_modularity.py`, `snapshot.py`, `legacy/`: la modularización de la sección 22.
+- `ci.sh`, `test_project_v2.py`, `test_determinism.py`, `test_anchoring.py`, `test_proxy.py`, `test_viewer.py`, `test_qa.py`, `tools/agent_scenarios.py`, `tools/agent_eval.py`, `tools/bench_preview.py`, `mltedit/{project,media,preview,viewer}/`, `jobs.py`, `qa.py`, `errors.py`, `log.py`: la sección 23.

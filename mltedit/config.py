@@ -39,6 +39,7 @@ SPEC = {
     "proxy_wait_s":     (("MLT_PROXY_WAIT_S",), 15.0, "float"),                           # a still/sheet waits up to this long for a PENDING proxy, so what you see does not depend on timing
     "proxy_workers":    (("MLT_PROXY_WORKERS",), 2, "int"),                               # proxies made at the same time in the background
     "proxy_cache_mb":   (("MLT_PROXY_CACHE_MB",), 4000, "int"),                           # the proxy folder is pruned (least recently used first) above this size
+    "log":              (("MLT_LOG",), "json", "str"),                                           # "json" = one JSON line per tool call on stderr; "off" = silent
     "viewer_page":      (("MLT_VIEWER_PAGE",), os.path.join(PKG, "viewer", "page.html"), "path"),           # the live viewer's page
     "vendor_dir":       (("MLT_VENDOR_DIR",), "assets/vendor", "path"),                                    # third-party browser code served locally (hls.js, Apache-2.0)
     "viewer_segment_s": (("MLT_VIEWER_SEGMENT_S",), 2.0, "float"),                       # length of a live-viewer segment (the unit that is re-rendered when an edit touches it)

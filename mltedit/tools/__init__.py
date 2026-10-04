@@ -4,9 +4,9 @@ tools. Helpers shared by all tools (project state, locking, binding the engine) 
 
 Docstrings may use <<placeholders>> (see DOC_VARS): they are filled in from the registries when the server starts, so a tool never
 lists templates, transitions or presets by hand."""
-import functools, hashlib, importlib, inspect, json, pkgutil
+import functools, hashlib, importlib, inspect, json, pkgutil, time
 
-from .. import errors, registry
+from .. import errors, log, registry
 
 
 def _coded(fn):
@@ -53,16 +53,23 @@ def edit_tool(fn=None, *, anchor=False):
             ctx = {"tool": fn.__name__, "expected_revision": expected_revision, "anchor": kw.pop("anchor", None) if anchor else None, "dry_run": bool(dry_run),
                    "request_id": request_id, "args": hashlib.sha1(args.encode()).hexdigest()[:16]}
             tok = sv.CALL.set(ctx)
+            t0, outcome = time.perf_counter(), {"ok": True}
             try:
                 before = sv.load() if dry_run else None
                 result = fn(*a, **kw)
+                if isinstance(result, dict):
+                    outcome.update({k: result[k] for k in ("op_id", "op_ids", "revision") if k in result})
                 return sv.dry_run_report(before, ctx, result) if dry_run else result
             except sv.Replayed as rp:
+                outcome["replayed"] = True
                 return rp.result
             except ValueError as e:
-                raise errors.as_edit_error(e) from None
+                err = errors.as_edit_error(e)
+                outcome = {"ok": False, "code": err.code}
+                raise err from None
             finally:
                 sv.CALL.reset(tok)
+                log.event(tool=fn.__name__, ms=round((time.perf_counter() - t0) * 1000, 1), dry_run=bool(dry_run), request_id=request_id, expected_revision=expected_revision, **outcome)
         wrapper.__signature__ = sig.replace(parameters=list(sig.parameters.values()) + extra)
         doc = (fn.__doc__ or "") + "\n    Also takes expected_revision, dry_run, request_id" + (", anchor" if anchor else "") + " (see the server instructions)."
         wrapper.__doc__ = doc

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mltedit"
+version = "0.5.0"
+description = "A non-linear video editor (MLT + FFmpeg) driven by an LLM through an MCP stdio server."
+requires-python = ">=3.12"
+dependencies = ["mcp>=1.2,<2", "pillow>=10", "cairosvg>=2.7"]
+
+[project.optional-dependencies]
+dev = ["hypothesis>=6.100", "playwright>=1.40"]
+
+[project.scripts]
+mltedit-server = "mltedit.server:main"
+
+[tool.setuptools.packages.find]
+include = ["mltedit*"]
+
+[tool.setuptools.package-data]
+mltedit = ["packs/themes/*/theme.json", "packs/themes/*/fonts/*", "viewer/page.html"]

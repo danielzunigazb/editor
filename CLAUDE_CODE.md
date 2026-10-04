@@ -64,3 +64,10 @@ Las respuestas de edición son compactas (sin el listado de `ops`, solo `op_coun
 - Plantillas nuevas: copia una carpeta de `mltedit/packs/themes/` en una carpeta de `MLT_PACKS_DIRS` y edita su `theme.json`. Transiciones, formas, presets, layouts de tarjeta y demás: un `.py` en una carpeta de `MLT_PLUGIN_DIRS`. Quitar una pieza = borrar su archivo. `list_styles` muestra lo disponible y, si algún pack o plugin falló, `problems`.
 - Las herramientas del repo (`tools/curate_assets.py`, `make_demos.py`, `player_demo.py`, `make_licenses.py`) leen sus datos de `data/*.json` y aceptan argumentos (`--help`). El POC original está en `legacy/`.
 
+## Edición confiable (ids, revisiones, anclaje, previews)
+- Cada edición y cada clip tienen un id estable (`op_id`, `id` en `entries`): úsalos en vez de posiciones (`update_op`, `remove_op(op_id=…)`, `cut_clip(clip_id=…)`). `query` y `describe_project` los muestran sin volcar todo el timeline.
+- Todas las respuestas traen `revision`. Las herramientas de edición aceptan `expected_revision` (`REVISION_CONFLICT` si el proyecto cambió), `dry_run=true` (devuelve un diff, no escribe) y `request_id` (un reintento no duplica). Los errores son `CODIGO: mensaje` + una línea JSON.
+- Los overlays y el audio nuevos se anclan al clip que está en pantalla y lo siguen si se corta, recorta (`trim_clip`), mueve (`move_clip`) o quita algo antes; `anchor="timeline"` los deja fijos. `remove_op` de un clip con dependientes pide `cascade=true` o `reanchor="timeline"`. `undo`/`redo` cubren todo.
+- Previews: las fuentes grandes obtienen un proxy en segundo plano (`MLT_PROXY=0` lo desactiva, `MLT_PROXY_HEIGHT`, `wait_for_proxies`); `get_still`/`get_contact_sheet` salen de caché si nada cambió. `open_viewer` devuelve la URL de un reproductor local que sigue la edición (`MLT_VIEWER_*`).
+- `export` y `render_preview` devuelven `qa` (cortes duros inesperados, destellos) y aceptan `background=true` con `job_status`/`cancel_job`. `MLT_LOG=off` silencia los logs JSON de stderr. `./ci.sh` corre toda la batería.
+
