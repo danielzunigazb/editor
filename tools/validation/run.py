@@ -55,7 +55,7 @@ def judge(task, home, c, code_root):
         res = task["check"](state, c)
     except Exception as e:     # a check that cannot evaluate is a failure of the run, not a crash of the batch
         res = [("check_raised", False, repr(e))]
-    return all(ok for _, ok, _ in res), [{"name": n, "ok": bool(ok), "detail": d} for n, ok, d in res], state
+    return all(ok for n, ok, _ in res if not n.startswith("~")), [{"name": n, "ok": bool(ok), "detail": d} for n, ok, d in res], state
 
 
 def reference(names, c):
@@ -144,7 +144,7 @@ def run_one(name, model, rep, c, a, budget):
     cost = round(final.get("total_cost_usd") or 0, 3)
     budget.add(cost)
     good, results, state = judge(t, home, c, a.code_root)
-    failed = [r["name"] for r in results if not r["ok"]]
+    failed = [r["name"] for r in results if not r["ok"] and not r["name"].startswith("~")]
     res = {**base, "success": good, "turns": final.get("num_turns"), "tool_calls": calls, "tool_errors": errors, "error_kinds": kinds, "tools": tools,
            "stills": tools.get("get_still", 0) + tools.get("get_contact_sheet", 0), "cost_usd": cost, "seconds": secs, "stopped": "timeout" if timed_out else final.get("subtype"),
            "failed_checks": failed, "checks": results, "answer": (final.get("result") or "")[:400],

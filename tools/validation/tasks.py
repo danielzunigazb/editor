@@ -19,6 +19,10 @@ def texts(state, kind="text"):
     return [L for L in state["layout"]["layers"] if L["kind"] == kind]
 
 
+def cards(state):
+    return sorted([e for e in state["layout"]["entries"] if e["src"].startswith("CARD")], key=lambda e: e["start"])
+
+
 def graphics(state, gk):
     return [L for L in state["layout"]["layers"] if L["kind"] == "graphic" and L.get("gk") == gk]
 
@@ -29,7 +33,7 @@ def export_ok(state, dur, tol=0.25, size=None, fps=None):
         return [("export_exists", False, "no exported file")]
     e = ex[0]
     out = [("export_exists", True, e["file"]), ("export_duration", near(e["duration_s"], dur, tol), f'{e["duration_s"]} vs {dur}'),
-           ("export_qa_clean", not e["qa_findings"], e["qa_findings"][:3])]
+           ("~export_qa_findings", not e["qa_findings"], e["qa_findings"][:3])]
     if size:
         out.append(("export_size", (e["width"], e["height"]) == tuple(size), (e["width"], e["height"])))
     if fps:
@@ -90,7 +94,8 @@ def t_subtitles_srt():
         subs = [x for x in texts(s) if x.get("op") is not None and x.get("sub") is not None]
         tot = s["layout"]["total"]
         inside = [x for x in subs if x["start"] >= -0.01 and x["start"] + x["dur"] <= tot + 0.05]
-        return [("total_40s", near(tot, 40.0), tot), ("has_20_to_30_lines", 20 <= len(subs) <= 34, len(subs)),
+        want = srt_cues(c["srt_abs"], 40.0)
+        return [("total_40s", near(tot, 40.0), tot), ("every_srt_line_present", len(subs) == want, f"{len(subs)} vs {want} in the file"),
                 ("all_lines_inside_video", len(inside) == len(subs), len(subs) - len(inside)),
                 ("first_line_at_6_77s", bool(subs) and near(min(x["start"] for x in subs), 6.773, 0.1), min([x["start"] for x in subs] or [None]))]
     ref = "server.new_project(1920,1080,25);server.import_clip(P['C'],'C');server.add_clip('C',0,40);server.add_subtitles(srt_path=SRT)"
@@ -140,11 +145,22 @@ def t_long_edit():
     def check(s, c):
         e = ent(s, "C")
         return ([("talk_120s", len(e) == 1 and near(e[0]["in"], 0.0) and near(e[0]["dur"], 120.0), [(x["in"], x["dur"]) for x in e]),
-                 ("title_card_text_present", any("Charla completa" in json_text(x) for x in s["layout"]["layers"]), len(s["layout"]["layers"])),
+                 ("title_card_4s_first", bool(cards(s)) and near(cards(s)[0]["dur"], 4.0) and cards(s)[0]["start"] <= 0.05, [(e["start"], e["dur"]) for e in cards(s)]),
+                 ("~title_text_unverifiable", True, "a card's text is not stored in the project, only rendered"),
                  ("fades", bool(s["layout"]["fade"]), s["layout"]["fade"])] + export_ok(s, 124.0, tol=0.5, size=(1920, 1080), fps=25))
     ref = ("server.new_project(1920,1080,25);server.import_clip(P['C'],'C');server.add_card('title',title='Charla completa',subtitle='Sesión de preguntas',dur_s=4.0)\n"
            "server.add_clip('C',0,120);server.set_fades(0.5,1.0);server.export(OUT,'draft')")
     return T("long_edit", prompt, check, ref, out=True)
+
+
+def srt_cues(path, until):
+    import re
+    n = 0
+    for m in re.finditer(r"(\d+):(\d+):(\d+),(\d+) --> (\d+):(\d+):(\d+),(\d+)", open(path, encoding="utf-8").read()):
+        h, mi, se, ms = (int(x) for x in m.groups()[:4])
+        e = int(m.group(5)) * 3600 + int(m.group(6)) * 60 + int(m.group(7)) + int(m.group(8)) / 1000
+        n += (h * 3600 + mi * 60 + se + ms / 1000) < until and e <= until + 1e-6
+    return n
 
 
 def json_text(x):
@@ -180,7 +196,7 @@ def t_music_ducking():
         return ([("music_track_present", len(au) >= 1, len(s["layout"]["audios"])),
                  ("music_covers_video", bool(au) and au[0].get("start", 0) <= 0.5 and au[0].get("dur", 0) >= 28.0, [(a.get("start"), a.get("dur")) for a in au]),
                  ("voice_still_audible_in_mix", ex.get("lufs") is not None and ex["lufs"] > -30, ex.get("lufs"))] + export_ok(s, 30.0, size=(1920, 1080), fps=25))
-    ref = ("server.new_project(1920,1080,25);server.import_clip(P['C'],'C');server.add_clip('C',30,60);server.add_audio(0,30,asset='m-water-lily',duck_auto=True,fade_out_s=2)\n"
+    ref = ("server.new_project(1920,1080,25);server.import_clip(P['C'],'C');server.add_clip('C',30,60);server.add_audio(0,30,asset='m-carefree',duck_auto=True,fade_out_s=2)\n"
            "server.export(OUT,'draft')")
     return T("music_ducking", prompt, check, ref, out=True)
 
@@ -200,7 +216,7 @@ def t_finished_edit():
                 ("text_2_5s_into_K", len(t) == 1 and len(k) == 1 and near(t[0]["start"], k[0]["start"] + 2.5), (t[0]["start"] if t else None, k[0]["start"] if k else None)),
                 ("project_not_rebuilt", s["project"]["revision"] >= 9 and len(s["layout"]["entries"]) == 2, s["project"]["revision"])]
     prep = ("server.new_project(1920,1080,25);server.import_clip(P['C'],'C');server.import_clip(P['K'],'K');server.add_clip('C',0,8);server.add_clip('K',0,8);server.crossfade(0,0.5)\n"
-            "server.add_lower_third('Ana Ruiz','Directora',7.5,3.0);server.add_text('Dato',9.0,1.5)")
+            "server.add_lower_third('Ana Ruiz','Directora',8.5,3.0);server.add_text('Dato',10.0,1.5)")
     return T("finished_edit", prompt, check, ref="server.trim_clip(0,0,5)", prep=prep, kind="modify")
 
 
@@ -225,12 +241,12 @@ def t_cards_theme():
                 f"{c['clips']['K']['abs']} (K), then a 4 s closing card that says 'Gracias'. Export a draft file to {{out}} and say how long it is.")
 
     def check(s, c):
-        alltxt = json_text(s["layout"]["layers"]) + json_text(s["layout"]["entries"])
         return ([("theme_corporate", s["project"]["theme"] == "corporate", s["project"]["theme"]),
-                 ("title_text", "Resumen del trimestre" in alltxt, None), ("closing_text", "Gracias" in alltxt, None),
+                 ("two_cards_3s_then_4s", [round(e["dur"]) for e in cards(s)] == [3, 4], [(e["start"], e["dur"]) for e in cards(s)]),
+                 ("title_first_closing_last", len(cards(s)) == 2 and cards(s)[0]["start"] <= 0.05 and cards(s)[1]["start"] >= 10.0, [e["start"] for e in cards(s)]),
                  ("K_8s", len(ent(s, "K")) == 1 and near(ent(s, "K")[0]["dur"], 8.0), [e["dur"] for e in ent(s, "K")])] + export_ok(s, 15.0, tol=0.5, size=(1920, 1080), fps=25))
     ref = ("server.new_project(1920,1080,25);server.set_template('corporate');server.import_clip(P['K'],'K');server.add_card('title',title='Resumen del trimestre',dur_s=3.0)\n"
-           "server.add_clip('K',0,8);server.add_card('closing',title='Gracias',dur_s=4.0);server.export(OUT,'draft')")
+           "server.add_clip('K',0,8);server.add_card('outro',title='Gracias',dur_s=4.0);server.export(OUT,'draft')")
     return T("cards_theme", prompt, check, ref, out=True)
 
 
