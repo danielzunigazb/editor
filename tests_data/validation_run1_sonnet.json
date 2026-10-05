@@ -29,7 +29,7 @@
   "keep": false,
   "out": "tests_data/validation_run1_sonnet.json"
  },
- "spent_usd": 0.406,
+ "spent_usd": 0.464,
  "runs": [
   {
    "task": "montage3",
@@ -355,6 +355,62 @@
     }
    ],
    "answer": "The video has **11 subtitle lines**. I didn't export it.\n\nThe project is 1920x1080 at 25 fps. It holds the first 40 seconds of `C` (`charla.mp4`) with the subtitles from `charla.srt`. The file has 48 cues, but only 11 fall inside the first 40 seconds. They run from 6.8 s to 38.3 s. The other 37 start after 40 s, so they are dropped.\n\n**Subtitle placement:** My first pass put the subtitles at the b",
+   "export": null
+  },
+  {
+   "task": "cut_under_overlays",
+   "model": "claude-sonnet-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 7,
+   "tool_calls": 6,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 2,
+    "apply_ops": 1,
+    "update_op": 1,
+    "trim_clip": 1
+   },
+   "stills": 0,
+   "cost_usd": 0.058,
+   "seconds": 18.0,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "C_is_6s",
+     "ok": true,
+     "detail": [
+      6.0
+     ]
+    },
+    {
+     "name": "K_kept_10s",
+     "ok": true,
+     "detail": [
+      10.0
+     ]
+    },
+    {
+     "name": "text_2s_into_K",
+     "ok": true,
+     "detail": [
+      7.52,
+      5.52
+     ]
+    },
+    {
+     "name": "text_lasts_2s",
+     "ok": true,
+     "detail": [
+      2.0
+     ]
+    }
+   ],
+   "answer": "\"Dato clave\" now appears at **7.52 s** on the timeline and runs until 9.52 s. I didn't export.\n\n- **Setup:** The project is 1920x1080 at 25 fps. C (0–10 s) is followed by K (5–15 s) with a crossfade.\n- **Crossfade length:** The editor rounded the 0.5 s crossfade to 0.48 s (12 frames at 25 fps). K therefore started at 9.52 s, not 9.5 s.\n- **Text timing:** Because of that, I set the text to start at",
    "export": null
   }
  ]
