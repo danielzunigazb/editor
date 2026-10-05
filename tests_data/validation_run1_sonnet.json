@@ -29,7 +29,7 @@
   "keep": false,
   "out": "tests_data/validation_run1_sonnet.json"
  },
- "spent_usd": 0.516,
+ "spent_usd": 0.578,
  "runs": [
   {
    "task": "montage3",
@@ -465,6 +465,126 @@
    ],
    "answer": "The highlights video is built on the timeline, and its total length is **96 seconds** (1 minute 36 seconds). I haven't exported it.\n\n- **Format:** 1920x1080 at 25 fps.\n- **Clips:** 24 clips of exactly 4 s each. Clip k starts at second 6k of the talk, so the first starts at 0 s and the last at 138 s and ends at 142 s. The talk is about 159 s long.\n- **Joins:** plain cuts only. There are no transiti",
    "export": null
+  },
+  {
+   "task": "music_ducking",
+   "model": "claude-sonnet-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 7,
+   "tool_calls": 6,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 1,
+    "list_assets": 1,
+    "add_clip": 1,
+    "add_audio": 1,
+    "export": 1
+   },
+   "stills": 0,
+   "cost_usd": 0.062,
+   "seconds": 58.7,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "music_track_present",
+     "ok": true,
+     "detail": 1
+    },
+    {
+     "name": "music_ducks_under_voice",
+     "ok": true,
+     "detail": [
+      [
+       [
+        0.0,
+        30.0
+       ]
+      ]
+     ]
+    },
+    {
+     "name": "music_fades_out",
+     "ok": true,
+     "detail": [
+      3.0
+     ]
+    },
+    {
+     "name": "music_covers_video",
+     "ok": true,
+     "detail": [
+      [
+       0.0,
+       30.0
+      ]
+     ]
+    },
+    {
+     "name": "voice_still_audible_in_mix",
+     "ok": true,
+     "detail": -18.0
+    },
+    {
+     "name": "export_exists",
+     "ok": true,
+     "detail": "eval_out.mp4"
+    },
+    {
+     "name": "export_duration",
+     "ok": true,
+     "detail": "30.0 vs 30.0"
+    },
+    {
+     "name": "~export_qa_findings",
+     "ok": false,
+     "detail": [
+      "unexpected hard cut at 1.76s",
+      "unexpected hard cut at 4.2s",
+      "unexpected hard cut at 5.72s"
+     ]
+    },
+    {
+     "name": "export_size",
+     "ok": true,
+     "detail": [
+      1920,
+      1080
+     ]
+    },
+    {
+     "name": "export_fps",
+     "ok": true,
+     "detail": 25.0
+    }
+   ],
+   "answer": "I exported the draft to `/tmp/val_music_ducking_muppw100/eval_out.mp4`. It is 1920x1080 at 25 fps and 30 s long (seconds 30–60 of the talk). I haven't watched or listened to it.\n\n**Track used:** \"Reminiscing\" by Kevin MacLeod (library id `m-reminiscing`). It's tagged calming and relaxed, and it fits the project's luxury template.\n\n**Music settings:**\n- It plays under the whole 30 s at -18 dB.\n- It",
+   "export": {
+    "file": "eval_out.mp4",
+    "duration_s": 30.0,
+    "width": 1920,
+    "height": 1080,
+    "fps": 25.0,
+    "qa_findings": [
+     "unexpected hard cut at 1.76s",
+     "unexpected hard cut at 4.2s",
+     "unexpected hard cut at 5.72s",
+     "unexpected hard cut at 8.44s",
+     "unexpected hard cut at 10s",
+     "unexpected hard cut at 12.36s",
+     "unexpected hard cut at 14.48s",
+     "unexpected hard cut at 17.28s",
+     "unexpected hard cut at 21.64s",
+     "unexpected hard cut at 26.04s",
+     "unexpected hard cut at 28.48s"
+    ],
+    "qa_notes": [],
+    "lufs": -18.0
+   }
   }
  ]
 }
