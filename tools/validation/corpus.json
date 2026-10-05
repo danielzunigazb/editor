@@ -1,0 +1,60 @@
+{
+ "clips": {
+  "R1": {
+   "path": "media_real/real1.mp4",
+   "what": "phone, vertical, h264",
+   "duration_s": 6.82,
+   "width": 1088,
+   "height": 1936,
+   "fps": 23.67,
+   "codec": "h264",
+   "audio": "aac",
+   "size_mb": 5.5
+  },
+  "R2": {
+   "path": "media_real/real2.mp4",
+   "what": "phone, vertical, low resolution, variable frame rate",
+   "duration_s": 9.08,
+   "width": 474,
+   "height": 850,
+   "fps": 18.84,
+   "codec": "h264",
+   "audio": "aac",
+   "size_mb": 1.1
+  },
+  "R3": {
+   "path": "media_real/real3.mp4",
+   "what": "phone, vertical, HEVC, stereo",
+   "duration_s": 5.37,
+   "width": 1080,
+   "height": 1920,
+   "fps": 24.02,
+   "codec": "hevc",
+   "audio": "aac",
+   "size_mb": 5.4
+  },
+  "C": {
+   "path": "media_user/charla.mp4",
+   "what": "talk, 1080p30, two voices",
+   "duration_s": 159.06,
+   "width": 1920,
+   "height": 1080,
+   "fps": 29.97,
+   "codec": "h264",
+   "audio": "aac",
+   "size_mb": 21.3
+  },
+  "K": {
+   "path": "media_user/clip.mp4",
+   "what": "1080p50, no audio",
+   "duration_s": 66.64,
+   "width": 1920,
+   "height": 1080,
+   "fps": 50.0,
+   "codec": "h264",
+   "audio": null,
+   "size_mb": 227.7
+  }
+ },
+ "srt": "media_user/charla.srt"
+}
