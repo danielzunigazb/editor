@@ -1,5 +1,5 @@
-media/
-out/
+/media/
+/out/
 __pycache__/
 media_real/
 .venv/
@@ -10,3 +10,6 @@ media_user/
 .venv_stt/
 assets_cache/
 assets_stage/
+.hypothesis/
+build/
+*.egg-info/
