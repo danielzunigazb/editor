@@ -1,0 +1,1028 @@
+{
+ "args": {
+  "reference": false,
+  "summary": null,
+  "task": [
+   "montage3",
+   "interview_lt",
+   "subtitles_srt",
+   "vertical_reel",
+   "cut_under_overlays",
+   "long_edit",
+   "split_many",
+   "music_ducking",
+   "finished_edit",
+   "mixed_formats",
+   "cards_theme",
+   "pip"
+  ],
+  "models": [
+   "claude-sonnet-5-5",
+   "claude-opus-5-5",
+   "claude-haiku-4-5-20251001"
+  ],
+  "reps": 2,
+  "jobs": 3,
+  "max_usd": 1.5,
+  "budget_usd": 15.0,
+  "timeout": 1200,
+  "code_root": "/tmp/w0code",
+  "toolset": "",
+  "keep": false,
+  "out": "tests_data/validation_baseline_runs.json"
+ },
+ "spent_usd": 1.076,
+ "runs": [
+  {
+   "task": "montage3",
+   "model": "claude-sonnet-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 6,
+   "tool_calls": 5,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 3,
+    "apply_ops": 1
+   },
+   "stills": 0,
+   "cost_usd": 0.04,
+   "seconds": 13.6,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "size_1080x1920",
+     "ok": true,
+     "detail": [
+      1080,
+      1920
+     ]
+    },
+    {
+     "name": "order_R1_R3_R2",
+     "ok": true,
+     "detail": [
+      "R1",
+      "R3",
+      "R2"
+     ]
+    },
+    {
+     "name": "each_3s",
+     "ok": true,
+     "detail": [
+      3.0,
+      3.0,
+      3.0
+     ]
+    },
+    {
+     "name": "total_8s",
+     "ok": true,
+     "detail": 8.04
+    },
+    {
+     "name": "two_crossfades",
+     "ok": true,
+     "detail": {
+      "0": 0.48,
+      "1": 0.48
+     }
+    },
+    {
+     "name": "title_in_first_2s",
+     "ok": true,
+     "detail": [
+      [
+       0.0,
+       2.0
+      ]
+     ]
+    }
+   ],
+   "answer": "The project is built and not exported. The whole video is **8.04 s** long.\n\n- **Format:** 1080x1920 at 25 fps.\n- **Clips:** the first 3 s of R1, then 3 s of R3, then 3 s of R2.\n- **Crossfades:** one between each pair. The tool rounded each to 0.48 s, which is 12 frames at 25 fps, rather than a full 0.5 s. Two 0.48 s overlaps take the 9 s of footage down to 8.04 s.\n- **Title:** \"Mi fin de semana\" i",
+   "export": null
+  },
+  {
+   "task": "montage3",
+   "model": "claude-opus-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 7,
+   "tool_calls": 6,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 3,
+    "apply_ops": 1,
+    "get_still": 1
+   },
+   "stills": 1,
+   "cost_usd": 0.25,
+   "seconds": 15.9,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "size_1080x1920",
+     "ok": true,
+     "detail": [
+      1080,
+      1920
+     ]
+    },
+    {
+     "name": "order_R1_R3_R2",
+     "ok": true,
+     "detail": [
+      "R1",
+      "R3",
+      "R2"
+     ]
+    },
+    {
+     "name": "each_3s",
+     "ok": true,
+     "detail": [
+      3.0,
+      3.0,
+      3.0
+     ]
+    },
+    {
+     "name": "total_8s",
+     "ok": true,
+     "detail": 8.04
+    },
+    {
+     "name": "two_crossfades",
+     "ok": true,
+     "detail": {
+      "0": 0.48,
+      "1": 0.48
+     }
+    },
+    {
+     "name": "title_in_first_2s",
+     "ok": true,
+     "detail": [
+      [
+       0.0,
+       2.0
+      ]
+     ]
+    }
+   ],
+   "answer": "**The whole video is 8.04 seconds long.** It isn't exactly 8.0 s because the editor shortened each crossfade to 0.48 s. At 25 fps, 0.5 s is 12.5 frames, so it rounded down to 12 frames. Each crossfade overlaps two clips, so the total is 3 × 3 s − 2 × 0.48 s = 8.04 s.\n\nThe project is 1080×1920 at 25 fps, with the clips imported as R1, R3 and R2. The timeline is:\n\n| # | Clip | Part of the clip used ",
+   "export": null
+  },
+  {
+   "task": "montage3",
+   "model": "claude-haiku-4-5-20251001",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 11,
+   "tool_calls": 10,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 3,
+    "add_clip": 3,
+    "crossfade": 2,
+    "add_text": 1
+   },
+   "stills": 0,
+   "cost_usd": 0.077,
+   "seconds": 27.9,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "size_1080x1920",
+     "ok": true,
+     "detail": [
+      1080,
+      1920
+     ]
+    },
+    {
+     "name": "order_R1_R3_R2",
+     "ok": true,
+     "detail": [
+      "R1",
+      "R3",
+      "R2"
+     ]
+    },
+    {
+     "name": "each_3s",
+     "ok": true,
+     "detail": [
+      3.0,
+      3.0,
+      3.0
+     ]
+    },
+    {
+     "name": "total_8s",
+     "ok": true,
+     "detail": 8.04
+    },
+    {
+     "name": "two_crossfades",
+     "ok": true,
+     "detail": {
+      "0": 0.48,
+      "1": 0.48
+     }
+    },
+    {
+     "name": "title_in_first_2s",
+     "ok": true,
+     "detail": [
+      [
+       0.0,
+       2.0
+      ]
+     ]
+    }
+   ],
+   "answer": "Done! The project is set up with:\n- **Format:** 1080×1920 @ 25 fps (vertical)\n- **Timeline:** First 3s of R1 → 3s of R3 → 3s of R2, with crossfades between each pair\n- **Title:** \"Mi fin de semana\" overlaid during the first 2 seconds\n- **Total duration:** **8.04 seconds**",
+   "export": null
+  },
+  {
+   "task": "interview_lt",
+   "model": "claude-sonnet-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 6,
+   "tool_calls": 5,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 1,
+    "add_clip": 1,
+    "add_lower_third": 1,
+    "export": 1
+   },
+   "stills": 0,
+   "cost_usd": 0.043,
+   "seconds": 45.2,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "one_clip_20_to_50",
+     "ok": true,
+     "detail": [
+      [
+       20.0,
+       30.0
+      ]
+     ]
+    },
+    {
+     "name": "lower_third_at_2s_for_4s",
+     "ok": true,
+     "detail": [
+      [
+       2.0,
+       4.0
+      ]
+     ]
+    },
+    {
+     "name": "export_exists",
+     "ok": true,
+     "detail": "eval_out.mp4"
+    },
+    {
+     "name": "export_duration",
+     "ok": true,
+     "detail": "30.0 vs 30.0"
+    },
+    {
+     "name": "~export_qa_findings",
+     "ok": false,
+     "detail": [
+      "unexpected hard cut at 0.48s",
+      "unexpected hard cut at 3.2s",
+      "unexpected hard cut at 5s"
+     ]
+    },
+    {
+     "name": "export_size",
+     "ok": true,
+     "detail": [
+      1920,
+      1080
+     ]
+    },
+    {
+     "name": "export_fps",
+     "ok": true,
+     "detail": 25.0
+    }
+   ],
+   "answer": "The exported video is **30.0 seconds** long. It's 1920x1080 at 25 fps, draft quality, saved to `/tmp/val_interview_lt_fpapkaeb/eval_out.mp4`.\n\nIt's the 20–50 s segment of `charla.mp4` (imported as C). The lower third \"María Pérez / Directora de producto\" shows from 2 s to 6 s of the segment. I didn't look at a still or the preview, so I haven't checked how the lower third looks.\n\nThe export's auto",
+   "export": {
+    "file": "eval_out.mp4",
+    "duration_s": 30.0,
+    "width": 1920,
+    "height": 1080,
+    "fps": 25.0,
+    "qa_findings": [
+     "unexpected hard cut at 0.48s",
+     "unexpected hard cut at 3.2s",
+     "unexpected hard cut at 5s",
+     "unexpected hard cut at 7.84s",
+     "unexpected hard cut at 11.76s",
+     "unexpected hard cut at 14.2s",
+     "unexpected hard cut at 15.72s",
+     "unexpected hard cut at 18.44s",
+     "unexpected hard cut at 20s",
+     "unexpected hard cut at 22.36s",
+     "unexpected hard cut at 24.48s",
+     "unexpected hard cut at 27.28s"
+    ],
+    "qa_notes": [],
+    "lufs": -17.8
+   }
+  },
+  {
+   "task": "interview_lt",
+   "model": "claude-haiku-4-5-20251001",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 6,
+   "tool_calls": 5,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 1,
+    "add_clip": 1,
+    "add_lower_third": 1,
+    "export": 1
+   },
+   "stills": 0,
+   "cost_usd": 0.026,
+   "seconds": 74.2,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "one_clip_20_to_50",
+     "ok": true,
+     "detail": [
+      [
+       20.0,
+       30.0
+      ]
+     ]
+    },
+    {
+     "name": "lower_third_at_2s_for_4s",
+     "ok": true,
+     "detail": [
+      [
+       2.0,
+       4.0
+      ]
+     ]
+    },
+    {
+     "name": "export_exists",
+     "ok": true,
+     "detail": "eval_out.mp4"
+    },
+    {
+     "name": "export_duration",
+     "ok": true,
+     "detail": "30.0 vs 30.0"
+    },
+    {
+     "name": "~export_qa_findings",
+     "ok": false,
+     "detail": [
+      "unexpected hard cut at 0.48s",
+      "unexpected hard cut at 3.2s",
+      "unexpected hard cut at 5s"
+     ]
+    },
+    {
+     "name": "export_size",
+     "ok": true,
+     "detail": [
+      1920,
+      1080
+     ]
+    },
+    {
+     "name": "export_fps",
+     "ok": true,
+     "detail": 25.0
+    }
+   ],
+   "answer": "Done! I've created and exported the video. The **exported video is 30.0 seconds long** (the segment from 20s to 50s of the original talk). \n\nThe lower third with \"María Pérez\" and \"Directora de producto\" appears at the 2-second mark and displays for 4 seconds as requested. The draft quality file has been saved to `/tmp/val_interview_lt_pg_fd7yl/eval_out.mp4` (about 6.8 MB).",
+   "export": {
+    "file": "eval_out.mp4",
+    "duration_s": 30.0,
+    "width": 1920,
+    "height": 1080,
+    "fps": 25.0,
+    "qa_findings": [
+     "unexpected hard cut at 0.48s",
+     "unexpected hard cut at 3.2s",
+     "unexpected hard cut at 5s",
+     "unexpected hard cut at 7.84s",
+     "unexpected hard cut at 11.76s",
+     "unexpected hard cut at 14.2s",
+     "unexpected hard cut at 15.72s",
+     "unexpected hard cut at 18.44s",
+     "unexpected hard cut at 20s",
+     "unexpected hard cut at 22.36s",
+     "unexpected hard cut at 24.48s",
+     "unexpected hard cut at 27.28s"
+    ],
+    "qa_notes": [],
+    "lufs": -17.8
+   }
+  },
+  {
+   "task": "interview_lt",
+   "model": "claude-opus-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 6,
+   "tool_calls": 5,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 1,
+    "apply_ops": 1,
+    "get_still": 1,
+    "export": 1
+   },
+   "stills": 1,
+   "cost_usd": 0.08,
+   "seconds": 88.0,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "one_clip_20_to_50",
+     "ok": true,
+     "detail": [
+      [
+       20.0,
+       30.0
+      ]
+     ]
+    },
+    {
+     "name": "lower_third_at_2s_for_4s",
+     "ok": true,
+     "detail": [
+      [
+       2.0,
+       4.0
+      ]
+     ]
+    },
+    {
+     "name": "export_exists",
+     "ok": true,
+     "detail": "eval_out.mp4"
+    },
+    {
+     "name": "export_duration",
+     "ok": true,
+     "detail": "30.0 vs 30.0"
+    },
+    {
+     "name": "~export_qa_findings",
+     "ok": false,
+     "detail": [
+      "unexpected hard cut at 0.48s",
+      "unexpected hard cut at 3.2s",
+      "unexpected hard cut at 5s"
+     ]
+    },
+    {
+     "name": "export_size",
+     "ok": true,
+     "detail": [
+      1920,
+      1080
+     ]
+    },
+    {
+     "name": "export_fps",
+     "ok": true,
+     "detail": 25.0
+    }
+   ],
+   "answer": "The exported video is **30.0 seconds** long. It's saved at `/tmp/val_interview_lt_dc53b9gz/eval_out.mp4` as a draft-quality 1920x1080, 25 fps file.\n\n- **Segment:** it's seconds 20–50 of `charla.mp4`, which I imported as `C`.\n- **Lower third:** \"María Pérez\" with the subtitle \"Directora de producto\" shows from 0:02 to 0:06 of the new video. I looked at a frame at 0:04 and it appears correctly in th",
+   "export": {
+    "file": "eval_out.mp4",
+    "duration_s": 30.0,
+    "width": 1920,
+    "height": 1080,
+    "fps": 25.0,
+    "qa_findings": [
+     "unexpected hard cut at 0.48s",
+     "unexpected hard cut at 3.2s",
+     "unexpected hard cut at 5s",
+     "unexpected hard cut at 7.84s",
+     "unexpected hard cut at 11.76s",
+     "unexpected hard cut at 14.2s",
+     "unexpected hard cut at 15.72s",
+     "unexpected hard cut at 18.44s",
+     "unexpected hard cut at 20s",
+     "unexpected hard cut at 22.36s",
+     "unexpected hard cut at 24.48s",
+     "unexpected hard cut at 27.28s"
+    ],
+    "qa_notes": [],
+    "lufs": -17.8
+   }
+  },
+  {
+   "task": "subtitles_srt",
+   "model": "claude-sonnet-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 7,
+   "tool_calls": 6,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 1,
+    "add_clip": 1,
+    "add_subtitles": 1,
+    "get_still": 1,
+    "get_contact_sheet": 1
+   },
+   "stills": 2,
+   "cost_usd": 0.065,
+   "seconds": 58.3,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "total_40s",
+     "ok": true,
+     "detail": 40.0
+    },
+    {
+     "name": "every_srt_line_present",
+     "ok": true,
+     "detail": "11 vs 11 in the file"
+    },
+    {
+     "name": "all_lines_inside_video",
+     "ok": true,
+     "detail": 0
+    },
+    {
+     "name": "first_line_at_6_77s",
+     "ok": true,
+     "detail": 6.773
+    }
+   ],
+   "answer": "I built the 40-second video, and it has **11 subtitle lines**. The subtitles are inside the picture but not cleanly readable, so I haven't called them fully readable.\n\n**What I did:** I imported the talk as `C` and set the project to 1920x1080 at 25 fps. I added the first 40 seconds of the talk and loaded `charla.srt` as the subtitle track. I did not export.\n\n**What the contact sheet shows:**\n- **",
+   "export": null
+  },
+  {
+   "task": "subtitles_srt",
+   "model": "claude-haiku-4-5-20251001",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 6,
+   "tool_calls": 5,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 1,
+    "add_clip": 1,
+    "add_subtitles": 1,
+    "get_contact_sheet": 1
+   },
+   "stills": 1,
+   "cost_usd": 0.027,
+   "seconds": 37.9,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "total_40s",
+     "ok": true,
+     "detail": 40.0
+    },
+    {
+     "name": "every_srt_line_present",
+     "ok": true,
+     "detail": "11 vs 11 in the file"
+    },
+    {
+     "name": "all_lines_inside_video",
+     "ok": true,
+     "detail": 0
+    },
+    {
+     "name": "first_line_at_6_77s",
+     "ok": true,
+     "detail": 6.773
+    }
+   ],
+   "answer": "Perfect! The contact sheet confirms that the subtitles are clearly readable and positioned well inside the picture frame at the bottom with proper margins.\n\n**Summary:**\n- Created a 1920x1080 25fps project\n- Imported the video as source C and added the first 40 seconds to the timeline\n- Added subtitles from the .srt file\n- The video has **11 subtitle lines** that appear within the 40-second durati",
+   "export": null
+  },
+  {
+   "task": "subtitles_srt",
+   "model": "claude-opus-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 9,
+   "tool_calls": 8,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 1,
+    "add_clip": 1,
+    "add_subtitles": 1,
+    "get_contact_sheet": 2,
+    "update_op": 2
+   },
+   "stills": 2,
+   "cost_usd": 0.175,
+   "seconds": 67.8,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "total_40s",
+     "ok": true,
+     "detail": 40.0
+    },
+    {
+     "name": "every_srt_line_present",
+     "ok": true,
+     "detail": "11 vs 11 in the file"
+    },
+    {
+     "name": "all_lines_inside_video",
+     "ok": true,
+     "detail": 0
+    },
+    {
+     "name": "first_line_at_6_77s",
+     "ok": true,
+     "detail": 6.773
+    }
+   ],
+   "answer": "The video is 1920x1080 at 25 fps and covers the first 40 seconds of `charla.mp4` (imported as C). Subtitles from `charla.srt` are added. I did not export it.\n\n**Subtitle lines: 11.** The .srt file has 48 cues in total. The 11 that fall within the first 40 seconds are shown, from 6.8 s to 38.3 s. The other 37 start after 40 s, so they don't appear.\n\n**Contact sheet check (8 frames):**\n- The talk al",
+   "export": null
+  },
+  {
+   "task": "vertical_reel",
+   "model": "claude-sonnet-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 6,
+   "tool_calls": 5,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 2,
+    "apply_ops": 1,
+    "export": 1
+   },
+   "stills": 0,
+   "cost_usd": 0.046,
+   "seconds": 42.8,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "two_clips_in_order",
+     "ok": true,
+     "detail": null
+    },
+    {
+     "name": "title_top_first_1_5s",
+     "ok": true,
+     "detail": [
+      [
+       0.0,
+       1.5,
+       "top"
+      ]
+     ]
+    },
+    {
+     "name": "fade_out_set",
+     "ok": true,
+     "detail": {
+      "in": 0.0,
+      "out": 0.5
+     }
+    },
+    {
+     "name": "export_exists",
+     "ok": true,
+     "detail": "eval_out.mp4"
+    },
+    {
+     "name": "export_duration",
+     "ok": true,
+     "detail": "7.6 vs 7.6"
+    },
+    {
+     "name": "~export_qa_findings",
+     "ok": false,
+     "detail": [
+      "unexpected hard cut at 2.67s",
+      "unexpected hard cut at 3.63s",
+      "unexpected hard cut at 3.97s"
+     ]
+    },
+    {
+     "name": "export_size",
+     "ok": true,
+     "detail": [
+      1080,
+      1920
+     ]
+    },
+    {
+     "name": "export_fps",
+     "ok": true,
+     "detail": 30.0
+    }
+   ],
+   "answer": "I exported the draft to `/tmp/val_vertical_reel_c4bxk5gc/eval_out.mp4`. It is **7.6 seconds** long (4 s + 4 s, minus the 0.4 s crossfade overlap) at 1080x1920, 30 fps.\n\nThe reel has these parts:\n- **Clips:** the first 4 s of R1, then the first 4 s of R3. They are joined by a 0.4 s crossfade starting at 3.6 s.\n- **Text:** \"Día 1\" at the top from 0 to 1.5 s.\n- **Fade:** a 0.5 s fade out at the end.\n",
+   "export": {
+    "file": "eval_out.mp4",
+    "duration_s": 7.6,
+    "width": 1080,
+    "height": 1920,
+    "fps": 30.0,
+    "qa_findings": [
+     "unexpected hard cut at 2.67s",
+     "unexpected hard cut at 3.63s",
+     "unexpected hard cut at 3.97s",
+     "unexpected hard cut at 4s",
+     "unexpected hard cut at 4.07s",
+     "unexpected hard cut at 4.13s",
+     "unexpected hard cut at 4.17s",
+     "unexpected hard cut at 5.57s",
+     "unexpected hard cut at 6s",
+     "unexpected hard cut at 6.07s",
+     "unexpected hard cut at 6.73s"
+    ],
+    "qa_notes": [],
+    "lufs": -9.0
+   }
+  },
+  {
+   "task": "vertical_reel",
+   "model": "claude-opus-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 7,
+   "tool_calls": 6,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 2,
+    "apply_ops": 1,
+    "export": 1,
+    "get_still": 1
+   },
+   "stills": 1,
+   "cost_usd": 0.095,
+   "seconds": 37.7,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "two_clips_in_order",
+     "ok": true,
+     "detail": null
+    },
+    {
+     "name": "title_top_first_1_5s",
+     "ok": true,
+     "detail": [
+      [
+       0.0,
+       1.5,
+       "top"
+      ]
+     ]
+    },
+    {
+     "name": "fade_out_set",
+     "ok": true,
+     "detail": {
+      "in": 0.0,
+      "out": 0.5
+     }
+    },
+    {
+     "name": "export_exists",
+     "ok": true,
+     "detail": "eval_out.mp4"
+    },
+    {
+     "name": "export_duration",
+     "ok": true,
+     "detail": "7.6 vs 7.6"
+    },
+    {
+     "name": "~export_qa_findings",
+     "ok": false,
+     "detail": [
+      "unexpected hard cut at 2.67s",
+      "unexpected hard cut at 3.63s",
+      "unexpected hard cut at 3.97s"
+     ]
+    },
+    {
+     "name": "export_size",
+     "ok": true,
+     "detail": [
+      1080,
+      1920
+     ]
+    },
+    {
+     "name": "export_fps",
+     "ok": true,
+     "detail": 30.0
+    }
+   ],
+   "answer": "The reel is exported to `/tmp/val_vertical_reel_h2jd87sv/eval_out.mp4` and it is **7.6 seconds long**: 4 s of R1 plus 4 s of R3, minus the 0.4 s where they overlap in the crossfade.\n\n- **Format:** 1080x1920 at 30 fps, draft quality, about 4.9 MB.\n- **Timeline:**\n  - R1 from 0 to 4 s.\n  - R3 from 3.6 to 7.6 s.\n  - The crossfade (picture and sound) runs from 3.6 to 4.0 s.\n  - \"Día 1\" sits at the top",
+   "export": {
+    "file": "eval_out.mp4",
+    "duration_s": 7.6,
+    "width": 1080,
+    "height": 1920,
+    "fps": 30.0,
+    "qa_findings": [
+     "unexpected hard cut at 2.67s",
+     "unexpected hard cut at 3.63s",
+     "unexpected hard cut at 3.97s",
+     "unexpected hard cut at 4s",
+     "unexpected hard cut at 4.07s",
+     "unexpected hard cut at 4.13s",
+     "unexpected hard cut at 4.17s",
+     "unexpected hard cut at 5.57s",
+     "unexpected hard cut at 6s",
+     "unexpected hard cut at 6.07s",
+     "unexpected hard cut at 6.73s"
+    ],
+    "qa_notes": [],
+    "lufs": -9.0
+   }
+  },
+  {
+   "task": "cut_under_overlays",
+   "model": "claude-sonnet-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 9,
+   "tool_calls": 8,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 2,
+    "add_clip": 2,
+    "crossfade": 1,
+    "add_text": 1,
+    "trim_clip": 1
+   },
+   "stills": 0,
+   "cost_usd": 0.055,
+   "seconds": 18.1,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "C_is_6s",
+     "ok": true,
+     "detail": [
+      6.0
+     ]
+    },
+    {
+     "name": "K_kept_10s",
+     "ok": true,
+     "detail": [
+      10.0
+     ]
+    },
+    {
+     "name": "text_2s_into_K",
+     "ok": true,
+     "detail": [
+      7.52,
+      5.52
+     ]
+    },
+    {
+     "name": "text_lasts_2s",
+     "ok": true,
+     "detail": [
+      2.0
+     ]
+    }
+   ],
+   "answer": "The project is built but not exported. After shortening C, **\"Dato clave\" appears at 7.52 s on the timeline** and lasts until 9.52 s.\n\n- **Crossfade:** The editor rounded the 0.5 s crossfade to 0.48 s, which is 12 frames at 25 fps. So K starts at 9.52 s rather than 9.5 s, and the text was placed 2 s after that.\n- **Before the trim:** C ran 0–10 s, K started at 9.52 s, and the text appeared at 11.5",
+   "export": null
+  },
+  {
+   "task": "cut_under_overlays",
+   "model": "claude-opus-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 7,
+   "tool_calls": 6,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 2,
+    "apply_ops": 1,
+    "move_op": 1,
+    "trim_clip": 1
+   },
+   "stills": 0,
+   "cost_usd": 0.097,
+   "seconds": 18.0,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "C_is_6s",
+     "ok": true,
+     "detail": [
+      6.0
+     ]
+    },
+    {
+     "name": "K_kept_10s",
+     "ok": true,
+     "detail": [
+      10.0
+     ]
+    },
+    {
+     "name": "text_2s_into_K",
+     "ok": true,
+     "detail": [
+      7.52,
+      5.52
+     ]
+    },
+    {
+     "name": "text_lasts_2s",
+     "ok": true,
+     "detail": [
+      2.0
+     ]
+    }
+   ],
+   "answer": "**\"Dato clave\" now appears at 7.52 s and stays until 9.52 s**, which is still exactly 2 s after clip K starts (5.52 s).\n\n**Final timeline** (1920x1080, 25 fps, 15.52 s long):\n- **C** (`charla.mp4`, seconds 0–6) plays from 0 to 6.00 s.\n- **K** (`clip.mp4`, seconds 5–15) plays from 5.52 to 15.52 s.\n- The crossfade between them is **0.48 s, not 0.5 s**. The editor rounded it to a whole number of fram",
+   "export": null
+  }
+ ]
+}

@@ -57,12 +57,32 @@ def analyse(path, cut=14.0, freeze=2.0):
             "frozen_from_s": [round(i / fps, 2) for i in frozen], "largest_smooth_step": {"mad": round(step[0], 2), "t_s": round(step[1] / fps, 2)}}
 
 
-def check(path, expected_cuts_s=(), cut=14.0, freeze=2.0, tol_s=0.12):
+def source_has_cut(entries, t, cut, half=0.3):
+    """True if the SOURCE footage itself has a hard cut at the moment of the timeline that is at time `t`: a cut the editor did not make and cannot remove (a
+    multi-shot talk, a screen recording). `entries`: [{"path", "in", "start", "dur"}] in seconds. Only a window of ±`half` s of the source is decoded."""
+    e = next((x for x in entries if x["start"] - 1e-6 <= t < x["start"] + x["dur"]), None)
+    if e is None:
+        return False
+    src_t = e["in"] + (t - e["start"])
+    r = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{max(0.0, src_t - half):.3f}", "-i", e["path"], "-t", f"{2 * half:.3f}", "-an",
+                        "-vf", f"scale={GW}:{GH}:flags=area,format=gray", "-f", "rawvideo", "-"], capture_output=True)
+    n = GW * GH
+    fr = [r.stdout[i:i + n] for i in range(0, len(r.stdout) - n + 1, n)]
+    return any(mad(a, b) > cut * 0.6 for a, b in zip(fr, fr[1:]))
+
+
+def check(path, expected_cuts_s=(), cut=14.0, freeze=2.0, tol_s=0.12, entries=None, max_source_checks=80):
     """The QA of a video, judged against what the timeline says should be there: a hard cut where two clips meet with no transition is intended; a
     cut anywhere else, a one-frame flash, or a frozen stretch is a finding. Returns {ok, findings: [...], ...measurements}."""
     r = analyse(path, cut, freeze)
     unexpected = [t for t in r["hard_cuts"] if not any(abs(t - e) <= tol_s for e in expected_cuts_s)]
+    in_source = []
+    if entries and len(unexpected) <= max_source_checks:     # a cut the footage already had is not the editor's doing
+        in_source = [t for t in unexpected if source_has_cut(entries, t, cut)]
+        unexpected = [t for t in unexpected if t not in in_source]
     findings = [f"unexpected hard cut at {t:g}s" for t in unexpected] + [f"one-frame flash/flicker at {t:g}s" for t in r["blips"]]
     notes = [f"picture still from {t:g}s for over {freeze:g}s (fine for a title card or a static shot; a stuck frame otherwise)" for t in r["frozen_from_s"]]
+    if in_source:
+        notes.append(f"{len(in_source)} cut(s) at {', '.join(f'{t:g}' for t in in_source[:6])}{'...' if len(in_source) > 6 else ''} s are already in the source footage (not an editing error)")
     return {"ok": not findings, "findings": findings, **({"notes": notes} if notes else {}), "hard_cuts": r["hard_cuts"], "intended_cuts": [round(e, 2) for e in expected_cuts_s], "fast_motion": r["fast_motion"],
             "largest_smooth_step": r["largest_smooth_step"]}

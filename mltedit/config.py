@@ -42,6 +42,8 @@ SPEC = {
     "log":              (("MLT_LOG",), "json", "str"),                                           # "json" = one JSON line per tool call on stderr; "off" = silent
     "viewer_page":      (("MLT_VIEWER_PAGE",), os.path.join(PKG, "viewer", "page.html"), "path"),           # the live viewer's page
     "vendor_dir":       (("MLT_VENDOR_DIR",), "assets/vendor", "path"),                                    # third-party browser code served locally (hls.js, Apache-2.0)
+    "block_max_s":      (("MLT_BLOCK_MAX_S",), 40.0, "float"),                            # an export/preview of a video longer than this always runs as a job (a blocking call that long outlasts most MCP clients' tool timeout)
+    "job_wait_max_s":   (("MLT_JOB_WAIT_MAX_S",), 45.0, "float"),                       # the longest job_status(wait_s=...) holds the call
     "viewer_segment_s": (("MLT_VIEWER_SEGMENT_S",), 2.0, "float"),                       # length of a live-viewer segment (the unit that is re-rendered when an edit touches it)
     "viewer_height":    (("MLT_VIEWER_HEIGHT",), 540, "int"),                              # picture height of the live viewer (smaller projects play at their own size)
     "viewer_port":      (("MLT_VIEWER_PORT",), 0, "int"),                                  # 0 = any free port on 127.0.0.1

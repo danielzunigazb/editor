@@ -143,25 +143,27 @@ def get_contact_sheet(count: int = 6) -> Image:
     return Image(data=_serve(_cached(st, 0.25, f"sheet|{count}"), make), format="png")
 
 
-def _qa(path, m):
+def _qa(path, m, st=None):
     """Watch the rendered file for what a viewer would notice (unexpected hard cuts, flashes, frozen stretches) and say so: the model only sees stills, so
     the render checks itself. A hard cut where two clips meet WITHOUT a crossfade is what the edit asked for, not a finding."""
     try:
         joined = {i for i in m["xfades"]}
         expected = [e["start"] for i, e in enumerate(m["entries"]) if i > 0 and (i - 1) not in joined]
-        return qa.check(path, expected)
+        srcs = (st or {}).get("sources", {})
+        entries = [{"path": srcs[e["src"]]["path"], "in": e["in"], "start": e["start"], "dur": e["dur"]} for e in m["entries"] if e["src"] in srcs] if st else None
+        return qa.check(path, expected, entries=entries)
     except (SystemExit, OSError, ValueError) as e:
         return {"ok": None, "findings": [f"QA could not read the file: {e}"]}
 
 
-def do_preview(st):
+def do_preview(st, progress=None):
     """Render the whole edit at half size to HOME/preview.mp4 (runs in this process or in a job)."""
     sv.bind(st, 0.5)
     p, tr, m, total = live.build(st["ops"])
     out = os.path.join(sv.HOME, "preview.mp4")
     t0 = time.perf_counter()
-    live.render(p, tr, out)
-    return {"path": out, "duration_s": round(m["total"], 3), "size_kb": os.path.getsize(out) // 1024, "render_s": round(time.perf_counter() - t0, 2), "qa": _qa(out, m)}
+    live.render(p, tr, out, progress=progress)
+    return {"path": out, "duration_s": round(m["total"], 3), "size_kb": os.path.getsize(out) // 1024, "render_s": round(time.perf_counter() - t0, 2), "qa": _qa(out, m, st)}
 
 
 @tool
@@ -173,9 +175,23 @@ def render_preview(background: bool = False) -> dict:
     sv.require_fresh(st)
     if not st["ops"]:
         raise ValueError("the timeline is empty; add_clip first")
-    if background:
-        return jobs.start(sv.HOME, "preview", st, {})
+    total_s = _total_s(st)
+    if background or total_s > S.block_max_s:
+        return _as_job("preview", st, {"total_s": total_s * 1.0}, not background)
     return do_preview(st)
+
+
+def _total_s(st):
+    sv.bind(st, 1.0)
+    return live.layout(st["ops"])["total"]
+
+
+def _as_job(kind, st, args, forced):
+    r = jobs.start(sv.HOME, kind, st, args)
+    if forced:
+        r["note"] = (f"the video is {args['total_s']:.0f} s long (over {S.block_max_s:g} s), so it runs as a job instead of blocking the call: "
+                     f"job_status(job_id, wait_s=30) waits for it and reports percent/eta_s")
+    return r
 
 
 def check_export(output_path, quality, overwrite, master):
@@ -198,16 +214,16 @@ def check_export(output_path, quality, overwrite, master):
     return st, out
 
 
-def do_export(st, out, quality, master):
+def do_export(st, out, quality, master, progress=None):
     """Render the final video (runs in this process or in a job)."""
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     sv.bind(st, 1.0)
     p, tr, m, total = live.build(st["ops"])
     t0 = time.perf_counter()
-    live.render(p, tr, out, *(("medium", 20, "160k") if quality == "high" else ("ultrafast", 28, "96k")), master=master)
+    live.render(p, tr, out, *(("medium", 20, "160k") if quality == "high" else ("ultrafast", 28, "96k")), master=master, progress=progress)
     info = sv._probe(out)
     res = {"path": out, "duration_s": info["duration_s"], "resolution": f"{info['width']}x{info['height']}",
-           "size_kb": os.path.getsize(out) // 1024, "render_s": round(time.perf_counter() - t0, 2), **_loudness(out), "qa": _qa(out, m)}
+           "size_kb": os.path.getsize(out) // 1024, "render_s": round(time.perf_counter() - t0, 2), **_loudness(out), "qa": _qa(out, m, st)}
     credits = assets_lib.credit_lines(O.project_assets(st["ops"]))
     credit_path = os.path.splitext(out)[0] + ".credits.txt"
     if credits:                                              # CC-BY pieces must be credited: write the text next to the video
@@ -227,19 +243,21 @@ def export(output_path: str, quality: str = "high", overwrite: bool = False, mas
     master: '' (default) or 'loudnorm' = normalise the sound to -16 LUFS integrated / -1.5 dB true peak. The result reports the loudness measured on the
     exported file (loudness_lufs, true_peak_db), and `qa`: the exported file watched for unexpected hard cuts and one-frame flashes
     (qa.ok / qa.findings, qa.notes for still stretches; a cut where two clips meet without a crossfade is intended and not reported).
-    Blocking by default (about as long as the video itself at 1080p). background=true: the checks run now, the render runs as a job (of the project as it
-    is at this moment) and the answer is a job_id; poll job_status, stop it with cancel_job - for long exports that would outlast a tool-call timeout."""
+    Blocking for short videos (up to about 40 s; about as long as the video itself at 1080p); longer ones, and background=true, run as a job (of the project
+    as it is at this moment) and the answer is a job_id: job_status(job_id, wait_s=30) waits and shows percent/eta_s, cancel_job stops it."""
     st, out = check_export(output_path, quality, overwrite, master)
-    if background:
-        return jobs.start(sv.HOME, "export", st, {"out": out, "quality": quality, "master": master})
+    total_s = _total_s(st)
+    if background or total_s > S.block_max_s:
+        return _as_job("export", st, {"out": out, "quality": quality, "master": master, "total_s": total_s}, not background)
     return do_export(st, out, quality, master)
 
 
 @tool
-def job_status(job_id: str) -> dict:
-    """State of a background job (export or render_preview with background=true): running | done | failed | cancelled, how long it has run, and the
-    result (the same fields the blocking call returns) when done, or the error when failed."""
-    return jobs.status(sv.HOME, job_id)
+def job_status(job_id: str, wait_s: float = 0.0) -> dict:
+    """State of a background job (export or render_preview with background=true): running | done | failed | cancelled, how long it has run, `percent` and
+    `eta_s` while running, and the result (the same fields the blocking call returns) when done, or the error when failed.
+    wait_s: hold the call up to this many seconds (at most about 45) until the job ends - use it instead of polling in a loop."""
+    return jobs.wait(sv.HOME, job_id, wait_s, S.job_wait_max_s)
 
 
 @tool

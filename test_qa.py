@@ -34,5 +34,17 @@ check("a crossfade replaces the cut: still no findings, and nothing intended is 
 out = os.path.join(tempfile.mkdtemp(), "x.mp4")
 e = server.export(out, quality="draft")
 check("export reports the same check on the exported file", "qa" in e and e["qa"]["ok"], e.get("qa"))
+# a cut that is already in the footage (a multi-shot source) is not the editor's doing: noted, not a finding
+import subprocess
+shots = os.path.join(tempfile.mkdtemp(), "shots.mp4")
+subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", A, "-i", B, "-filter_complex",
+                "[0:v]trim=0:2,setpts=PTS-STARTPTS,scale=640:360,fps=25,format=yuv420p[a];[1:v]trim=0:2,setpts=PTS-STARTPTS,scale=640:360,fps=25,format=yuv420p[b];[a][b]concat=n=2:v=1:a=0[v]",
+                "-map", "[v]", "-c:v", "libx264", shots], check=True)
+server.new_project(640, 360, 25)
+server.import_clip(shots, "S")
+server.add_clip("S", 0, 4)
+r4 = server.render_preview()
+check("a cut that the source footage already has is not reported as a finding", r4["qa"]["ok"] and r4["qa"]["findings"] == [], r4["qa"])
+check("...but it is seen and said, so nobody is told the picture is cut-free", any(abs(t - 2.0) < 0.1 for t in r4["qa"]["hard_cuts"]) and any("already in the source" in n for n in r4["qa"].get("notes", [])), r4["qa"])
 print(f"\n{ok} passed, {bad} failed")
 sys.exit(1 if bad else 0)

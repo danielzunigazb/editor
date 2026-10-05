@@ -1,7 +1,7 @@
 """Background jobs (long exports, preview renders): each runs in its own process, on a snapshot of the project taken when it was started, so an edit made
 meanwhile cannot change it and a tool call is never held up. State lives in HOME/jobs/<id>.json (written by the job when it ends) next to the spec.
 Run by `python -m mltedit.jobs <spec.json>`; started, polled and cancelled through start/status/cancel."""
-import json, os, signal, subprocess, sys, time, uuid
+import json, os, re, signal, subprocess, sys, time, uuid
 
 _PROCS = {}
 
@@ -37,7 +37,7 @@ def start(home, kind, st, args):
                             stdout=subprocess.DEVNULL, stderr=open(os.path.join(_dir(home), jid + ".log"), "w"), env={**os.environ, "MLT_EDITOR_HOME": home})
     _PROCS[jid] = proc
     _write(status, {"id": jid, "kind": kind, "state": "running", "started": time.time(), "pid": proc.pid, "args": args})
-    return {"job_id": jid, "state": "running", "kind": kind, "note": "poll job_status(job_id); cancel_job(job_id) stops it"}
+    return {"job_id": jid, "state": "running", "kind": kind, "note": "job_status(job_id, wait_s=30) waits for it and shows percent/eta_s; cancel_job(job_id) stops it"}
 
 
 def status(home, jid):
@@ -55,7 +55,41 @@ def status(home, jid):
                 s = {**s, "state": "failed", "error": "the job process ended without a result (see the job log)"}
                 _write(path, s)
         s["elapsed_s"] = round(time.time() - s["started"], 1)
-    return {k: v for k, v in s.items() if k != "started"} | ({"elapsed_s": s.get("elapsed_s")} if "elapsed_s" in s else {})
+    if s["state"] == "running":
+        s.update(_progress(home, jid, s))
+    return {k: v for k, v in s.items() if k not in ("started", "pid")} | ({"elapsed_s": s.get("elapsed_s")} if "elapsed_s" in s else {})
+
+
+def progress_path(home, jid):
+    return os.path.join(_dir(home), jid + ".progress")
+
+
+def _progress(home, jid, s):
+    """{'percent', 'eta_s'} of a running job from the `out_time_us=` lines ffmpeg wrote, against the length the job will produce (args.total_s)."""
+    total = (s.get("args") or {}).get("total_s")
+    try:
+        with open(progress_path(home, jid), "rb") as f:
+            f.seek(0, 2)
+            f.seek(max(0, f.tell() - 4096))
+            tail = f.read().decode(errors="replace")
+    except OSError:
+        return {"percent": 0.0} if total else {}
+    done = [int(x) for x in re.findall(r"out_time_us=(\d+)", tail)]
+    if not total or not done:
+        return {"percent": 0.0} if total else {}
+    pct = max(0.0, min(99.0, done[-1] / 1e6 / total * 100))
+    el = time.time() - s["started"]
+    return {"percent": round(pct, 1), **({"eta_s": round(el * (100 - pct) / pct, 1)} if pct >= 1 else {})}
+
+
+def wait(home, jid, wait_s, max_s):
+    """status(), but held for up to min(wait_s, max_s) seconds while the job is running: one call instead of a polling loop."""
+    end = time.time() + max(0.0, min(float(wait_s), max_s))
+    s = status(home, jid)
+    while s["state"] == "running" and time.time() < end:
+        time.sleep(0.5)
+        s = status(home, jid)
+    return s
 
 
 def _pid_alive(pid):
@@ -113,7 +147,8 @@ def main(spec_path):
         import server                                       # noqa: E402  (a separate process: it may own its stdout)
         from mltedit.tools import review                    # noqa: E402
         st, args = spec["state"], spec["args"]
-        res = review.do_export(st, args["out"], args["quality"], args["master"]) if spec["kind"] == "export" else review.do_preview(st)
+        prog = progress_path(spec["home"], spec["id"])
+        res = review.do_export(st, args["out"], args["quality"], args["master"], progress=prog) if spec["kind"] == "export" else review.do_preview(st, progress=prog)
         _ = server
         _write(status_path, {**base, "state": "done", "result": res})
     except Exception as e:  # noqa: BLE001
