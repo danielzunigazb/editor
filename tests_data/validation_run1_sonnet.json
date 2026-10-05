@@ -29,7 +29,7 @@
   "keep": false,
   "out": "tests_data/validation_run1_sonnet.json"
  },
- "spent_usd": 0.578,
+ "spent_usd": 0.612,
  "runs": [
   {
    "task": "montage3",
@@ -585,6 +585,65 @@
     "qa_notes": [],
     "lufs": -18.0
    }
+  },
+  {
+   "task": "finished_edit",
+   "model": "claude-sonnet-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 3,
+   "tool_calls": 2,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "get_timeline": 1,
+    "cut_clip": 1
+   },
+   "stills": 0,
+   "cost_usd": 0.034,
+   "seconds": 15.0,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "C_is_5s",
+     "ok": true,
+     "detail": [
+      5.0
+     ]
+    },
+    {
+     "name": "K_untouched_8s",
+     "ok": true,
+     "detail": [
+      8.0
+     ]
+    },
+    {
+     "name": "lower_third_1s_into_K",
+     "ok": true,
+     "detail": [
+      5.5,
+      4.52
+     ]
+    },
+    {
+     "name": "text_2_5s_into_K",
+     "ok": true,
+     "detail": [
+      7.0,
+      4.52
+     ]
+    },
+    {
+     "name": "project_not_rebuilt",
+     "ok": true,
+     "detail": 9
+    }
+   ],
+   "answer": "I shortened clip C from 8 s to 5 s by cutting it at the 5-second mark. I didn't export anything, and the rest of the project is as it was.\n\n- **Timeline:** The total length went from 15.52 s to 12.52 s. The 0.48 s crossfade between C and K is unchanged, and K now starts at 4.52 s.\n- **Lower third (\"Ana Ruiz\"):** It moved from 8.5 s to 5.5 s on the timeline. It still appears at the same moment of K",
+   "export": null
   }
  ]
 }
