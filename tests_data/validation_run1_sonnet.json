@@ -29,7 +29,7 @@
   "keep": false,
   "out": "tests_data/validation_run1_sonnet.json"
  },
- "spent_usd": 0.985,
+ "spent_usd": 1.076,
  "runs": [
   {
    "task": "montage3",
@@ -982,6 +982,72 @@
     ],
     "lufs": -70.0
    }
+  },
+  {
+   "task": "pip",
+   "model": "claude-sonnet-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 11,
+   "tool_calls": 10,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 2,
+    "add_clip": 1,
+    "add_pip": 1,
+    "get_contact_sheet": 2,
+    "get_still": 2,
+    "update_op": 1
+   },
+   "stills": 4,
+   "cost_usd": 0.091,
+   "seconds": 60.9,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "main_clip_20s",
+     "ok": true,
+     "detail": [
+      [
+       10.0,
+       20.0
+      ]
+     ]
+    },
+    {
+     "name": "one_pip_of_K",
+     "ok": true,
+     "detail": [
+      [
+       "K",
+       "bottom-right"
+      ]
+     ]
+    },
+    {
+     "name": "pip_whole_video",
+     "ok": true,
+     "detail": [
+      [
+       0.0,
+       20.0
+      ]
+     ]
+    },
+    {
+     "name": "pip_bottom_right",
+     "ok": true,
+     "detail": [
+      "bottom-right"
+     ]
+    }
+   ],
+   "answer": "The video is built and not exported. It is seconds 10–30 of C (20 s, 1920x1080 at 25 fps), with K as a picture-in-picture for the whole 20 seconds.\n\n**Picture-in-picture:** it sits in the bottom-right corner, 20% of the frame width. That is about 384×216 px at 1920×1080, a 16:9 thumbnail. K has no audio, so the sound is C's.\n\n**Contact sheet check (8 frames):**\n- **Faces:** the small picture never",
+   "export": null
   }
  ]
 }
