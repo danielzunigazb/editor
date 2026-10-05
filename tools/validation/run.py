@@ -22,7 +22,7 @@ if not os.path.exists(PY):
 
 
 def sh_env(home, extra=None):
-    return {**os.environ, "MLT_EDITOR_HOME": home, "MLT_LOG": "off", **(extra or {})}
+    return {**os.environ, "MLT_EDITOR_HOME": home, "MLT_LOG": "off", "MLT_EDITOR_ROOTS": ROOT, **(extra or {})}     # the fence stays ON: footage lives under poc_mlt
 
 
 def with_display(cmd):
@@ -141,7 +141,7 @@ def run_one(name, model, rep, c, a, budget):
         ok, err = prepare(home, c, a.code_root, t["prep"])
         if not ok:
             return {**base, "success": False, "failure_class": "harness", "detail": "could not prepare: " + err}
-    env = {"MLT_EDITOR_HOME": home, "MLT_LOG": "off", **({"MLT_TOOLSET": a.toolset} if a.toolset else {})}
+    env = {"MLT_EDITOR_HOME": home, "MLT_LOG": "off", "MLT_EDITOR_ROOTS": ROOT, **({"MLT_TOOLSET": a.toolset} if a.toolset else {})}
     cfg = os.path.join(home, "mcp.json")
     json.dump({"mcpServers": {"mlt": {"type": "stdio", "command": PY, "args": [os.path.join(a.code_root, "server.py")], "env": env}}}, open(cfg, "w"))
     prompt = t["prompt"](c).replace("{out}", out)

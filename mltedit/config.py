@@ -15,7 +15,7 @@ SPEC = {
     "data_root":        (("MLT_DATA_ROOT",), os.path.dirname(PKG), "path"),
     "home":             (("MLT_EDITOR_HOME", "MLT_HOME"), "out/mcp", "path"),                  # project dir of the MCP server
     "live_dir":         (("MLT_LIVE_DIR",), "out/live", "path"),                             # state/preview of the live.py CLI
-    "roots":            (("MLT_EDITOR_ROOTS", "MLT_ROOTS"), [], "paths"),                     # path fence for user files (empty = off)
+    "roots":            (("MLT_EDITOR_ROOTS", "MLT_ROOTS"), [], "paths"),                     # extra folders user files may be read/written (the project folder is always allowed); "*" = fence off
     "fonts_dirs":       (("MLT_FONTS_DIRS",), ["fonts"], "paths"),                           # searched in order for a style's font file
     "system_fonts":     (("MLT_SYSTEM_FONTS",), ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
                                                   "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
@@ -49,6 +49,11 @@ SPEC = {
     "viewer_height":    (("MLT_VIEWER_HEIGHT",), 540, "int"),                              # picture height of the live viewer (smaller projects play at their own size)
     "viewer_port":      (("MLT_VIEWER_PORT",), 0, "int"),                                  # 0 = any free port on 127.0.0.1
     "viewer_prefetch":  (("MLT_VIEWER_PREFETCH",), 3, "int"),                              # segments rendered ahead of the one being played
+    "max_source_mb":    (("MLT_MAX_SOURCE_MB",), 4096, "int"),                            # an imported file may not be bigger than this
+    "max_source_s":     (("MLT_MAX_SOURCE_S",), 10800, "int"),                            # ... nor longer (3 h)
+    "max_source_dim":   (("MLT_MAX_SOURCE_DIM",), 8192, "int"),                           # ... nor wider or taller (a 100000x100000 'video' is a memory bomb, not footage)
+    "render_timeout_s": (("MLT_RENDER_TIMEOUT_S",), 3600, "int"),                         # a background job running longer is killed and reported as LIMIT_EXCEEDED
+    "project_quota_mb": (("MLT_PROJECT_QUOTA_MB",), 20000, "float"),                        # disk a project folder may use (renders, proxies, cache); the cache is pruned first
     "max_ops":          (("MLT_MAX_OPS",), 500, "int"),
     "max_sources":      (("MLT_MAX_SOURCES",), 50, "int"),
     "max_layer_tracks": (("MLT_MAX_LAYER_TRACKS",), 6, "int"),
@@ -116,7 +121,7 @@ def get(name):
         return os.path.abspath(_abs(raw, root)) if root else os.path.abspath(os.path.expanduser(str(raw)))
     if kind == "paths":
         items = raw.split(os.pathsep) if (from_env and isinstance(raw, str)) else list(raw)
-        return [os.path.abspath(_abs(i, root)) for i in items if i]
+        return [i if i == "*" else os.path.abspath(_abs(i, root)) for i in items if i]       # "*" is a switch (see roots), not a path
     if kind == "pathmap":
         m = json.loads(raw) if from_env else dict(raw)
         return {k: os.path.abspath(_abs(v, root)) for k, v in m.items()}

@@ -223,6 +223,7 @@ def render_preview(background: bool = False) -> dict:
     sv.require_fresh(st)
     if not st["ops"]:
         raise ValueError("the timeline is empty; add_clip first")
+    sv.enforce_quota()
     total_s = _total_s(st)
     if background or total_s > S.block_max_s:
         return _as_job("preview", st, {"total_s": total_s * 1.0}, not background)
@@ -259,6 +260,7 @@ def check_export(output_path, quality, overwrite, master):
         raise ValueError(f"output_path is a directory: {out}")
     if os.path.exists(out) and not overwrite:
         raise ValueError(f"{out} already exists; choose another name or pass overwrite=true")
+    sv.enforce_quota()
     return st, out
 
 

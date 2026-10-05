@@ -42,7 +42,7 @@ Para varias ediciones seguidas conviene `apply_ops` (una llamada, todo o nada) e
 Las respuestas de edición son compactas (sin el listado de `ops`, solo `op_count`); `get_timeline`, `undo` y `remove_op` devuelven el listado numerado. Mirar varios cuadros seguidos (`get_still`, `get_contact_sheet`) reutiliza el timeline ya construido mientras no cambie la edición ni los archivos (a 4K: 2.8 s → 0.46 s por cuadro, sección 18).
 
 ## Seguridad y robustez (variables de entorno)
-- `MLT_EDITOR_ROOTS=/ruta/a:/ruta/b`: si se define, `import_clip`, `add_image`, `add_subtitles(srt_path)` y `export` solo aceptan rutas dentro de esas carpetas (se resuelven enlaces simbólicos y `..`). Sin definirla el servidor puede leer/escribir cualquier ruta que pueda el usuario; en un uso real con un modelo conviene fijarla (en `.mcp.json`: `"env": {"MLT_EDITOR_ROOTS": "/home/yo/videos"}`).
+- `MLT_EDITOR_ROOTS=/ruta/a:/ruta/b`: carpetas desde/hacia las que se pueden leer y escribir archivos (`import_clip`, `add_image`, `add_audio(path)`, `add_subtitles(srt_path)` y `export`; se resuelven enlaces simbólicos y `..`). **El control está activado por defecto**: sin esta variable solo se aceptan archivos dentro de la carpeta del proyecto (`MLT_EDITOR_HOME`); las rutas que declares se suman a esa carpeta. `MLT_EDITOR_ROOTS='*'` lo desactiva de forma explícita (solo para un uso local de confianza). Por eso el `.mcp.json` de este repo declara `"MLT_EDITOR_ROOTS": "poc_mlt"`.
 - `MLT_TRACTOR_CACHE=0` desactiva la reutilización del timeline en los cuadros de revisión.
 - El estado del proyecto se guarda con bloqueo de archivo (`project.lock`): dos procesos sobre el mismo `MLT_EDITOR_HOME` no se pierden ediciones.
 
@@ -71,3 +71,8 @@ Las respuestas de edición son compactas (sin el listado de `ops`, solo `op_coun
 - Previews: las fuentes grandes obtienen un proxy en segundo plano (`MLT_PROXY=0` lo desactiva, `MLT_PROXY_HEIGHT`, `wait_for_proxies`); `get_still`/`get_contact_sheet` salen de caché si nada cambió. `open_viewer` devuelve la URL de un reproductor local que sigue la edición (`MLT_VIEWER_*`).
 - `export` y `render_preview` devuelven `qa` (cortes duros inesperados, destellos) y aceptan `background=true` con `job_status`/`cancel_job`. `MLT_LOG=off` silencia los logs JSON de stderr. `./ci.sh` corre toda la batería.
 
+
+
+## Límites (todos con `LIMIT_EXCEEDED`)
+`MLT_MAX_SOURCE_MB` (4096), `MLT_MAX_SOURCE_S` (10800), `MLT_MAX_SOURCE_DIM` (8192 px de lado), `MLT_MAX_SOURCES` (50), `MLT_MAX_OPS` (500), `MLT_RENDER_TIMEOUT_S` (3600: un job más largo se detiene),
+`MLT_PROJECT_QUOTA_MB` (20000: con la carpeta del proyecto por encima se podan las cachés y, si no basta, se rechazan imports, exports y previews).

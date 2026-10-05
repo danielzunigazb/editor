@@ -68,17 +68,24 @@ DEFAULT = {"sources": {}, "ops": [], **S.project_defaults, "theme": {"name": the
 LOCK = os.path.join(HOME, "project.lock")
 MAX_OPS, MAX_SOURCES = S.max_ops, S.max_sources
 SUBPROCESS_TIMEOUT = S.subprocess_timeout          # ffprobe / still-encode: a hung or hostile file must not freeze the server
-ROOTS = [os.path.realpath(r) for r in S.roots]
+def _roots():
+    """The folders user files may be read from and written to: the project folder always, plus MLT_EDITOR_ROOTS. The fence is ON by default (a model-driven
+    editor must not read or write arbitrary paths); MLT_EDITOR_ROOTS='*' turns it off, explicitly, for a trusted local setup. [] means off."""
+    if "*" in S.roots:
+        return []
+    return list(dict.fromkeys([os.path.realpath(r) for r in S.roots] + [os.path.realpath(HOME)]))
+
+
+ROOTS = _roots()
 
 
 def _safe_path(path, what, must_exist=True):
-    """Resolve `path` (symlinks included) and, if MLT_EDITOR_ROOTS is set, require it to live under one of those
-    directories. An LLM-driven editor reads and writes arbitrary paths otherwise; this is the opt-in fence."""
+    """Resolve `path` (symlinks included) and require it to live under the project folder or one of MLT_EDITOR_ROOTS (see _roots)."""
     if not isinstance(path, str) or not path.strip() or "\0" in path:
         raise ValueError(f"{what}: path must be a non-empty string")
     p = os.path.realpath(os.path.expanduser(path))
     if ROOTS and not any(p == r or p.startswith(r + os.sep) for r in ROOTS):
-        raise ValueError(f"{what}: '{path}' is outside the allowed folders (MLT_EDITOR_ROOTS = {os.pathsep.join(ROOTS)})")
+        raise ValueError(f"{what}: '{path}' is outside the allowed folders ({os.pathsep.join(ROOTS)}); put the file there or add its folder to MLT_EDITOR_ROOTS")
     if must_exist and not os.path.exists(p):
         raise ValueError(f"{what}: file not found: {p}")
     return p
@@ -383,6 +390,42 @@ def _probe(path):
                          f"use add_image for pictures")
     return {"duration_s": round(dur, 3), "width": v["width"], "height": v["height"],
             "codec": v["codec_name"], "has_audio": any(s["codec_type"] == "audio" for s in info["streams"])}
+
+
+def check_source_limits(path, info):
+    """Refuse a source that is too big, too long or too large in pixels (LIMIT_EXCEEDED), before anything is decoded or made from it."""
+    mb = os.path.getsize(path) / 1e6
+    if mb > S.max_source_mb:
+        raise EditError("LIMIT_EXCEEDED", f"import_clip: '{os.path.basename(path)}' is {mb:.0f} MB; the limit is {S.max_source_mb} MB (MLT_MAX_SOURCE_MB)")
+    if info["duration_s"] > S.max_source_s:
+        raise EditError("LIMIT_EXCEEDED", f"import_clip: '{os.path.basename(path)}' is {info['duration_s'] / 60:.0f} min long; the limit is {S.max_source_s / 60:.0f} min (MLT_MAX_SOURCE_S)")
+    if max(info["width"], info["height"]) > S.max_source_dim:
+        raise EditError("LIMIT_EXCEEDED", f"import_clip: '{os.path.basename(path)}' is {info['width']}x{info['height']}; the limit is {S.max_source_dim} px on a side (MLT_MAX_SOURCE_DIM)")
+
+
+def disk_usage_mb(root=None):
+    """Megabytes used by the project folder (everything under it)."""
+    total = 0
+    for dp, _dirs, files in os.walk(root or HOME):
+        for f in files:
+            try:
+                total += os.path.getsize(os.path.join(dp, f))
+            except OSError:
+                pass
+    return total / 1e6
+
+
+def enforce_quota():
+    """Before something that writes a lot (an export, a preview, an import): if the project folder is over its quota, prune the caches first (they are regenerated
+    on demand) and refuse with LIMIT_EXCEEDED if that is not enough."""
+    if disk_usage_mb() <= S.project_quota_mb:
+        return
+    prune_cache(max_mb=0, max_age_days=0)
+    proxies.prune(HOME, 0)
+    used = disk_usage_mb()
+    if used > S.project_quota_mb:
+        raise EditError("LIMIT_EXCEEDED", f"the project folder uses {used:.0f} MB, over its {S.project_quota_mb} MB quota even after clearing the caches: "
+                        f"delete exports or old projects (MLT_PROJECT_QUOTA_MB)")
 
 
 def ensure_proxies(st, wait=False):

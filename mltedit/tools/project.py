@@ -48,6 +48,8 @@ def import_clip(path: str, id: str = "") -> dict:
     if id and not re.fullmatch(r"[A-Za-z0-9_]{1,32}", id):
         raise ValueError("id must be 1-32 letters, digits or underscore")
     info = sv._probe(path)                                     # slow (spawns ffprobe): done outside the lock
+    sv.check_source_limits(path, info)
+    sv.enforce_quota()
     with sv.locked():
         st = sv.load()
         sv.check_revision(st)
@@ -82,7 +84,9 @@ def refresh_source(id: str) -> dict:
             raise EditError("UNKNOWN_SOURCE", f"unknown source '{id}'; known: {sorted(st['sources'])}")
         old = json.loads(json.dumps(st["sources"]))
         path = st["sources"][id]["path"]
-        st["sources"][id] = {"path": path, "sig": P.file_sig(path), **sv._probe(path)}
+        info = sv._probe(path)
+        sv.check_source_limits(path, info)
+        st["sources"][id] = {"path": path, "sig": P.file_sig(path), **info}
         sv.bind(st)
         live.layout(st["ops"])                                  # raises if an edit no longer fits the new file: nothing is saved
         sv.push_undo(st, {"k": "set", "fields": {"sources": old}})

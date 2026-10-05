@@ -3,6 +3,8 @@ meanwhile cannot change it and a tool call is never held up. State lives in HOME
 Run by `python -m mltedit.jobs <spec.json>`; started, polled and cancelled through start/status/cancel."""
 import json, os, re, shutil, signal, subprocess, sys, time, uuid
 
+from .config import S
+
 _PROCS = {}
 
 
@@ -40,7 +42,8 @@ def start(home, kind, st, args):
     status = os.path.join(_dir(home), jid + ".json")
     _write(spec, {"id": jid, "kind": kind, "home": home, "state": st, "args": args})
     _write(status, {"id": jid, "kind": kind, "state": "running", "started": time.time(), "args": args})
-    proc = subprocess.Popen([sys.executable, "-m", "mltedit.jobs", spec], cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))), start_new_session=True,
+    limit = ["timeout", "-k", "10", str(S.render_timeout_s)] if shutil.which("timeout") else []     # the job cannot run longer than MLT_RENDER_TIMEOUT_S
+    proc = subprocess.Popen([*limit, sys.executable, "-m", "mltedit.jobs", spec], cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))), start_new_session=True,
                             stdout=subprocess.DEVNULL, stderr=open(os.path.join(_dir(home), jid + ".log"), "w"), env={**os.environ, "MLT_EDITOR_HOME": home, "TMPDIR": scratch(home, jid)})
     _PROCS[jid] = proc
     _write(status, {"id": jid, "kind": kind, "state": "running", "started": time.time(), "pid": proc.pid, "args": args})
@@ -59,7 +62,9 @@ def status(home, jid):
         if not alive:                                        # it died without writing its result (killed, or the machine restarted)
             s = _read(path) or s
             if s["state"] == "running":
-                s = {**s, "state": "failed", "error": "the job process ended without a result (see the job log)"}
+                took = time.time() - s["started"]
+                s = {**s, "state": "failed", "error": (f"LIMIT_EXCEEDED: the job ran for {took:.0f} s and was stopped at the render time limit of {S.render_timeout_s} s "
+                                                       f"(MLT_RENDER_TIMEOUT_S)" if took >= S.render_timeout_s - 2 else "the job process ended without a result (see the job log)")}
                 _write(path, s)
                 shutil.rmtree(scratch(home, jid), ignore_errors=True)
         s["elapsed_s"] = round(time.time() - s["started"], 1)
