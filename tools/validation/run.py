@@ -76,9 +76,23 @@ def reference(names, c):
     return bad
 
 
+INFRA_MARKS = ("hit your session limit", "usage limit", "rate limit", "rate_limit", "overloaded", "credit balance", "Invalid API key", "authentication")
+
+
+def infra_problem(final, calls):
+    """A run that never reached the model (account limit, API error) says nothing about the editor: returns what happened, else ''. Such runs are labelled
+    infra, left out of every success rate, and stop the rest of the batch."""
+    txt = (final.get("result") or "") if isinstance(final.get("result"), str) else ""
+    if any(m.lower() in txt.lower()[:200] for m in INFRA_MARKS):        # also in the middle of a run: whatever the model did before is not a result
+        return txt[:160]
+    if not final:
+        return "no result event from claude -p"
+    return ""
+
+
 class Budget:
     def __init__(self, total):
-        self.total, self.spent, self.lock = total, 0.0, threading.Lock()
+        self.total, self.spent, self.lock, self.blocked = total, 0.0, threading.Lock(), ""
 
     def add(self, x):
         with self.lock:
@@ -86,7 +100,7 @@ class Budget:
 
     def exhausted(self):
         with self.lock:
-            return self.spent >= self.total
+            return self.spent >= self.total or bool(self.blocked)
 
 
 def parse_stream(stdout):
@@ -120,7 +134,7 @@ def run_one(name, model, rep, c, a, budget):
     t = tasks.TASKS[name]
     base = {"task": name, "model": model, "rep": rep, "toolset": a.toolset or "default"}
     if budget.exhausted():
-        return {**base, "skipped": "budget exhausted"}
+        return {**base, "skipped": budget.blocked or "budget exhausted"}
     home = tempfile.mkdtemp(prefix=f"val_{name}_")
     out = os.path.join(home, "eval_out.mp4")
     if t["prep"]:
@@ -143,6 +157,11 @@ def run_one(name, model, rep, c, a, budget):
     calls, errors, kinds, tools, final = parse_stream(stdout)
     cost = round(final.get("total_cost_usd") or 0, 3)
     budget.add(cost)
+    problem = infra_problem(final, calls)
+    if problem:
+        budget.blocked = budget.blocked or f"stopped by an infrastructure problem: {problem}"
+        shutil.rmtree(home, ignore_errors=True)
+        return {**base, "infra": problem, "success": None, "seconds": secs}
     good, results, state = judge(t, home, c, a.code_root)
     failed = [r["name"] for r in results if not r["ok"] and not r["name"].startswith("~")]
     res = {**base, "success": good, "turns": final.get("num_turns"), "tool_calls": calls, "tool_errors": errors, "error_kinds": kinds, "tools": tools,
@@ -162,8 +181,9 @@ def summary(files):
     rows = []
     for f in files:
         rows += json.load(open(f))["runs"]
-    done = [r for r in rows if "skipped" not in r]
-    print(f"{len(done)} runs ({len(rows) - len(done)} skipped); total ${sum(r.get('cost_usd', 0) for r in done):.2f}")
+    infra = [r for r in rows if r.get("infra")]
+    done = [r for r in rows if "skipped" not in r and not r.get("infra")]
+    print(f"{len(done)} runs counted ({len(rows) - len(done) - len(infra)} skipped, {len(infra)} lost to infrastructure problems and NOT counted); total ${sum(r.get('cost_usd', 0) for r in done):.2f}")
     keys = sorted({(r["model"], r.get("toolset", "default")) for r in done})
     print(f"{'task':20s} " + " ".join(f"{m.split('-')[1][:6]+'/'+ts[:4]:>22s}" for m, ts in keys))
     for name in tasks.TASKS:
@@ -210,7 +230,7 @@ def main():
         for f in cf.as_completed(futs):
             res = f.result()
             runs.append(res)
-            print(json.dumps({k: v for k, v in res.items() if k in ("task", "model", "rep", "success", "turns", "tool_calls", "tool_errors", "cost_usd", "seconds", "failed_checks", "skipped")}, ensure_ascii=False), flush=True)
+            print(json.dumps({k: v for k, v in res.items() if k in ("task", "model", "rep", "success", "turns", "tool_calls", "tool_errors", "cost_usd", "seconds", "failed_checks", "skipped", "infra")}, ensure_ascii=False), flush=True)
             if a.out:
                 json.dump({"args": vars(a), "spent_usd": round(budget.spent, 3), "runs": runs}, open(a.out, "w"), indent=1, default=str, ensure_ascii=False)
     print(f"spent ${budget.spent:.2f}")
