@@ -927,6 +927,63 @@ Un still repetido sale de la caché sin MLT. Los números de antes están en `te
 - No hay planner declarativo («quiero un video de 30 s con esta estructura»): `apply_ops` + `dry_run` + `describe_project` cubren el bucle plan–verificación, pero el LLM sigue decidiendo cada op.
 - Sin cambios (decisión del usuario, no del agente): las 15 plantillas, la biblioteca de audio y los iconos siguen; el reporte externo los considera excesivos para un POC.
 
+## 24. De motor a producto: aplicación web con chat, Docker, seguridad y validación con metraje real (añadido a petición del usuario)
+
+Se pidió llevarlo a algo que se pueda usar: una web propia con chat, local y empaquetada en Docker, validando con metraje real, cerrando huecos de calidad y endureciendo seguridad y operación. Hecho en seis fases (W0–W6), cada una con `./ci.sh` en verde.
+
+### W0 y W6. Validación con metraje real (`tools/validation/`)
+12 tareas de edición sobre 5 clips reales del usuario (3 verticales de móvil —uno HEVC, uno de frame rate variable—, una charla de 159 s con dos voces y un clip de 1080p50 sin audio), cada una con comprobaciones programáticas del resultado (órdenes, tiempos, duración y tamaño del export, sincronía, loudness) y una solución de referencia que prueba que las comprobaciones se pueden cumplir (las 12 pasan). Se corre con `claude -p` contra el servidor MCP.
+
+| | corridas | correctas | turnos | llamadas | errores de herramienta | USD |
+|---|---|---|---|---|---|---|
+| Línea base (Sonnet 5.5, antes de W1/W2) | 12 | **12** | 115 | 103 | 2 (timeouts del export de 124 s) | 1.08 |
+| Configuración final (fence activo, QA nuevo, export como job) | 12 | **12** | 87 | 75 | 2 (ver abajo) | 0.87 |
+
+- **`long_edit` (video de 124 s): 40 → 9 turnos, 39 → 8 llamadas, 2 → 0 errores, 201 → 116 s.** Antes el export bloqueaba más allá del timeout del cliente y el modelo sondeó 25 veces `job_status` y 5 `wait_for_proxies`; ahora un video largo corre como job y `job_status(wait_s)` espera con `percent` y `eta_s`.
+- **`music_ducking` salió peor en la tanda final (10 turnos, 2 errores, 170 s) y no sé con certeza por qué.** Esa tanda corrió mientras yo ejecutaba otras pruebas en la misma máquina; dos repeticiones en reposo salieron 2/2 correctas, 0 errores, ~40 s (8 turnos). Mi hipótesis (los 2 errores fueron un export bloqueante de 30 s que, con la CPU ocupada, pasó del timeout del cliente) es coherente con eso y con que un export de 30 s tardó 34 s bajo carga y 15 s en reposo, pero no la probé directamente. Por prudencia se bajó el umbral para exportar como job de 40 s a 20 s.
+- **La comparación entre modelos NO se pudo hacer.** Se planearon 72 corridas (3 modelos × 12 tareas × 2); **58 chocaron con el límite de uso de la cuenta** ("session limit") y mi arnés las contó como fallos del modelo hasta que lo noté. Se corrigió (ahora esas corridas quedan marcadas `infra`, fuera de toda tasa, y la tanda se detiene) y se reetiquetó el archivo. Quedan 26 corridas válidas, todas correctas (Sonnet 17, Opus 5, Haiku 4): con n tan pequeño y tareas que casi siempre salen bien no hay diferencia medible entre modelos. Gasto total de la validación: ≈3.4 USD.
+- **Techo de la medición:** con 12 tareas que un modelo resuelve casi siempre, esta batería detecta regresiones y fallos de herramientas, no distingue calidad de edición. Para eso harían falta tareas más difíciles, más repeticiones y el juez visual de hojas de contacto, que **no se construyó**.
+
+### Hallazgos de la validación y del trabajo (todos corregidos salvo lo indicado)
+- **Bug de repositorio:** `poc_mlt/.gitignore` tenía `media/`, que también ignoraba el paquete `mltedit/media/` (proxies): nunca se había subido y un clon limpio no arrancaba. Además los tests necesitaban 3 clips que tampoco estaban en el repositorio. Corregido (patrones anclados, paquete y clips commiteados).
+- **QA con falsos positivos en metraje real:** marcaba 44 «cortes inesperados» en un solo clip de la charla (son cortes del propio material). Ahora mira una ventana de la fuente alrededor de cada corte y, si la fuente ya lo tenía, lo lista como nota. Sobre un tramo de 30 s de la charla: 12 hallazgos falsos → 0 hallazgos y 10–12 notas.
+- **Export largo que bloqueaba:** ver `long_edit`. Se añadió progreso (`percent`, `eta_s`), `job_status(wait_s)` y paso automático a job de los videos largos.
+- **`cancel_job` dejaba basura:** el directorio del FIFO del render quedaba en `/tmp` (SIGTERM no ejecuta `finally` mientras MLT está en código C). Ahora cada job tiene su propio `TMPDIR` que se borra al terminar, cancelar o morir.
+- **`MLT_EDITOR_ROOTS='*'` nunca funcionó** como interruptor de apagado: la configuración lo convertía en una ruta (lo encontró `test_security`).
+- **El texto de una tarjeta no se guardaba** en el proyecto (solo el video renderizado): ahora `list_sources` dice qué dice cada tarjeta.
+- **`list_assets` anunciaba música que fallaba al exportar** (solo 15 de 41 pistas estaban en el caché): ahora cada pieza lleva `available` y las disponibles salen primero.
+- **Pruebas que se saltaban en silencio** (`test_assets` fallaba en un clon limpio por depender de 450 MB de audio fuera del repositorio; `test_avsync` saltaba la charla sin decirlo): ahora imprimen `SKIP` y `ci.sh` los muestra.
+
+### W1. Huecos de calidad
+Progreso y espera de jobs; QA que descuenta cortes de la fuente; **QA de stills y hoja de contactos** (cuadro casi negro o quemado y texto con poco contraste, heurística solo de píxeles: no ve texto sobre una cara ni sobre el sujeto); **sincronía A/V** en el export (compara con la fuente el sonido —envolvente de volumen— y la imagen —envolvente de movimiento—; en la charla real mide 0 a −40 ms, un cuadro a 25 fps, resolución de la medición del video; con música encima dice que no puede medir en vez de inventar un número); `until="clip_end"` en overlays (duran lo que dura su clip y lo siguen si se recorta o se mueve). **No se construyó el perfil `MLT_TOOLSET=core`**: las corridas válidas cuestan entre 0.03 y 0.27 USD con las 42 herramientas y `core` quitaría herramientas que el usuario puede pedir; es una decisión, no un olvido.
+
+### W2. Seguridad y operación (`SECURITY.md`, `test_security.py`: 28 comprobaciones)
+Control de rutas **activado por defecto** (carpeta del proyecto + `MLT_EDITOR_ROOTS`; `'*'` lo apaga); límites con `LIMIT_EXCEEDED` (tamaño 4096 MB, duración 3 h, 8192 px de lado, fuentes, tiempo de render 3600 s, cuota de disco 20 GB); archivos hostiles (corrupto, truncado, vacío, bomba de resolución, 8 variantes de SVG, ids con `../`). La revisión con la habilidad `security-review` **no pudo ejecutarse** (necesita una rama base que este clon no tiene); en su lugar hice una revisión manual de la superficie nueva, que encontró y corrigió: cookie sin `Secure` por HTTPS, subidas sin cuota por proyecto, y que el XSS no se había probado dentro del visor (mismo origen que la app). No hay revisión independiente.
+
+### W3. Docker
+`Dockerfile` (Ubuntu 24.04, usuario no root, `HEALTHCHECK`), `docker-compose.yml` (límites de memoria/CPU/procesos, `cap_drop: ALL`, `no-new-privileges`, puerto solo en 127.0.0.1). Imagen de **1.3 GB**. Probado: construye, arranca como `mlt` sin capacidades, queda `healthy`, rechaza sin token, importa un video con el motor y `./ci.sh` completo corre **dentro del contenedor en verde** (con `SKIP` explícitos de lo que necesita datos fuera del repositorio: audio de la biblioteca, metraje 1080p/4K y personal, Chromium). **El daemon de Docker no estaba corriendo en esta sesión: lo levanté a mano (`dockerd --bridge=none --iptables=false`), así que probé con `--network=host`; `docker compose up` y la publicación de puertos NO se ejecutaron** (solo `docker compose config`).
+
+### W4. Backend con chat (`app/`, `test_app.py`: 62 comprobaciones)
+Un proceso del motor por proyecto (cada uno en su propia tarea asyncio), tope de procesos con desalojo del menos usado, apagado por inactividad con reinicio transparente, bucle de chat con topes de turnos y de dinero, subidas en bruto con validación, exportación en segundo plano con descarga y proxy del visor. Probado con un servidor uvicorn real, motores reales y un modelo guionizado: autenticación, subidas válidas y hostiles, chat con herramientas reales, topes, aislamiento (un modelo que pide `/etc/passwd` o el archivo de otro proyecto es rechazado), dos proyectos a la vez sin interferirse, 409 con un chat en curso, apagado/reinicio.
+
+### W5. Interfaz web (`app/static/`, `test_ui.py`: 28 comprobaciones en Chromium)
+Una página sin paso de build: login, proyectos, subida con progreso, chat en streaming con herramientas colapsables y miniaturas, timeline, deshacer/rehacer, exportación con progreso y descarga, visor embebido, tema claro/oscuro, móvil, CSP estricta. Texto del usuario/modelo siempre con `textContent`. Revisé las capturas a ojo: así vi las etiquetas recortadas del timeline (corregido); el mensaje equivocado del login lo encontró el propio test y el hueco de la comprobación de XSS en el visor lo encontré en la revisión manual de seguridad.
+
+### Sesión de usuario con metraje real a través del API (`tools/e2e_session.py`, modelo guionizado)
+Subir la charla (21 MB) y su `.srt`, un lote de ediciones (0–30 s, tercio inferior y los 9 subtítulos del `.srt` que caen en ese tramo), hoja de contactos, exportar en segundo plano y descargar: 10/10 comprobaciones. Chat con motor frío 17 s (incluye arranque del motor, proxies y la hoja de contactos a 1080p); **export de 30 s a 1080p en 15 s (2× tiempo real, en reposo)** con 30 muestras de progreso; archivo descargado de 30.0 s, 1920×1080, 7.0 MB, con sonido; QA sin hallazgos, sincronía 0 ms (correlación 0.975), loudness −18.5 LUFS.
+
+### Estado de las pruebas
+`./ci.sh` en el host: **ALL GREEN**, 26 pasos (snapshot 686/686, golden 15/15, test_anim 65, test_text 353, test_assets 41, test_cards_anim 43, test_transitions 61, test_engine 270, test_modularity 24, test_project_v2 50, test_determinism 14, test_anchoring 89, test_proxy 28, test_viewer 33, test_qa 7, test_stillqa 10, test_avsync 8, test_until 8, test_card_spec 3, test_jobs_progress 10, test_annotate 6, test_mcp 268, test_security 28, test_app 62, test_ui 28, escenarios de agente). Dentro del contenedor: ALL GREEN con menos comprobaciones por los `SKIP` (assets 20, proxy 22, viewer 29, avsync 7, y `test_ui` no corre: no hay Chromium en la imagen, así que **la interfaz solo se probó en el host**).
+
+### No cumplido / no verificado — dicho claramente
+- **El chat contra la API real de Anthropic no se ejecutó nunca** (no hay clave en este entorno). Lo probado es el bucle completo con un modelo guionizado y la calidad del modelo con `claude -p` sobre el servidor MCP, no a través de `app/model.py`. El caché de prompt de nivel superior (`cache_control`), el SDK 1.11 con streaming y la tabla de precios están tomados de la documentación del SDK, **sin verificar contra una factura real**; el costo mostrado es una estimación por tokens.
+- **No hay comparación entre modelos** (58 de 72 corridas perdidas por el límite de la cuenta; ver W0).
+- **La reproducción de video no se probó en ningún navegador:** este Chromium no tiene H.264 y el visor muestra `bufferAppendError`. Firefox, Safari y lectores de pantalla tampoco (de accesibilidad solo se comprueba que cada control tenga nombre).
+- **Un fallo aislado sin explicar:** una ejecución de `test_app` mientras corría otra tanda pesada terminó con trazas que no capturé; cuatro ejecuciones posteriores (tres en reposo y una con las 4 CPUs saturadas) pasaron 62/62.
+- **Seguridad:** sin revisión independiente; los decodificadores de FFmpeg/MLT no están aislados más allá del contenedor; no se valida el encabezado `Host`; un solo token da acceso a todos los proyectos.
+- Opus y Haiku apenas tienen datos; las tareas de validación son pocas y casi siempre se resuelven (efecto techo); n = 1 por celda en las tandas de Sonnet.
+- Falta el juez visual de hojas de contactos, el perfil de herramientas `core` y la música/SFX dentro de la imagen (se monta o se baja del bucket).
+
 ## 10. Archivos
 
 - `legacy/poc.py`: el POC (gen/build/bench/preview/export/measure).
