@@ -69,5 +69,7 @@ if os.path.exists(talk):
     r2 = server.export(os.path.join(tmp, "talk.mp4"), quality="draft")["qa"]
     check("real talk footage (two voices, 29.97 fps source into 25 fps) exports in sync", abs(r2.get("av_offset_ms", 999)) <= 60 or "av_unmeasured" in r2, r2)
     print("   charla.mp4 ->", {k: r2.get(k) for k in ("av_offset_ms", "correlation", "av_unmeasured")})
+else:
+    print(f"SKIP the real-footage check (a talk through the engine): {talk} is not here (personal footage, not in the repository), so it was NOT run")
 print(f"\n{ok} passed, {bad} failed")
 sys.exit(1 if bad else 0)
