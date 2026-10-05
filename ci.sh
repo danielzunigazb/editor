@@ -7,7 +7,7 @@ RUN="$PY"; [ -z "$DISPLAY" ] && RUN="xvfb-run -a $PY"
 fail=0
 # The older suites read the repo's media from temporary project folders, so they run with the path fence off ('*'); test_security clears this and tests the default (fence on).
 export MLT_EDITOR_ROOTS='*'
-step() { printf '%-22s' "$1:"; shift; out=$("$@" 2>&1); rc=$?; echo "$out" | tail -1; [ $rc -ne 0 ] && { fail=1; echo "$out" | grep -E "^FAIL|Error|Traceback" | head -5; }; }
+step() { printf '%-22s' "$1:"; shift; out=$("$@" 2>&1); rc=$?; echo "$out" | tail -1; echo "$out" | grep -E "^SKIP" | sed 's/^/                      /'; [ $rc -ne 0 ] && { fail=1; echo "$out" | grep -E "^FAIL|Error|Traceback" | head -5; }; }
 step pyflakes            $PY -m pyflakes mltedit *.py tools legacy
 step snapshot            $RUN snapshot.py check
 step golden              $RUN golden.py

@@ -28,6 +28,13 @@ RUN --mount=type=bind,from=ca,target=/ca \
     set -e; if [ -f /ca/ca-bundle.crt ]; then export PIP_CERT=/ca/ca-bundle.crt SSL_CERT_FILE=/ca/ca-bundle.crt REQUESTS_CA_BUNDLE=/ca/ca-bundle.crt; fi; \
     /usr/bin/python3.12 -m venv --system-site-packages /app/.venv && /app/.venv/bin/pip install -r requirements.txt && chown -R mlt /app/.venv
 
+# DEV=1 also installs what the test suites need (pyflakes, hypothesis, playwright): docker build --build-arg DEV=1 ... and then `docker run ... ./ci.sh`
+ARG DEV=0
+RUN --mount=type=bind,from=ca,target=/ca \
+    set -e; if [ "$DEV" = "1" ]; then \
+        if [ -f /ca/ca-bundle.crt ]; then export PIP_CERT=/ca/ca-bundle.crt SSL_CERT_FILE=/ca/ca-bundle.crt REQUESTS_CA_BUNDLE=/ca/ca-bundle.crt; fi; \
+        /app/.venv/bin/pip install pyflakes "hypothesis>=6.100" "playwright>=1.40"; \
+    fi
 COPY --chown=mlt . /app
 USER mlt
 ENV MLT_EDITOR_HOME=/data/project MLT_EDITOR_ROOTS=/data PATH=/app/.venv/bin:$PATH

@@ -6,6 +6,7 @@ import asyncio, hashlib, json, os, shutil, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STAGE = os.path.join(HERE, "assets_stage", "out")
+HAVE_AUDIO = os.path.isdir(STAGE) and bool(os.listdir(STAGE))
 TMP = tempfile.mkdtemp(prefix="assets_test_")
 CACHE = os.path.join(TMP, "cache")
 os.environ["MLT_ASSETS_CACHE"] = CACHE
@@ -58,6 +59,10 @@ def unit():
     except ValueError as e:
         check("unknown asset rejected with suggestions", "unknown asset" in str(e))
 
+    if not HAVE_AUDIO:
+        # these checks copy real library audio into a throw-away cache and verify it against the manifest hashes; the files (assets_stage/out, ~450 MB) are not in the repository
+        print(f"SKIP the cache / download / hash checks that need the staged audio: {STAGE} is missing or empty, so they were NOT run")
+        return
     cc0 = next(i for i in items if i["kind"] == "sfx")
     ccby = next(i for i in items if i["license"] == "CC-BY-4.0")
     p = seed(cc0)
@@ -168,7 +173,11 @@ def availability():
 
 unit()
 availability()
-asyncio.run(e2e())
+if HAVE_AUDIO:
+    asyncio.run(e2e())
+else:
+    # the end-to-end part adds real audio through the server and checks it against the manifest hashes: those files (assets_stage/out, ~450 MB) are not in the repository
+    print(f"SKIP the end-to-end part (add_audio with real library audio): {STAGE} is missing or empty, so it was NOT run")
 shutil.rmtree(TMP, ignore_errors=True)
 print(f"\n{len(passed)} passed, {len(failed)} failed")
 sys.exit(1 if failed else 0)
