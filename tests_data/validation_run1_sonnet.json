@@ -29,7 +29,7 @@
   "keep": false,
   "out": "tests_data/validation_run1_sonnet.json"
  },
- "spent_usd": 0.12,
+ "spent_usd": 0.243,
  "runs": [
   {
    "task": "montage3",
@@ -104,6 +104,107 @@
    ],
    "answer": "The project is built, and the whole video is **8.04 seconds** long. I haven't exported it.\n\n- **Format:** 1080x1920 at 25 fps.\n- **Clips:** the first 3 s of R1, then 3 s of R3, then 3 s of R2.\n- **Crossfades:** one between each pair of clips. The editor made each one 0.48 s rather than 0.5 s, probably because 0.5 s doesn't land on a whole frame at 25 fps. That's why the total is 8.04 s and not 8.0",
    "export": null
+  },
+  {
+   "task": "interview_lt",
+   "model": "claude-sonnet-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 6,
+   "tool_calls": 5,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 1,
+    "add_clip": 1,
+    "add_lower_third": 1,
+    "export": 1
+   },
+   "stills": 0,
+   "cost_usd": 0.123,
+   "seconds": 30.0,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "one_clip_20_to_50",
+     "ok": true,
+     "detail": [
+      [
+       20.0,
+       30.0
+      ]
+     ]
+    },
+    {
+     "name": "lower_third_at_2s_for_4s",
+     "ok": true,
+     "detail": [
+      [
+       2.0,
+       4.0
+      ]
+     ]
+    },
+    {
+     "name": "export_exists",
+     "ok": true,
+     "detail": "eval_out.mp4"
+    },
+    {
+     "name": "export_duration",
+     "ok": true,
+     "detail": "30.0 vs 30.0"
+    },
+    {
+     "name": "~export_qa_findings",
+     "ok": false,
+     "detail": [
+      "unexpected hard cut at 0.48s",
+      "unexpected hard cut at 3.2s",
+      "unexpected hard cut at 5s"
+     ]
+    },
+    {
+     "name": "export_size",
+     "ok": true,
+     "detail": [
+      1920,
+      1080
+     ]
+    },
+    {
+     "name": "export_fps",
+     "ok": true,
+     "detail": 25.0
+    }
+   ],
+   "answer": "The exported video is **30.0 seconds** long. It's 1920x1080 at 25 fps, draft quality, and is saved at `/tmp/val_interview_lt_suo88m7g/eval_out.mp4`.\n\n- **Edit:** I used the 20 s to 50 s segment of the talk (imported as `C`) as a single clip. I didn't render a still of the lower third to check how it looks.\n- **Lower third:** \"María Pérez\" with the subtitle \"Directora de producto\" shows from 2 s to",
+   "export": {
+    "file": "eval_out.mp4",
+    "duration_s": 30.0,
+    "width": 1920,
+    "height": 1080,
+    "fps": 25.0,
+    "qa_findings": [
+     "unexpected hard cut at 0.48s",
+     "unexpected hard cut at 3.2s",
+     "unexpected hard cut at 5s",
+     "unexpected hard cut at 7.84s",
+     "unexpected hard cut at 11.76s",
+     "unexpected hard cut at 14.2s",
+     "unexpected hard cut at 15.72s",
+     "unexpected hard cut at 18.44s",
+     "unexpected hard cut at 20s",
+     "unexpected hard cut at 22.36s",
+     "unexpected hard cut at 24.48s",
+     "unexpected hard cut at 27.28s"
+    ],
+    "qa_notes": [],
+    "lufs": -17.8
+   }
   }
  ]
 }
