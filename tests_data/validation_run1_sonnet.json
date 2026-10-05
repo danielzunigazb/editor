@@ -29,7 +29,7 @@
   "keep": false,
   "out": "tests_data/validation_run1_sonnet.json"
  },
- "spent_usd": 0.464,
+ "spent_usd": 0.516,
  "runs": [
   {
    "task": "montage3",
@@ -411,6 +411,59 @@
     }
    ],
    "answer": "\"Dato clave\" now appears at **7.52 s** on the timeline and runs until 9.52 s. I didn't export.\n\n- **Setup:** The project is 1920x1080 at 25 fps. C (0–10 s) is followed by K (5–15 s) with a crossfade.\n- **Crossfade length:** The editor rounded the 0.5 s crossfade to 0.48 s (12 frames at 25 fps). K therefore started at 9.52 s, not 9.5 s.\n- **Text timing:** Because of that, I set the text to start at",
+   "export": null
+  },
+  {
+   "task": "split_many",
+   "model": "claude-sonnet-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 4,
+   "tool_calls": 3,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 1,
+    "apply_ops": 1
+   },
+   "stills": 0,
+   "cost_usd": 0.052,
+   "seconds": 16.1,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "24_clips",
+     "ok": true,
+     "detail": 24
+    },
+    {
+     "name": "each_4s",
+     "ok": true,
+     "detail": []
+    },
+    {
+     "name": "starts_at_6k",
+     "ok": true,
+     "detail": []
+    },
+    {
+     "name": "total_96s",
+     "ok": true,
+     "detail": 96.0
+    },
+    {
+     "name": "no_transitions_or_overlays",
+     "ok": true,
+     "detail": [
+      {},
+      0
+     ]
+    }
+   ],
+   "answer": "The highlights video is built on the timeline, and its total length is **96 seconds** (1 minute 36 seconds). I haven't exported it.\n\n- **Format:** 1920x1080 at 25 fps.\n- **Clips:** 24 clips of exactly 4 s each. Clip k starts at second 6k of the talk, so the first starts at 0 s and the last at 138 s and ends at 142 s. The talk is about 159 s long.\n- **Joins:** plain cuts only. There are no transiti",
    "export": null
   }
  ]
