@@ -5,7 +5,7 @@ import json, os, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
-CLIPS = {   # key -> (path relative to poc_mlt, what it is)
+CLIPS = {   # key -> (path relative to the repository root, what it is)
     "R1": ("media_real/real1.mp4", "phone, vertical, h264"),
     "R2": ("media_real/real2.mp4", "phone, vertical, low resolution, variable frame rate"),
     "R3": ("media_real/real3.mp4", "phone, vertical, HEVC, stereo"),

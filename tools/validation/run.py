@@ -22,7 +22,7 @@ if not os.path.exists(PY):
 
 
 def sh_env(home, extra=None):
-    return {**os.environ, "MLT_EDITOR_HOME": home, "MLT_LOG": "off", "MLT_EDITOR_ROOTS": ROOT, **(extra or {})}     # the fence stays ON: footage lives under poc_mlt
+    return {**os.environ, "MLT_EDITOR_HOME": home, "MLT_LOG": "off", "MLT_EDITOR_ROOTS": ROOT, **(extra or {})}     # the fence stays ON: footage lives under the repository
 
 
 def with_display(cmd):

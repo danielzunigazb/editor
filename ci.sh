@@ -1,5 +1,5 @@
 #!/bin/bash
-# Everything that must be green before a change is pushed. Run from poc_mlt/:  ./ci.sh   (needs the venv from setup.sh and either a DISPLAY or xvfb-run)
+# Everything that must be green before a change is pushed. Run from the repository root:  ./ci.sh   (needs the venv from setup.sh and either a DISPLAY or xvfb-run)
 # BENCH=1 ./ci.sh also checks the preview speed against tests_data/bench_baseline.json (slow: renders 720p/1080p/4K).
 cd "$(dirname "$0")"
 PY=.venv/bin/python

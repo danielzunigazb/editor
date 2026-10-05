@@ -5,14 +5,14 @@ La configuración ya está en `.mcp.json` (raíz del repo, ámbito de proyecto):
 ```json
 { "mcpServers": { "mlt-video-editor": {
     "type": "stdio",
-    "command": "poc_mlt/.venv/bin/python",
-    "args": ["poc_mlt/server.py"],
-    "env": { "MLT_EDITOR_HOME": "poc_mlt/out/mcp" } } } }
+    "command": ".venv/bin/python",
+    "args": ["server.py"],
+    "env": { "MLT_EDITOR_HOME": "out/mcp" } } } }
 ```
 
 ## Pasos
-1. Instalar dependencias una vez: `cd poc_mlt && ./setup.sh` (apt: melt, python3-mlt, ffmpeg, xvfb; venv con `--system-site-packages`; `mcp<2`).
-2. Generar clips de prueba: `cd poc_mlt && /usr/bin/python3.12 poc.py gen` (crea `media/clip_a.mp4` y `clip_b.mp4`).
+1. Instalar dependencias una vez: `./setup.sh` (apt: melt, python3-mlt, ffmpeg, xvfb; venv con `--system-site-packages`; `mcp<2`).
+2. Generar clips de prueba: `/usr/bin/python3.12 poc.py gen` (crea `media/clip_a.mp4` y `clip_b.mp4`).
 3. **Abrir Claude Code desde la raíz del repo** (las rutas del `.mcp.json` son relativas a ella).
 4. **Aprobar el servidor.** Claude Code pide aprobación manual para los servidores de un `.mcp.json`
    de proyecto (protección contra código ajeno). Se aprueba en el aviso al abrir, o con `/mcp`.
@@ -20,13 +20,13 @@ La configuración ya está en `.mcp.json` (raíz del repo, ámbito de proyecto):
 5. Comprobar: `/mcp` debe listar `mlt-video-editor` con 22 herramientas (clips, cortes, fundidos, PiP, **texto y subtítulos con 6 estilos, gráficos de lujo, tercio inferior, imágenes**, vista y export). `list_styles` describe los estilos.
 
 ## Ejemplo de prompt
-> Con mlt-video-editor: crea un proyecto, importa `poc_mlt/media/clip_a.mp4` (id A) y `clip_b.mp4` (id B),
+> Con mlt-video-editor: crea un proyecto, importa `media/clip_a.mp4` (id A) y `clip_b.mp4` (id B),
 > deja A en sus primeros 4 s, añade B, fundido cruzado de 1 s, fade out de 1 s, y revisa con la hoja de
-> contactos antes de exportar a `poc_mlt/out/final.mp4`.
+> contactos antes de exportar a `out/final.mp4`.
 
 ## Alternativas
 - Solo para ti, sin tocar el repo: `claude mcp add --scope user mlt-video-editor -- /ruta/abs/.venv/bin/python /ruta/abs/server.py`
-- Otro cliente MCP (Claude Desktop, etc.): `poc_mlt/mcp.example.json` con rutas absolutas (edítalas; trae las de este contenedor).
+- Otro cliente MCP (Claude Desktop, etc.): `mcp.example.json` con rutas absolutas (edítalas: son marcas de posición).
 
 ## Verificado y no verificado
 - Verificado: el servidor conecta y funciona cargado por Claude Code (`claude -p --mcp-config .mcp.json`):
@@ -42,7 +42,7 @@ Para varias ediciones seguidas conviene `apply_ops` (una llamada, todo o nada) e
 Las respuestas de edición son compactas (sin el listado de `ops`, solo `op_count`); `get_timeline`, `undo` y `remove_op` devuelven el listado numerado. Mirar varios cuadros seguidos (`get_still`, `get_contact_sheet`) reutiliza el timeline ya construido mientras no cambie la edición ni los archivos (a 4K: 2.8 s → 0.46 s por cuadro, sección 18).
 
 ## Seguridad y robustez (variables de entorno)
-- `MLT_EDITOR_ROOTS=/ruta/a:/ruta/b`: carpetas desde/hacia las que se pueden leer y escribir archivos (`import_clip`, `add_image`, `add_audio(path)`, `add_subtitles(srt_path)` y `export`; se resuelven enlaces simbólicos y `..`). **El control está activado por defecto**: sin esta variable solo se aceptan archivos dentro de la carpeta del proyecto (`MLT_EDITOR_HOME`); las rutas que declares se suman a esa carpeta. `MLT_EDITOR_ROOTS='*'` lo desactiva de forma explícita (solo para un uso local de confianza). Por eso el `.mcp.json` de este repo declara `"MLT_EDITOR_ROOTS": "poc_mlt"`.
+- `MLT_EDITOR_ROOTS=/ruta/a:/ruta/b`: carpetas desde/hacia las que se pueden leer y escribir archivos (`import_clip`, `add_image`, `add_audio(path)`, `add_subtitles(srt_path)` y `export`; se resuelven enlaces simbólicos y `..`). **El control está activado por defecto**: sin esta variable solo se aceptan archivos dentro de la carpeta del proyecto (`MLT_EDITOR_HOME`); las rutas que declares se suman a esa carpeta. `MLT_EDITOR_ROOTS='*'` lo desactiva de forma explícita (solo para un uso local de confianza). Por eso el `.mcp.json` de este repo declara `"MLT_EDITOR_ROOTS": "."`.
 - `MLT_TRACTOR_CACHE=0` desactiva la reutilización del timeline en los cuadros de revisión.
 - El estado del proyecto se guarda con bloqueo de archivo (`project.lock`): dos procesos sobre el mismo `MLT_EDITOR_HOME` no se pierden ediciones.
 

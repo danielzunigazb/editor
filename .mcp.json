@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "mlt-video-editor": {
+      "type": "stdio",
+      "command": ".venv/bin/python",
+      "args": [
+        "server.py"
+      ],
+      "env": {
+        "MLT_EDITOR_HOME": "out/mcp",
+        "MLT_EDITOR_ROOTS": "."
+      }
+    }
+  }
+}

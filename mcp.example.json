@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "mlt-video-editor": {
-      "command": "/home/user/claudemaxxing/poc_mlt/.venv/bin/python",
-      "args": ["/home/user/claudemaxxing/poc_mlt/server.py"],
+      "command": "/ruta/al/editor/.venv/bin/python",
+      "args": ["/ruta/al/editor/server.py"],
       "env": { "MLT_EDITOR_HOME": "/root/.mlt-editor", "MLT_EDITOR_ROOTS": "/home/user/videos" }
     }
   }

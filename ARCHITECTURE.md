@@ -7,7 +7,7 @@ en el motor (`test_modularity.py` lo comprueba).
 ## Mapa
 
 ```
-poc_mlt/
+./
   mltedit/                    el paquete
     config.py                 TODA la configuración: rutas, límites, interruptores (variables MLT_*, archivo, valores por defecto)
     registry.py               un registro por tipo de pieza: register / get / names / unregister; carga plugins y packs una vez
