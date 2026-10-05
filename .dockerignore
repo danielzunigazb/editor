@@ -1,0 +1,23 @@
+# personal / heavy / generated: never in the image
+media_real/
+media_user/
+media_4k/
+media_1080/
+media/*
+!media/clip_a.mp4
+!media/clip_b.mp4
+!media/clip_c.mp4
+out/
+build/
+entregas/
+assets_cache/
+assets_stage/
+.venv/
+.venv_det/
+.venv_stt/
+.hypothesis/
+**/__pycache__/
+*.egg-info/
+.git/
+*.mp4.part
+tests_data/validation_*
