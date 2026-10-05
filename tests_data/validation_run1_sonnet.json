@@ -1,0 +1,109 @@
+{
+ "args": {
+  "reference": false,
+  "summary": null,
+  "task": [
+   "montage3",
+   "interview_lt",
+   "subtitles_srt",
+   "vertical_reel",
+   "cut_under_overlays",
+   "long_edit",
+   "split_many",
+   "music_ducking",
+   "finished_edit",
+   "mixed_formats",
+   "cards_theme",
+   "pip"
+  ],
+  "models": [
+   "claude-sonnet-5-5"
+  ],
+  "reps": 1,
+  "jobs": 2,
+  "max_usd": 1.5,
+  "budget_usd": 10.0,
+  "timeout": 1200,
+  "code_root": "/home/user/claudemaxxing/poc_mlt",
+  "toolset": "",
+  "keep": false,
+  "out": "tests_data/validation_run1_sonnet.json"
+ },
+ "spent_usd": 0.12,
+ "runs": [
+  {
+   "task": "montage3",
+   "model": "claude-sonnet-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 6,
+   "tool_calls": 5,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 3,
+    "apply_ops": 1
+   },
+   "stills": 0,
+   "cost_usd": 0.12,
+   "seconds": 13.0,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "size_1080x1920",
+     "ok": true,
+     "detail": [
+      1080,
+      1920
+     ]
+    },
+    {
+     "name": "order_R1_R3_R2",
+     "ok": true,
+     "detail": [
+      "R1",
+      "R3",
+      "R2"
+     ]
+    },
+    {
+     "name": "each_3s",
+     "ok": true,
+     "detail": [
+      3.0,
+      3.0,
+      3.0
+     ]
+    },
+    {
+     "name": "total_8s",
+     "ok": true,
+     "detail": 8.04
+    },
+    {
+     "name": "two_crossfades",
+     "ok": true,
+     "detail": {
+      "0": 0.48,
+      "1": 0.48
+     }
+    },
+    {
+     "name": "title_in_first_2s",
+     "ok": true,
+     "detail": [
+      [
+       0.0,
+       2.0
+      ]
+     ]
+    }
+   ],
+   "answer": "The project is built, and the whole video is **8.04 seconds** long. I haven't exported it.\n\n- **Format:** 1080x1920 at 25 fps.\n- **Clips:** the first 3 s of R1, then 3 s of R3, then 3 s of R2.\n- **Crossfades:** one between each pair of clips. The editor made each one 0.48 s rather than 0.5 s, probably because 0.5 s doesn't land on a whole frame at 25 fps. That's why the total is 8.04 s and not 8.0",
+   "export": null
+  }
+ ]
+}
