@@ -1,0 +1,31 @@
+# docker compose up --build        then open http://127.0.0.1:8080 and enter the access token
+# Required: MLT_APP_TOKEN (the password for the web UI). Needed for the chat: ANTHROPIC_API_KEY. Put them in a .env file next to this one or export them.
+services:
+  editor:
+    build: .
+    image: mlt-editor
+    ports:
+      - "127.0.0.1:8080:8080"          # this machine only; change the left side to expose it (and then use a strong token and HTTPS in front)
+    environment:
+      MLT_APP_TOKEN: ${MLT_APP_TOKEN:?set MLT_APP_TOKEN to an access token for the web UI}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      MLT_APP_MODEL: ${MLT_APP_MODEL:-claude-sonnet-5-5}
+      MLT_APP_MAX_USD_MESSAGE: ${MLT_APP_MAX_USD_MESSAGE:-1.0}
+      MLT_APP_MAX_USD_PROJECT: ${MLT_APP_MAX_USD_PROJECT:-10.0}
+      MLT_APP_MAX_PROCS: ${MLT_APP_MAX_PROCS:-3}
+      MLT_PROJECT_QUOTA_MB: ${MLT_PROJECT_QUOTA_MB:-20000}
+      # music/SFX of the library: either mount a folder with the files below, or give the engine access to the bucket
+      R2_WORKER_URL: ${R2_WORKER_URL:-}
+      R2_UPLOAD_TOKEN: ${R2_UPLOAD_TOKEN:-}
+    volumes:
+      - mlt-data:/data
+      - ${MLT_ASSETS_DIR:-./assets_cache}:/app/assets_cache:ro
+    mem_limit: ${MLT_MEM_LIMIT:-6g}      # the engine's decoders are not sandboxed: the container is the boundary
+    cpus: ${MLT_CPUS:-4}
+    pids_limit: 512
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    tmpfs: ["/tmp:size=2g"]
+    restart: unless-stopped
+volumes:
+  mlt-data:

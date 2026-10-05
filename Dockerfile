@@ -37,7 +37,10 @@ RUN --mount=type=bind,from=ca,target=/ca \
     fi
 COPY --chown=mlt . /app
 USER mlt
-ENV MLT_EDITOR_HOME=/data/project MLT_EDITOR_ROOTS=/data PATH=/app/.venv/bin:$PATH
+# /data is the volume with every project. MLT_APP_TOKEN (the access token) is required at run time; ANTHROPIC_API_KEY is what the chat uses.
+ENV MLT_APP_DATA=/data MLT_APP_HOST=0.0.0.0 MLT_APP_PORT=8080 PATH=/app/.venv/bin:$PATH
 VOLUME /data
-# The MCP server speaks over stdio: `docker run -i mlt-editor mltedit-server`. (The web application, when present, replaces this default command.)
-CMD ["/app/.venv/bin/python", "server.py"]
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD curl -fsS "http://127.0.0.1:${MLT_APP_PORT}/health" || exit 1
+# The web application. The MCP server alone (stdio, for Claude Code or Claude Desktop):  docker run -i -e MLT_EDITOR_HOME=/data/project -v mlt-data:/data mlt-editor python server.py
+CMD ["python", "-m", "app.main"]
