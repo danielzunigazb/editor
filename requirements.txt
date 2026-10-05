@@ -1,3 +1,7 @@
 mcp>=1.2,<2   # mcp 2.x renamed FastMCP -> MCPServer; this server targets the 1.x API
 pillow>=10     # text/subtitle rendering (textrender.py)
 cairosvg>=2.7   # SVG icons -> PNG at export size
+anthropic>=1.11,<2   # the web application's chat (app/model.py)
+starlette>=1.0      # web application (already a dependency of mcp)
+uvicorn>=0.30
+httpx>=0.27

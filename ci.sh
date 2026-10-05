@@ -11,7 +11,7 @@ step() { printf '%-22s' "$1:"; shift; out=$("$@" 2>&1); rc=$?; echo "$out" | tai
 step pyflakes            $PY -m pyflakes mltedit *.py tools legacy
 step snapshot            $RUN snapshot.py check
 step golden              $RUN golden.py
-for t in test_anim test_text test_assets test_cards_anim test_transitions test_engine test_modularity test_project_v2 test_determinism test_anchoring test_proxy test_viewer test_qa test_stillqa test_avsync test_until test_card_spec test_jobs_progress test_annotate test_mcp test_security; do
+for t in test_anim test_text test_assets test_cards_anim test_transitions test_engine test_modularity test_project_v2 test_determinism test_anchoring test_proxy test_viewer test_qa test_stillqa test_avsync test_until test_card_spec test_jobs_progress test_annotate test_mcp test_security test_app; do
   step $t $RUN $t.py
 done
 step agent_scenarios     $RUN tools/agent_scenarios.py
