@@ -29,7 +29,7 @@
   "keep": false,
   "out": "tests_data/validation_run1_sonnet.json"
  },
- "spent_usd": 0.612,
+ "spent_usd": 0.667,
  "runs": [
   {
    "task": "montage3",
@@ -644,6 +644,88 @@
    ],
    "answer": "I shortened clip C from 8 s to 5 s by cutting it at the 5-second mark. I didn't export anything, and the rest of the project is as it was.\n\n- **Timeline:** The total length went from 15.52 s to 12.52 s. The 0.48 s crossfade between C and K is unchanged, and K now starts at 4.52 s.\n- **Lower third (\"Ana Ruiz\"):** It moved from 8.5 s to 5.5 s on the timeline. It still appears at the same moment of K",
    "export": null
+  },
+  {
+   "task": "mixed_formats",
+   "model": "claude-sonnet-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 8,
+   "tool_calls": 7,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 3,
+    "apply_ops": 1,
+    "get_contact_sheet": 1,
+    "export": 1
+   },
+   "stills": 1,
+   "cost_usd": 0.055,
+   "seconds": 49.8,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "order_R2_R3_K",
+     "ok": true,
+     "detail": [
+      "R2",
+      "R3",
+      "K"
+     ]
+    },
+    {
+     "name": "each_3s",
+     "ok": true,
+     "detail": [
+      3.0,
+      3.0,
+      3.0
+     ]
+    },
+    {
+     "name": "export_exists",
+     "ok": true,
+     "detail": "eval_out.mp4"
+    },
+    {
+     "name": "export_duration",
+     "ok": true,
+     "detail": "8.04 vs 8.0"
+    },
+    {
+     "name": "~export_qa_findings",
+     "ok": true,
+     "detail": []
+    },
+    {
+     "name": "export_size",
+     "ok": true,
+     "detail": [
+      1920,
+      1080
+     ]
+    },
+    {
+     "name": "export_fps",
+     "ok": true,
+     "detail": 25.0
+    }
+   ],
+   "answer": "I exported the draft to `/tmp/val_mixed_formats_enedkpj1/eval_out.mp4`. It is **8.04 seconds** long, 1920x1080 at 25 fps.\n\n- **Length:** the three 3 s clips add up to 9 s. The two crossfades overlap the clips, so the total is shorter. The editor rounded each crossfade to 0.48 s, which is why the length is 8.04 s and not 8.0 s.\n- **Order:** R2, then R3, then K, as you asked.\n- **Vertical clips:** a",
+   "export": {
+    "file": "eval_out.mp4",
+    "duration_s": 8.04,
+    "width": 1920,
+    "height": 1080,
+    "fps": 25.0,
+    "qa_findings": [],
+    "qa_notes": [],
+    "lufs": -10.0
+   }
   }
  ]
 }
