@@ -29,7 +29,7 @@
   "keep": false,
   "out": "tests_data/validation_run1_sonnet.json"
  },
- "spent_usd": 0.243,
+ "spent_usd": 0.406,
  "runs": [
   {
    "task": "montage3",
@@ -205,6 +205,157 @@
     "qa_notes": [],
     "lufs": -17.8
    }
+  },
+  {
+   "task": "vertical_reel",
+   "model": "claude-sonnet-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 6,
+   "tool_calls": 5,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 2,
+    "apply_ops": 1,
+    "export": 1
+   },
+   "stills": 0,
+   "cost_usd": 0.047,
+   "seconds": 21.9,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "two_clips_in_order",
+     "ok": true,
+     "detail": null
+    },
+    {
+     "name": "title_top_first_1_5s",
+     "ok": true,
+     "detail": [
+      [
+       0.0,
+       1.5,
+       "top"
+      ]
+     ]
+    },
+    {
+     "name": "fade_out_set",
+     "ok": true,
+     "detail": {
+      "in": 0.0,
+      "out": 0.5
+     }
+    },
+    {
+     "name": "export_exists",
+     "ok": true,
+     "detail": "eval_out.mp4"
+    },
+    {
+     "name": "export_duration",
+     "ok": true,
+     "detail": "7.6 vs 7.6"
+    },
+    {
+     "name": "~export_qa_findings",
+     "ok": false,
+     "detail": [
+      "unexpected hard cut at 2.67s",
+      "unexpected hard cut at 3.63s",
+      "unexpected hard cut at 3.97s"
+     ]
+    },
+    {
+     "name": "export_size",
+     "ok": true,
+     "detail": [
+      1080,
+      1920
+     ]
+    },
+    {
+     "name": "export_fps",
+     "ok": true,
+     "detail": 30.0
+    }
+   ],
+   "answer": "I exported the draft to `/tmp/val_vertical_reel_i2hlht97/eval_out.mp4`. It is **7.6 seconds** long, at 1080x1920 and 30 fps.\n\nThe edit has these parts:\n- **Clips:** the first 4 s of R1, then the first 4 s of R3, joined by a 0.4 s crossfade. That overlap is why the total is 7.6 s instead of 8 s.\n- **Text:** \"Día 1\" at the top from 0 to 1.5 s. The project uses the default \"luxury\" template, so that ",
+   "export": {
+    "file": "eval_out.mp4",
+    "duration_s": 7.6,
+    "width": 1080,
+    "height": 1920,
+    "fps": 30.0,
+    "qa_findings": [
+     "unexpected hard cut at 2.67s",
+     "unexpected hard cut at 3.63s",
+     "unexpected hard cut at 3.97s",
+     "unexpected hard cut at 4s",
+     "unexpected hard cut at 4.07s",
+     "unexpected hard cut at 4.13s",
+     "unexpected hard cut at 4.17s",
+     "unexpected hard cut at 5.57s",
+     "unexpected hard cut at 6s",
+     "unexpected hard cut at 6.07s",
+     "unexpected hard cut at 6.73s"
+    ],
+    "qa_notes": [],
+    "lufs": -9.0
+   }
+  },
+  {
+   "task": "subtitles_srt",
+   "model": "claude-sonnet-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 9,
+   "tool_calls": 8,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "import_clip": 1,
+    "add_clip": 1,
+    "add_subtitles": 2,
+    "get_contact_sheet": 2,
+    "remove_op": 1
+   },
+   "stills": 2,
+   "cost_usd": 0.116,
+   "seconds": 45.9,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "total_40s",
+     "ok": true,
+     "detail": 40.0
+    },
+    {
+     "name": "every_srt_line_present",
+     "ok": true,
+     "detail": "11 vs 11 in the file"
+    },
+    {
+     "name": "all_lines_inside_video",
+     "ok": true,
+     "detail": 0
+    },
+    {
+     "name": "first_line_at_6_77s",
+     "ok": true,
+     "detail": 6.773
+    }
+   ],
+   "answer": "The video has **11 subtitle lines**. I didn't export it.\n\nThe project is 1920x1080 at 25 fps. It holds the first 40 seconds of `C` (`charla.mp4`) with the subtitles from `charla.srt`. The file has 48 cues, but only 11 fall inside the first 40 seconds. They run from 6.8 s to 38.3 s. The other 37 start after 40 s, so they are dropped.\n\n**Subtitle placement:** My first pass put the subtitles at the b",
+   "export": null
   }
  ]
 }
