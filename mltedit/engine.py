@@ -97,6 +97,9 @@ def _layout(ops, ctx=None):
         if o.get("anchor"):                                  # everything this edit placed on the timeline follows its anchor (see core/timeline.resolve)
             for item in st.layers[n_layers:] + st.audios[n_audios:]:
                 item["anchor"] = o["anchor"]
+            if o.get("until"):
+                for item in st.layers[n_layers:]:
+                    item["until"] = o["until"]
     return timeline.resolve(st)
 
 

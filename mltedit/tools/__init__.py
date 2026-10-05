@@ -37,11 +37,13 @@ def edit_tool(fn=None, *, anchor=False):
     With anchor=True (overlay and audio edits) also:
       anchor: "clip" (default) = the edit is anchored to the clip that is on screen at start_s and moves with it when earlier clips are cut, trimmed,
               moved or removed; "timeline" = it stays at that timeline time whatever happens to the clips.
+      until: "" (default) or "clip_end" = an overlay that lasts until the end of the clip it is anchored to (its dur_s is then only the first guess) and
+              keeps doing so when that clip is trimmed or moved. Needs a clip anchor.
     They are passed to the server through a per-call context (server.CALL), so the tool body never sees them."""
     def deco(fn):
         sig = inspect.signature(fn)
         P_ = inspect.Parameter
-        extra = ([P_("anchor", P_.POSITIONAL_OR_KEYWORD, default="clip", annotation=str)] if anchor else []) + \
+        extra = ([P_("anchor", P_.POSITIONAL_OR_KEYWORD, default="clip", annotation=str), P_("until", P_.POSITIONAL_OR_KEYWORD, default="", annotation=str)] if anchor else []) + \
                 [P_("expected_revision", P_.POSITIONAL_OR_KEYWORD, default=None, annotation=int | None),
                  P_("dry_run", P_.POSITIONAL_OR_KEYWORD, default=False, annotation=bool),
                  P_("request_id", P_.POSITIONAL_OR_KEYWORD, default=None, annotation=str | None)]
@@ -50,7 +52,7 @@ def edit_tool(fn=None, *, anchor=False):
         def wrapper(*a, expected_revision=None, dry_run=False, request_id=None, **kw):
             from .. import server as sv
             args = json.dumps([fn.__name__, [str(x) for x in a], {k: kw[k] for k in sorted(kw)}], default=str, sort_keys=True)
-            ctx = {"tool": fn.__name__, "expected_revision": expected_revision, "anchor": kw.pop("anchor", None) if anchor else None, "dry_run": bool(dry_run),
+            ctx = {"tool": fn.__name__, "expected_revision": expected_revision, "anchor": kw.pop("anchor", None) if anchor else None, "until": kw.pop("until", "") if anchor else "", "dry_run": bool(dry_run),
                    "request_id": request_id, "args": hashlib.sha1(args.encode()).hexdigest()[:16]}
             tok = sv.CALL.set(ctx)
             t0, outcome = time.perf_counter(), {"ok": True}
@@ -71,7 +73,7 @@ def edit_tool(fn=None, *, anchor=False):
                 sv.CALL.reset(tok)
                 log.event(tool=fn.__name__, ms=round((time.perf_counter() - t0) * 1000, 1), dry_run=bool(dry_run), request_id=request_id, expected_revision=expected_revision, **outcome)
         wrapper.__signature__ = sig.replace(parameters=list(sig.parameters.values()) + extra)
-        doc = (fn.__doc__ or "") + "\n    Also takes expected_revision, dry_run, request_id" + (", anchor" if anchor else "") + " (see the server instructions)."
+        doc = (fn.__doc__ or "") + "\n    Also takes expected_revision, dry_run, request_id" + (", anchor, until" if anchor else "") + " (see the server instructions)."
         wrapper.__doc__ = doc
         registry.register("tool", fn.__name__, wrapper)
         return wrapper
@@ -84,13 +86,15 @@ def builder(name, anchor=False):
     def deco(fn):
         if anchor:
             @functools.wraps(fn)
-            def wrapped(*a, anchor="clip", **kw):
+            def wrapped(*a, anchor="clip", until="", **kw):
                 op = fn(*a, **kw)
                 if anchor not in ("clip", "timeline"):
                     raise errors.EditError("INVALID_ARGUMENT", f"anchor must be 'clip' or 'timeline' (got {anchor!r})")
-                return {**op, "anchor": anchor} if anchor == "timeline" else op
+                op = {**op, "anchor": anchor} if anchor == "timeline" else op
+                return {**op, "until": errors.check_until(until, anchor)} if until else op
             sig = inspect.signature(fn)
-            wrapped.__signature__ = sig.replace(parameters=list(sig.parameters.values()) + [inspect.Parameter("anchor", inspect.Parameter.POSITIONAL_OR_KEYWORD, default="clip", annotation=str)])
+            wrapped.__signature__ = sig.replace(parameters=list(sig.parameters.values()) + [inspect.Parameter("anchor", inspect.Parameter.POSITIONAL_OR_KEYWORD, default="clip", annotation=str),
+                                                                                              inspect.Parameter("until", inspect.Parameter.POSITIONAL_OR_KEYWORD, default="", annotation=str)])
             registry.register("builder", name, wrapped)
             return wrapped
         registry.register("builder", name, fn)

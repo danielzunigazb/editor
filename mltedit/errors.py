@@ -76,3 +76,12 @@ def as_edit_error(e, where=""):
     if where and msg.startswith(where + ": "):
         msg = msg[len(where) + 2:]
     return EditError(None, where, msg)
+
+
+def check_until(until, anchor="clip"):
+    """`until` of an overlay edit: '' or 'clip_end' (the overlay lasts until the end of the clip it is anchored to). Returns it, or raises INVALID_ARGUMENT."""
+    if until not in ("", "clip_end"):
+        raise EditError("INVALID_ARGUMENT", f"until must be '' or 'clip_end' (got {until!r})")
+    if until and anchor == "timeline":
+        raise EditError("INVALID_ARGUMENT", "until='clip_end' needs a clip anchor: an overlay anchored to the timeline has no clip whose end it could follow")
+    return until

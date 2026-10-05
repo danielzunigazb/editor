@@ -15,7 +15,7 @@ def add_card(layout: str, title: str = "", subtitle: str = "", items: list[str] 
     layout: title (title+subtitle) | section (number+title) | quote (title = the quote, author) | list (title + items, up to 5) |
     stat (number = the figure, title/subtitle = its label) | outro (title+subtitle) | bento (title + 1-4 items 'figure|label', e.g. '18 %|growth'). dur_s 0.5-30. push=true adds a slow zoom-in.
     animate: the card's element groups (title, rule, subtitle, list rows, tiles) arrive one after another in the template's own way; default = on
-    when the project's motion is on (set_template/new_project motion), otherwise a still picture. The card also becomes a source (CARD1, CARD2...) usable with add_clip/crossfade. It is appended like any clip, so add an INTRO
+    when the project's motion is on (set_template/new_project motion), otherwise a still picture. The card also becomes a source (CARD1, CARD2...) usable with add_clip/crossfade; list_sources shows what it says (`card`). It is appended like any clip, so add an INTRO
     card before the clips and an OUTRO after them; dissolve into it with crossfade. Not available inside apply_ops."""
     if not 0.5 <= dur_s <= 30:
         raise ValueError("dur_s must be between 0.5 and 30 seconds")
@@ -45,7 +45,9 @@ def add_card(layout: str, title: str = "", subtitle: str = "", items: list[str] 
             while f"CARD{n}" in st["sources"]:
                 n += 1
             sid = f"CARD{n}"
-            st["sources"][sid] = {"path": mp4, "sig": P.file_sig(mp4), **sv._probe(mp4)}
+            st["sources"][sid] = {"path": mp4, "sig": P.file_sig(mp4), **sv._probe(mp4),       # what the card says is kept: the video only shows it
+                                  "card": {"layout": layout, "title": title, "subtitle": subtitle, "items": list(items or ()), "number": number, "author": author,
+                                           "dur_s": dur_s, "theme": th.name}}
         if append:
             if len(st["ops"]) >= sv.MAX_OPS:
                 raise ValueError(f"the project already has {sv.MAX_OPS} edits (the limit)")

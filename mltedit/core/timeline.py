@@ -152,6 +152,8 @@ def resolve(st):
         delta_f = moment - a.get("t0_f", fr(item["start"]))         # t0_f: the frame the anchor stood on when it was made
         if delta_f:
             shift(item, delta_f / fps)
+        if item.get("until") == "clip_end" and "clip" in a:         # lasts as long as its clip does, wherever and however long the clip is now
+            item["dur"] = (e["start_f"] + e["dur_f"]) / fps - item["start"]
         return True
 
     layers = [L for L in layers if anchored(L, lambda it, d, p=O.get_layer: p(it["kind"]).shift(it, d), label(L))]

@@ -50,7 +50,7 @@ from . import ops as O  # noqa: E402
 from . import binding  # noqa: E402
 from . import project as P  # noqa: E402
 from .media import proxy as proxies  # noqa: E402
-from .errors import EditError, as_edit_error  # noqa: E402
+from .errors import EditError, as_edit_error, check_until  # noqa: E402
 from . import assets as assets_lib  # noqa: E402
 from mcp.server.fastmcp import FastMCP  # noqa: E402
 
@@ -203,7 +203,11 @@ def prepare(st, op):
         m = live.layout(st["ops"])
         op = plug.resolve_refs(op, m["entries"])
         if plug.anchorable and not isinstance(op.get("anchor"), dict):
-            op = {**op, "anchor": make_anchor(m["entries"], plug.start_of(op), op.get("anchor") or _call().get("anchor") or "clip")}
+            mode = op.get("anchor") or _call().get("anchor") or "clip"
+            op = {**op, "anchor": make_anchor(m["entries"], plug.start_of(op), mode)}
+            until = op.get("until") or _call().get("until") or ""
+            if until:
+                op["until"] = check_until(until, mode)
         try:
             op = plug.freeze(plug.normalize(op, live.CTX), live.CTX)
         except ValueError as e:

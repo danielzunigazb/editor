@@ -3,7 +3,7 @@ import hashlib, json, os, re, subprocess, time
 
 from .. import assets as assets_lib
 from .. import engine as live
-from .. import jobs, qa
+from .. import jobs, qa, stillqa
 from .. import ops as O
 from .. import project as P
 from .. import server as sv
@@ -50,6 +50,34 @@ def _serve(path, make):
         f.write(data)
     os.replace(tmp, path)
     return data
+
+
+def _serve_noted(path, make):
+    """_serve for a picture that also has notes (the still QA): make() -> (png bytes, [notes]); the notes sit in a .json next to the cached PNG, so a cache
+    hit costs no rendering and still answers with them. Returns (png bytes, notes)."""
+    side = path[:-4] + ".qa.json"
+    if os.path.exists(path) and os.path.exists(side):
+        try:
+            with open(side) as f:
+                return _serve(path, lambda: b""), json.load(f)
+        except (OSError, ValueError):
+            pass
+    data, found = make()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "wb") as f:
+        f.write(data)
+    os.replace(tmp, path)
+    with open(side, "w") as f:
+        json.dump(found, f)
+    return data, found
+
+
+def _with_notes(img, found):
+    """The image alone when nothing is wrong (no tokens spent on 'all good'); otherwise [image, text]."""
+    if not found:
+        return img
+    return [img, "still QA (pixel checks only: black / blown-out frame, low-contrast text; it does not see text over a face or the subject): " + " | ".join(found)]
 
 
 def _built(st, scale):
@@ -104,9 +132,10 @@ def _png(frames, tile=None):
 
 
 @tool
-def get_still(time_s: float, full_res: bool = False) -> Image:
+def get_still(time_s: float, full_res: bool = False):
     """Render ONE frame of the current edit at `time_s` and return it as an image, so you can look at
-    the result. Half resolution by default (faster); full_res=True renders at export size."""
+    the result. Half resolution by default (faster); full_res=True renders at export size. If a pixel check finds something (a black or blown-out frame,
+    text with almost no contrast against its surroundings) a line of text follows the image; no text means none of those was found."""
     st = sv.load()
     sv.require_fresh(st)
     sv.ensure_proxies(st, wait=True)
@@ -114,13 +143,19 @@ def get_still(time_s: float, full_res: bool = False) -> Image:
     sv.bind(st)
     t_f = live.CTX.fr(time_s) if isinstance(time_s, (int, float)) and time_s == time_s and abs(time_s) < 1e7 else None
     path = _cached(st, scale, f"still|{t_f}") if t_f is not None else None
+
+    def make():
+        frames = _frames(st, [time_s], scale)
+        return _png(frames), stillqa.notes(frames[0], time_s, _built(st, scale)[2]["layers"])
     if path is None:
-        return Image(data=_png(_frames(st, [time_s], scale)), format="png")
-    return Image(data=_serve(path, lambda: _png(_frames(st, [time_s], scale))), format="png")
+        data, found = make()
+    else:
+        data, found = _serve_noted(path, make)
+    return _with_notes(Image(data=data, format="png"), found)
 
 
 @tool
-def get_contact_sheet(count: int = 6) -> Image:
+def get_contact_sheet(count: int = 6):
     """Render `count` (2-12) evenly spaced frames of the current edit as one contact-sheet image.
     The best single call to review the whole edit: you see cuts, dissolves, fades and overlays."""
     if not 2 <= count <= 12:
@@ -138,20 +173,33 @@ def get_contact_sheet(count: int = 6) -> Image:
 
     def make():
         frames = _frames(st, times, 0.25)
+        layers = _built(st, 0.25)[2]["layers"]
+        found = [n for t, f in zip(times, frames) for n in stillqa.notes(f, t, layers)]
         frames += [(frames[0][0], frames[0][1], bytes(len(frames[0][2])))] * (cols * rows - count)   # black padding
-        return _png(frames, (cols, rows))
-    return Image(data=_serve(_cached(st, 0.25, f"sheet|{count}"), make), format="png")
+        return _png(frames, (cols, rows)), found
+    data, found = _serve_noted(_cached(st, 0.25, f"sheet|{count}"), make)
+    return _with_notes(Image(data=data, format="png"), found)
 
 
-def _qa(path, m, st=None):
+def _qa(path, m, st=None, sync=False):
     """Watch the rendered file for what a viewer would notice (unexpected hard cuts, flashes, frozen stretches) and say so: the model only sees stills, so
-    the render checks itself. A hard cut where two clips meet WITHOUT a crossfade is what the edit asked for, not a finding."""
+    the render checks itself. A hard cut where two clips meet WITHOUT a crossfade is what the edit asked for, not a finding. sync=True (exports): also
+    compare the sound of the first clip that has some with its source and report av_offset_ms."""
     try:
         joined = {i for i in m["xfades"]}
         expected = [e["start"] for i, e in enumerate(m["entries"]) if i > 0 and (i - 1) not in joined]
         srcs = (st or {}).get("sources", {})
-        entries = [{"path": srcs[e["src"]]["path"], "in": e["in"], "start": e["start"], "dur": e["dur"]} for e in m["entries"] if e["src"] in srcs] if st else None
-        return qa.check(path, expected, entries=entries)
+        entries = [{"path": srcs[e["src"]]["path"], "in": e["in"], "start": e["start"], "dur": e["dur"], "has_audio": srcs[e["src"]].get("has_audio", False)}
+                   for e in m["entries"] if e["src"] in srcs] if st else None
+        res = qa.check(path, expected, entries=entries)
+        if sync and entries:
+            found = qa.av_offset(path, entries)
+            res.update(found)
+            off = found.get("av_offset_ms", 0)
+            if abs(off) > S.av_tolerance_ms:
+                res["findings"].append(f"audio is {abs(off)} ms {'late' if off > 0 else 'early'} against the picture (tolerance {S.av_tolerance_ms:g} ms)")
+                res["ok"] = False
+        return res
     except (SystemExit, OSError, ValueError) as e:
         return {"ok": None, "findings": [f"QA could not read the file: {e}"]}
 
@@ -223,7 +271,7 @@ def do_export(st, out, quality, master, progress=None):
     live.render(p, tr, out, *(("medium", 20, "160k") if quality == "high" else ("ultrafast", 28, "96k")), master=master, progress=progress)
     info = sv._probe(out)
     res = {"path": out, "duration_s": info["duration_s"], "resolution": f"{info['width']}x{info['height']}",
-           "size_kb": os.path.getsize(out) // 1024, "render_s": round(time.perf_counter() - t0, 2), **_loudness(out), "qa": _qa(out, m, st)}
+           "size_kb": os.path.getsize(out) // 1024, "render_s": round(time.perf_counter() - t0, 2), **_loudness(out), "qa": _qa(out, m, st, sync=True)}
     credits = assets_lib.credit_lines(O.project_assets(st["ops"]))
     credit_path = os.path.splitext(out)[0] + ".credits.txt"
     if credits:                                              # CC-BY pieces must be credited: write the text next to the video

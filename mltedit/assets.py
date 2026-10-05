@@ -75,8 +75,10 @@ def listing(kind=None, theme="", mood="", license="", query="", limit=40):
             continue
         if query and query.lower() not in (it["id"] + " " + it["title"]).lower():
             continue
+        have = os.path.isfile(os.path.join(S.assets_cache, it["kind"], it["file"])) or bool(S.r2_url and S.r2_token)
         out.append({"id": it["id"], "title": it["title"], "author": it["author"], "duration_s": it["duration_s"], "license": it["license"],
-                    "credit_required": bool(it.get("attribution")), "themes": it.get("themes", []), "moods": it.get("moods", [])})
+                    "credit_required": bool(it.get("attribution")), "themes": it.get("themes", []), "moods": it.get("moods", []), "available": have})
+    out.sort(key=lambda x: not x["available"])               # what can be used right now first; the others would fail at export (not in the cache, no R2 access)
     return out[:limit], len(out)
 
 

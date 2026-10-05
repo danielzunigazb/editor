@@ -143,7 +143,31 @@ async def e2e():
             tl_, _ = await call("get_timeline")
             check("a rejected crossfade+sfx left the project as it was (still one crossfade and one audio item)", tl_ and len(tl_["audio"]) == 1 and len(tl_["crossfades"]) == 1, tl_)
 
+def availability():
+    saved = {k: os.environ.pop(k, None) for k in ("MLT_ASSETS_CACHE", "R2_WORKER_URL", "R2_UPLOAD_TOKEN")}
+    try:
+        os.environ["MLT_ASSETS_CACHE"] = tempfile.mkdtemp(prefix="empty_cache_")
+        rows, total = assets_lib.listing("music")
+        check("with an empty cache and no R2 access no music is available, and the list says so", total > 0 and not any(r["available"] for r in rows), [r["available"] for r in rows][:3])
+        os.environ["R2_WORKER_URL"], os.environ["R2_UPLOAD_TOKEN"] = "https://example.invalid", "x"
+        rows, _ = assets_lib.listing("music")
+        check("with R2 access configured everything is fetchable, so available", all(r["available"] for r in rows))
+        os.environ.pop("R2_WORKER_URL"); os.environ.pop("R2_UPLOAD_TOKEN")
+        d = os.path.join(os.environ["MLT_ASSETS_CACHE"], "music"); os.makedirs(d)
+        first = assets_lib.manifest()["assets"][0]
+        kind = first["kind"]; os.makedirs(os.path.join(os.environ["MLT_ASSETS_CACHE"], kind), exist_ok=True)
+        open(os.path.join(os.environ["MLT_ASSETS_CACHE"], kind, first["file"]), "wb").write(b"x")
+        rows, _ = assets_lib.listing(kind)
+        check("a cached asset is available and listed before the ones that are not", rows[0]["id"] == first["id"] and rows[0]["available"] and not rows[-1]["available"], [(r["id"], r["available"]) for r in rows][:2])
+    finally:
+        for k, v in saved.items():
+            os.environ.pop(k, None)
+            if v is not None:
+                os.environ[k] = v
+
+
 unit()
+availability()
 asyncio.run(e2e())
 shutil.rmtree(TMP, ignore_errors=True)
 print(f"\n{len(passed)} passed, {len(failed)} failed")

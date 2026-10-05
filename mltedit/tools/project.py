@@ -165,7 +165,9 @@ def list_assets(kind: str = "icon", theme: str = "", mood: str = "", license: st
     if kind not in ("music", "sfx"):
         raise ValueError("kind must be icon, music or sfx")
     items, total = assets_lib.listing(kind, theme, mood, license, query)
-    return {"kind": kind, "count": total, "shown": len(items), "items": items}
+    gone = [i["id"] for i in items if i.get("available") is False]
+    return {"kind": kind, "count": total, "shown": len(items), "items": items,
+            **({"warning": f"{len(gone)} of these are NOT available here (not in the local cache and no R2 access configured): using one fails; pick items with available=true"} if gone else {})}
 
 
 @edit_tool

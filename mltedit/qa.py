@@ -86,3 +86,85 @@ def check(path, expected_cuts_s=(), cut=14.0, freeze=2.0, tol_s=0.12, entries=No
         notes.append(f"{len(in_source)} cut(s) at {', '.join(f'{t:g}' for t in in_source[:6])}{'...' if len(in_source) > 6 else ''} s are already in the source footage (not an editing error)")
     return {"ok": not findings, "findings": findings, **({"notes": notes} if notes else {}), "hard_cuts": r["hard_cuts"], "intended_cuts": [round(e, 2) for e in expected_cuts_s], "fast_motion": r["fast_motion"],
             "largest_smooth_step": r["largest_smooth_step"]}
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------
+# Audio/video sync of an export
+
+ENV_HZ = 500          # the loudness envelopes are compared at this rate: 2 ms per step
+
+
+def _envelope(path, start, dur):
+    """Loudness envelope (ENV_HZ) of `dur` s of the audio of `path` from `start` s, or None if there is no audio / it cannot be read."""
+    r = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{max(0.0, start):.3f}", "-i", path, "-t", f"{dur:.3f}", "-vn", "-ac", "1", "-ar", "8000", "-f", "s16le", "-"], capture_output=True)
+    if r.returncode or len(r.stdout) < 8000 * 2 * dur * 0.5:
+        return None
+    import array
+    a = array.array("h")
+    a.frombytes(r.stdout[: len(r.stdout) // 2 * 2])
+    blk = 8000 // ENV_HZ
+    env = [sum(abs(x) for x in a[i:i + blk]) / blk for i in range(0, len(a) - blk + 1, blk)]
+    mean = sum(env) / len(env)
+    return [e - mean for e in env]
+
+
+def lag_ms(ref, test, max_lag_ms=500, env_hz=ENV_HZ):
+    """How late `test` is relative to `ref` (ms, negative = early) by cross-correlation of two envelopes, and the normalised correlation at that lag (0-1)."""
+    n = min(len(ref), len(test))
+    ref, test = ref[:n], test[:n]
+    norm = (sum(x * x for x in ref) * sum(x * x for x in test)) ** 0.5
+    if n < 50 or norm == 0:
+        return None, 0.0
+    best, best_lag = -2.0, 0
+    m = int(max_lag_ms * env_hz / 1000)
+    for lag in range(-m, m + 1):
+        lo, hi = max(0, -lag), min(n, n - lag)
+        c = sum(ref[i] * test[i + lag] for i in range(lo, hi))
+        if c > best:
+            best, best_lag = c, lag
+    return best_lag * 1000 / env_hz, round(best / norm, 3)
+
+
+def _motion(path, start, dur, fps=25):
+    """Motion envelope of `dur` s of the picture of `path` from `start` s: mean absolute difference between consecutive frames (64x36 grey), at `fps`
+    (resampled, so a 50 fps source and a 25 fps export are comparable). None if it cannot be read."""
+    r = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{max(0.0, start):.3f}", "-i", path, "-t", f"{dur:.3f}", "-an", "-vf", f"fps={fps},scale={GW}:{GH}:flags=area,format=gray",
+                        "-f", "rawvideo", "-"], capture_output=True)
+    n = GW * GH
+    fr = [r.stdout[i:i + n] for i in range(0, len(r.stdout) - n + 1, n)]
+    if r.returncode or len(fr) < fps * dur * 0.5:
+        return None
+    env = [mad(a, b) for a, b in zip(fr, fr[1:])]
+    mean = sum(env) / len(env)
+    return [e - mean for e in env]
+
+
+def av_offset(export_path, entries, window_s=6.0, min_corr=0.6):
+    """Is the sound of the export where the picture is? Takes the first timeline entry that has audio and is long enough and compares, for the same window,
+    the source with the export on both sides: the sound (loudness envelope) and the picture (motion envelope). av_offset_ms = how late the sound is against
+    the picture in the export minus how late it is in the source (so a source that was already out of sync is not blamed on the editor); positive = sound late.
+    Also reports audio_lag_ms / video_lag_ms (each against the source). Returns {"av_offset_ms", "correlation", ...} or {"av_unmeasured": why}. The picture side
+    needs motion in the window: with a still picture only the sound is compared (video_lag_ms absent, said in `note`). With music over the clip the sound
+    correlation drops below min_corr and nothing is claimed. `entries`: [{"path", "in", "start", "dur", "has_audio"}]."""
+    for e in entries:
+        if not e.get("has_audio") or e["dur"] < 2.0:
+            continue
+        w = min(window_s, e["dur"] - 0.6)
+        ref = _envelope(e["path"], e["in"] + 0.3, w)
+        test = _envelope(export_path, e["start"] + 0.3, w)
+        if ref is None or test is None:
+            continue
+        lag, corr = lag_ms(ref, test)
+        if lag is None or corr < min_corr:
+            return {"av_unmeasured": f"the export's sound does not match the source's closely enough to measure (correlation {corr}): music, a crossfade or silence over that stretch"}
+        out = {"audio_lag_ms": round(lag), "correlation": corr}
+        vref, vtest = _motion(e["path"], e["in"] + 0.3, w), _motion(export_path, e["start"] + 0.3, w)
+        vlag = vcorr = None
+        if vref and vtest and (sum(x * x for x in vref) / len(vref)) > 0.1:       # there is motion to follow (the correlation gate below does the real judging)
+            vlag, vcorr = lag_ms(vref, vtest, max_lag_ms=480, env_hz=25)
+        if vlag is not None and vcorr >= min_corr:
+            out.update(video_lag_ms=round(vlag), av_offset_ms=round(lag - vlag))
+        else:
+            out.update(av_offset_ms=round(lag), note="the picture had too little motion in that stretch to follow: only the sound was compared with the source (a shifted picture would not show)")
+        return out
+    return {"av_unmeasured": "no clip with audio long enough to compare"}
