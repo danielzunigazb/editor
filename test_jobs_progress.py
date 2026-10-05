@@ -47,5 +47,18 @@ rp = server.render_preview()
 check("a preview of a long video is also a job", rp.get("state") == "running" and "job_id" in rp, rp)
 s = server.job_status(rp["job_id"], wait_s=45)
 check("...and waiting for it returns its result", s["state"] == "done" and "qa" in s["result"], s)
+# cancelling a render in the middle leaves nothing behind (its FIFO dir used to stay in /tmp: SIGTERM cannot run a `finally` while MLT is in C code)
+import glob
+before = set(glob.glob(os.path.join(tempfile.gettempdir(), "mltfifo_*")))
+for _ in range(6):
+    server.add_clip("A", 0, 4)                              # long enough that the render is still going when we look
+rc = server.export(os.path.join(tempfile.mkdtemp(), "cancelled.mp4"), quality="draft")
+time.sleep(2)
+mid = glob.glob(os.path.join(os.environ["MLT_EDITOR_HOME"], "jobs", "*.tmp", "mltfifo_*"))
+check("while a job renders, its FIFO dir is inside the job's own temp dir (not loose in /tmp)", len(mid) == 1 and set(glob.glob(os.path.join(tempfile.gettempdir(), "mltfifo_*"))) == before, mid)
+server.cancel_job(rc["job_id"])
+time.sleep(1)
+check("cancel_job leaves no FIFO dir and no job temp dir behind", set(glob.glob(os.path.join(tempfile.gettempdir(), "mltfifo_*"))) == before
+      and not glob.glob(os.path.join(os.environ["MLT_EDITOR_HOME"], "jobs", "*.tmp")), glob.glob(os.path.join(tempfile.gettempdir(), "mltfifo_*")))
 print(f"\n{ok} passed, {bad} failed")
 sys.exit(1 if bad else 0)

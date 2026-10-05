@@ -1,7 +1,7 @@
 """Background jobs (long exports, preview renders): each runs in its own process, on a snapshot of the project taken when it was started, so an edit made
 meanwhile cannot change it and a tool call is never held up. State lives in HOME/jobs/<id>.json (written by the job when it ends) next to the spec.
 Run by `python -m mltedit.jobs <spec.json>`; started, polled and cancelled through start/status/cancel."""
-import json, os, re, signal, subprocess, sys, time, uuid
+import json, os, re, shutil, signal, subprocess, sys, time, uuid
 
 _PROCS = {}
 
@@ -27,14 +27,21 @@ def _write(path, data):
     os.replace(tmp, path)
 
 
+def scratch(home, jid):
+    """The job's own temp dir (its TMPDIR): the render's private FIFO dir lives in it, so however the job ends (done, failed, cancelled by SIGTERM while MLT is
+    inside C code and no `finally` can run, killed) deleting this one directory leaves nothing behind in /tmp."""
+    return os.path.join(_dir(home), jid + ".tmp")
+
+
 def start(home, kind, st, args):
     jid = f"job_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+    os.makedirs(scratch(home, jid), exist_ok=True)
     spec = os.path.join(_dir(home), jid + ".spec.json")
     status = os.path.join(_dir(home), jid + ".json")
     _write(spec, {"id": jid, "kind": kind, "home": home, "state": st, "args": args})
     _write(status, {"id": jid, "kind": kind, "state": "running", "started": time.time(), "args": args})
     proc = subprocess.Popen([sys.executable, "-m", "mltedit.jobs", spec], cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))), start_new_session=True,
-                            stdout=subprocess.DEVNULL, stderr=open(os.path.join(_dir(home), jid + ".log"), "w"), env={**os.environ, "MLT_EDITOR_HOME": home})
+                            stdout=subprocess.DEVNULL, stderr=open(os.path.join(_dir(home), jid + ".log"), "w"), env={**os.environ, "MLT_EDITOR_HOME": home, "TMPDIR": scratch(home, jid)})
     _PROCS[jid] = proc
     _write(status, {"id": jid, "kind": kind, "state": "running", "started": time.time(), "pid": proc.pid, "args": args})
     return {"job_id": jid, "state": "running", "kind": kind, "note": "job_status(job_id, wait_s=30) waits for it and shows percent/eta_s; cancel_job(job_id) stops it"}
@@ -54,6 +61,7 @@ def status(home, jid):
             if s["state"] == "running":
                 s = {**s, "state": "failed", "error": "the job process ended without a result (see the job log)"}
                 _write(path, s)
+                shutil.rmtree(scratch(home, jid), ignore_errors=True)
         s["elapsed_s"] = round(time.time() - s["started"], 1)
     if s["state"] == "running":
         s.update(_progress(home, jid, s))
@@ -121,6 +129,7 @@ def cancel(home, jid):
     out = (full.get("args") or {}).get("out")
     if out and os.path.exists(out):                          # a half-written file must not look like a result
         os.remove(out)
+    shutil.rmtree(scratch(home, jid), ignore_errors=True)    # the FIFO dir of a render that was cut off in the middle
     full.update(state="cancelled")
     _write(path, full)
     return {"job_id": jid, "state": "cancelled"}
@@ -154,6 +163,8 @@ def main(spec_path):
     except Exception as e:  # noqa: BLE001
         _write(status_path, {**base, "state": "failed", "error": f"{type(e).__name__}: {e}"})
         raise
+    finally:
+        shutil.rmtree(scratch(spec["home"], spec["id"]), ignore_errors=True)
 
 
 if __name__ == "__main__":
