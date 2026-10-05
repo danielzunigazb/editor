@@ -191,10 +191,12 @@ def t_music_ducking():
                 f"track you used.")
 
     def check(s, c):
-        au = [a for a in s["layout"]["audios"] if a.get("kind") != "clip" and a.get("asset")] or [a for a in s["layout"]["audios"] if a.get("asset")]
+        au = s["layout"]["audios"]
         ex = s["exports"][0] if s["exports"] else {}
         return ([("music_track_present", len(au) >= 1, len(s["layout"]["audios"])),
-                 ("music_covers_video", bool(au) and au[0].get("start", 0) <= 0.5 and au[0].get("dur", 0) >= 28.0, [(a.get("start"), a.get("dur")) for a in au]),
+                 ("music_ducks_under_voice", bool(au) and bool(au[0].get("duck")), [a.get("duck") for a in au]),
+                 ("music_fades_out", bool(au) and (au[0].get("fade_out") or 0) > 0, [a.get("fade_out") for a in au]),
+                 ("music_covers_video", bool(au) and au[0].get("start", 0) <= 0.5 and au[0].get("dur_eff", au[0].get("dur", 0)) >= 28.0, [(a.get("start"), a.get("dur")) for a in au]),
                  ("voice_still_audible_in_mix", ex.get("lufs") is not None and ex["lufs"] > -30, ex.get("lufs"))] + export_ok(s, 30.0, size=(1920, 1080), fps=25))
     ref = ("server.new_project(1920,1080,25);server.import_clip(P['C'],'C');server.add_clip('C',30,60);server.add_audio(0,30,asset='m-carefree',duck_auto=True,fade_out_s=2)\n"
            "server.export(OUT,'draft')")
