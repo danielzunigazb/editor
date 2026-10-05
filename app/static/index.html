@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video editor</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<header class="top">
+  <h1>Video editor</h1>
+  <label class="visually-hidden" for="project-select">Project</label>
+  <select id="project-select"></select>
+  <button id="new-project" type="button">New project</button>
+  <span class="spacer"></span>
+  <span id="cost" class="cost" title="What the model has cost in this project (estimated from token counts)"></span>
+  <button id="theme" type="button" aria-label="Switch between light and dark">◐</button>
+</header>
+
+<main id="app" hidden>
+  <section class="panel chat" aria-label="Chat">
+    <div id="log" class="log" role="log" aria-live="polite" aria-relevant="additions text"></div>
+    <form id="composer" class="composer">
+      <label class="visually-hidden" for="input">Message to the editor</label>
+      <textarea id="input" rows="2" placeholder="Tell the editor what to do. Enter sends, Shift+Enter adds a line." maxlength="8000"></textarea>
+      <button id="send" type="submit">Send</button>
+      <button id="stop" type="button" hidden>Stop</button>
+    </form>
+  </section>
+
+  <section class="panel side">
+    <div class="tabs" role="tablist" aria-label="Project">
+      <button role="tab" aria-selected="true" aria-controls="tab-preview" id="t-preview">Preview</button>
+      <button role="tab" aria-selected="false" aria-controls="tab-files" id="t-files">Files</button>
+      <button role="tab" aria-selected="false" aria-controls="tab-export" id="t-export">Export</button>
+    </div>
+
+    <div id="tab-preview" role="tabpanel" aria-labelledby="t-preview">
+      <div class="viewer-box">
+        <iframe id="viewer" title="Live preview of the edit" hidden></iframe>
+        <p id="viewer-empty" class="muted">The live preview plays the edit and follows it while you work.</p>
+      </div>
+      <div class="row">
+        <button id="open-viewer" type="button">Open live preview</button>
+        <a id="viewer-tab" href="#" target="_blank" rel="noopener" hidden>Open in a new tab</a>
+        <span class="spacer"></span>
+        <button id="undo" type="button">Undo</button>
+        <button id="redo" type="button">Redo</button>
+      </div>
+      <h2>Timeline <small id="duration" class="muted"></small></h2>
+      <div id="timeline" class="timeline" role="img" aria-label="Timeline of the edit"></div>
+      <p id="warnings" class="warn" hidden></p>
+      <h2>Edits</h2>
+      <ol id="edits" class="edits"></ol>
+    </div>
+
+    <div id="tab-files" role="tabpanel" aria-labelledby="t-files" hidden>
+      <div id="drop" class="drop" tabindex="0">
+        <p><strong>Drop videos here</strong> or <label class="link">choose files<input id="file" type="file" multiple accept="video/*,audio/*,image/*,.srt" hidden></label></p>
+        <p class="muted">Video, audio, images and .srt subtitles. Videos are imported as sources automatically.</p>
+      </div>
+      <ul id="uploads" class="uploads"></ul>
+      <h2>Sources</h2>
+      <ul id="sources" class="sources"></ul>
+    </div>
+
+    <div id="tab-export" role="tabpanel" aria-labelledby="t-export" hidden>
+      <div class="row">
+        <label for="quality">Quality</label>
+        <select id="quality"><option value="draft">Draft (fast)</option><option value="high">High</option></select>
+        <button id="export" type="button">Export video</button>
+      </div>
+      <div id="export-status" class="export-status" aria-live="polite"></div>
+      <h2>Exports</h2>
+      <ul id="exports" class="sources"></ul>
+    </div>
+  </section>
+</main>
+
+<section id="empty" class="empty" hidden>
+  <h2>No project yet</h2>
+  <p>Create one, add your videos in Files, and tell the editor what you want.</p>
+  <button id="empty-new" type="button">Create a project</button>
+</section>
+
+<dialog id="login">
+  <form method="dialog" id="login-form">
+    <h2>Access token</h2>
+    <p class="muted">Enter the token this server was started with.</p>
+    <label for="token">Token</label>
+    <input id="token" type="password" autocomplete="current-password" required>
+    <p id="login-error" class="error" role="alert"></p>
+    <button type="submit">Sign in</button>
+  </form>
+</dialog>
+
+<dialog id="new-dialog">
+  <form method="dialog" id="new-form">
+    <h2>New project</h2>
+    <label for="p-name">Name</label>
+    <input id="p-name" maxlength="80" placeholder="My video" required>
+    <label for="p-format">Format</label>
+    <select id="p-format">
+      <option value="1920x1080">Landscape 1920×1080</option>
+      <option value="1080x1920">Vertical 1080×1920</option>
+      <option value="1080x1080">Square 1080×1080</option>
+      <option value="1280x720">Landscape 1280×720</option>
+    </select>
+    <label for="p-fps">Frames per second</label>
+    <select id="p-fps"><option>25</option><option>30</option><option>24</option><option>50</option><option>60</option></select>
+    <p id="new-error" class="error" role="alert"></p>
+    <div class="row"><button type="submit">Create</button><button type="button" id="new-cancel">Cancel</button></div>
+  </form>
+</dialog>
+
+<dialog id="zoom"><img id="zoom-img" alt="Still from the edit"><form method="dialog"><button>Close</button></form></dialog>
+<script src="/assets/app.js"></script>
+</body>
+</html>

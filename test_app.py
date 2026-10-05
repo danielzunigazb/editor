@@ -2,19 +2,17 @@
 """The web application end to end with a scripted model (no API key needed): a real uvicorn server, a real editor-engine process per project, real tools.
 Auth, projects, uploads (valid and hostile), chat with tool calls, spending/turn caps, isolation between projects, idle shutdown and restart, process cap, export + download,
 the live viewer through the proxy. What a REAL model does with these tools is measured elsewhere (tools/validation). Run: python3 test_app.py"""
-import json, os, shutil, socket, sys, tempfile, threading, time
+import json, os, sys, threading, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.environ["MLT_LOG"] = "off"
 os.environ.pop("ANTHROPIC_API_KEY", None)
-import httpx, uvicorn  # noqa: E402
-from app.api import create_app  # noqa: E402
-from app.config import AppSettings  # noqa: E402
+import httpx  # noqa: E402
 from app.model import ScriptedModel  # noqa: E402
+from app_testlib import TOKEN, Server  # noqa: E402
 
 A, B = os.path.join(HERE, "media", "clip_a.mp4"), os.path.join(HERE, "media", "clip_b.mp4")
-TOKEN = "test-token-123"
 ok = bad = 0
 
 
@@ -22,53 +20,6 @@ def check(name, cond, detail=""):
     global ok, bad
     ok += bool(cond); bad += not cond
     print(("PASS " if cond else "FAIL ") + name + (f"  [{str(detail)[:400]}]" if not cond and detail else ""))
-
-
-class Server:
-    def __init__(self, **kw):
-        self.tmp = tempfile.mkdtemp(prefix="app_test_")
-        self.holder = {"model": None, "by_project": {}}
-        self.settings = AppSettings(data_dir=self.tmp, token=TOKEN, **kw)
-        self.app = create_app(self.settings, model_factory=lambda pid: self.holder["by_project"].get(pid) or self.holder["model"])
-        s = socket.socket(); s.bind(("127.0.0.1", 0)); self.port = s.getsockname()[1]; s.close()
-        self.server = uvicorn.Server(uvicorn.Config(self.app, host="127.0.0.1", port=self.port, log_level="error", access_log=False))
-        self.server.install_signal_handlers = lambda: None
-        self.thread = threading.Thread(target=self.server.run, daemon=True)
-        self.thread.start()
-        for _ in range(100):
-            try:
-                httpx.get(self.url("/health"), timeout=1)
-                break
-            except httpx.HTTPError:
-                time.sleep(0.1)
-        self.http = httpx.Client(base_url=self.url(""), headers={"Authorization": f"Bearer {TOKEN}"}, timeout=120)
-
-    def url(self, p):
-        return f"http://127.0.0.1:{self.port}{p}"
-
-    def stop(self):
-        self.http.close()
-        self.server.should_exit = True
-        self.thread.join(timeout=30)
-        shutil.rmtree(self.tmp, ignore_errors=True)
-
-    def chat(self, pid, text, model):
-        self.holder["model"] = model
-        events = []
-        with self.http.stream("POST", f"/api/projects/{pid}/chat", json={"message": text}) as r:
-            if r.status_code != 200:
-                return r.status_code, json.loads(r.read())
-            for line in r.iter_lines():
-                if line.startswith("data: "):
-                    events.append(json.loads(line[6:]))
-        return 200, events
-
-    def new_project(self, name="t", w=640, h=360, fps=25):
-        r = self.http.post("/api/projects", json={"name": name, "width": w, "height": h, "fps": fps})
-        return r.json()["id"]
-
-    def put(self, pid, name, data):
-        return self.http.put(f"/api/projects/{pid}/uploads/{name}", content=data)
 
 
 S = Server(max_upload_mb=1)

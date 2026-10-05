@@ -297,9 +297,13 @@ def create_app(settings, model_factory=None):
         return JSONResponse({"uptime_s": round(time.time() - state["started"]), "requests": state["requests"], "projects": len(projects.list()),
                              "engine_processes": len(host.alive()), "engine_processes_started": host.started, "chat": state["chat"], "usd_total": round(total, 4), "model": settings.model})
 
+    SECURITY_HEADERS = {   # the page loads nothing from elsewhere; inline styles are set from script (CSSOM), never from markup
+        "Content-Security-Policy": "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; frame-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'none'; form-action 'self'",
+        "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "Cache-Control": "no-cache"}
+
     async def index(request):
         f = os.path.join(STATIC, "index.html")
-        return FileResponse(f) if os.path.exists(f) else Response("the web UI is not installed", status_code=404)
+        return FileResponse(f, headers=SECURITY_HEADERS) if os.path.exists(f) else Response("the web UI is not installed", status_code=404)
 
     routes = [
         Route("/health", health), Route("/api/login", login, methods=["POST"]), Route("/api/metrics", metrics),
