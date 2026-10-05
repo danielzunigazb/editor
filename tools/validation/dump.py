@@ -8,18 +8,18 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, ROOT)
 
 
-def probe_export(path, m):
-    from mltedit import qa
+def probe_export(path, m, st):
+    """What the export is, measured with ffprobe and ebur128, and its QA exactly as the engine reports it (the same function the export tool runs, with the sources)."""
+    from mltedit.tools import review
     r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,avg_frame_rate,duration:format=duration", "-of", "json", path],
                        capture_output=True, text=True)
     d = json.loads(r.stdout)
     n, den = d["streams"][0]["avg_frame_rate"].split("/")
-    joined = set(m["xfades"])
-    expected = [e["start"] for i, e in enumerate(m["entries"]) if i > 0 and (i - 1) not in joined]
     res = {"file": os.path.basename(path), "duration_s": round(float(d["format"]["duration"]), 3), "width": d["streams"][0]["width"], "height": d["streams"][0]["height"],
            "fps": round(float(n) / float(den), 3)}
-    q = qa.check(path, expected)
-    res["qa_findings"], res["qa_notes"] = q["findings"], q.get("notes", [])
+    q = review._qa(path, m, st, sync=True)
+    res["qa_findings"], res["qa_notes"] = q.get("findings", []), q.get("notes", [])
+    res["av_offset_ms"] = q.get("av_offset_ms")
     e = subprocess.run(["ffmpeg", "-nostats", "-i", path, "-af", "ebur128", "-f", "null", "-"], capture_output=True, text=True).stderr
     m_ = re.findall(r"I:\s+(-?[\d.]+) LUFS", e)
     res["lufs"] = float(m_[-1]) if m_ else None
@@ -33,7 +33,7 @@ def main(home):
     st = server.load()
     server.bind(st)
     m = live.layout(st["ops"])
-    exports = [probe_export(os.path.join(home, f), m) for f in sorted(os.listdir(home)) if f.startswith("eval_out") and f.endswith(".mp4")]
+    exports = [probe_export(os.path.join(home, f), m, st) for f in sorted(os.listdir(home)) if f.startswith("eval_out") and f.endswith(".mp4")]
     layout = {k: v for k, v in m.items() if k in ("entries", "layers", "audios", "xfades", "fade", "pip", "warnings", "total")}
     print("STATE " + json.dumps({"project": {"width": st["width"], "height": st["height"], "fps": st["fps"], "theme": (st["theme"] or {}).get("name") if isinstance(st["theme"], dict) else st["theme"], "revision": st.get("revision", 0), "ops": len(st["ops"])},
                                  "layout": layout, "exports": exports, "sources": {k: v.get("path") for k, v in st["sources"].items()}}, default=str))

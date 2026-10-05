@@ -1,0 +1,83 @@
+{
+ "checks": [
+  [
+   "upload charla.mp4 (21 MB) accepted",
+   true
+  ],
+  [
+   "upload charla.srt (0 MB) accepted",
+   true
+  ],
+  [
+   "upload movil.mp4 (6 MB) accepted",
+   true
+  ],
+  [
+   "the batch edit and the contact sheet ran",
+   true
+  ],
+  [
+   "the contact sheet came back as an image",
+   true
+  ],
+  [
+   "the export job finishes",
+   true
+  ],
+  [
+   "it reported progress while it ran",
+   true
+  ],
+  [
+   "the downloaded file is 30 s of 1920x1080 video with sound",
+   true
+  ],
+  [
+   "the render QA found nothing wrong",
+   true
+  ],
+  [
+   "the sound is in sync with the picture (within 60 ms) or the check said why it could not measure",
+   true
+  ]
+ ],
+ "measured": {
+  "create_project_s": 0.54,
+  "upload_charla.mp4": {
+   "mb": 21.3,
+   "s": 0.13,
+   "status": 201
+  },
+  "upload_charla.srt": {
+   "mb": 0.0,
+   "s": 0.0,
+   "status": 201
+  },
+  "upload_movil.mp4": {
+   "mb": 5.5,
+   "s": 0.11,
+   "status": 201
+  },
+  "chat_s": 17.05,
+  "export_s": 15.19,
+  "export_progress_samples": 30,
+  "download_s": 0.03,
+  "export": {
+   "duration_s": 30.0,
+   "size": "1920x1080",
+   "mb": 7.0
+  },
+  "qa": {
+   "ok": true,
+   "findings": [],
+   "av_offset_ms": 0,
+   "correlation": 0.975,
+   "av_unmeasured": null,
+   "notes": [
+    "10 cut(s) at 4.2, 7.56, 9.64, 12.16, 16, 18.04... s are already in the source footage (not an editing error)"
+   ]
+  },
+  "loudness_lufs": -18.5,
+  "cost_usd_scripted": 0.009
+ }
+}

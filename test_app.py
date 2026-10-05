@@ -34,6 +34,10 @@ try:
     check("login refuses a wrong token and accepts the right one with an HttpOnly cookie", bad_login.status_code == 401 and good_login.status_code == 200
           and "httponly" in good_login.headers.get("set-cookie", "").lower() and "samesite=strict" in good_login.headers.get("set-cookie", "").lower(), good_login.headers)
     check("the cookie works as credentials", httpx.get(S.url("/api/projects"), cookies={"mlt_token": TOKEN}).status_code == 200)
+    sec = httpx.post(S.url("/api/login"), json={"token": TOKEN}, headers={"x-forwarded-proto": "https"})
+    check("behind HTTPS the cookie is marked Secure", "secure" in sec.headers.get("set-cookie", "").lower(), sec.headers.get("set-cookie"))
+    plain = httpx.post(S.url("/api/login"), json={"token": TOKEN})
+    check("...and over plain HTTP it is not (so a local http:// setup keeps working)", "secure" not in plain.headers.get("set-cookie", "").lower(), plain.headers.get("set-cookie"))
     fails = [httpx.post(S.url("/api/login"), json={"token": "x"}).status_code for _ in range(10)]
     check("repeated wrong tokens are slowed down (429)", 429 in fails, fails)
 
@@ -69,6 +73,15 @@ try:
           (r1.status_code, r2.status_code, sorted(inside)))
     info = S.http.get(f"/api/projects/{pid}").json()
     check("the project reports its imported sources (the UI needs them) with their durations", {"viaje", "viaje_2"} <= set(info["sources"]) and info["sources"]["viaje"]["duration_s"] > 0, str(info["sources"])[:200])
+
+    S.settings.max_project_mb = 0
+    r = S.put(pid, "more.mp4", open(B, "rb").read())
+    check("an upload that would take the project over its disk allowance is refused (413 PROJECT_FULL)", r.status_code == 413 and r.json()["error"]["code"] == "PROJECT_FULL", r.text[:200])
+    S.settings.max_project_mb = 20000
+    S.settings.max_projects = 1
+    r = S.http.post("/api/projects", json={"name": "x", "width": 640, "height": 360, "fps": 25})
+    check("the number of projects is capped (429)", r.status_code == 429 and r.json()["error"]["code"] == "TOO_MANY_PROJECTS", r.text[:200])
+    S.settings.max_projects = 50
 
     # ------------------------------------------------------------------------------------------------------------------------ chat
     model = ScriptedModel([

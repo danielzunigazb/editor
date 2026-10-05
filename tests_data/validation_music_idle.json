@@ -1,0 +1,242 @@
+{
+ "args": {
+  "reference": false,
+  "summary": null,
+  "task": [
+   "music_ducking"
+  ],
+  "models": [
+   "claude-sonnet-5-5"
+  ],
+  "reps": 2,
+  "jobs": 1,
+  "max_usd": 1.5,
+  "budget_usd": 2.0,
+  "timeout": 1200,
+  "code_root": "/home/user/claudemaxxing/poc_mlt",
+  "toolset": "",
+  "keep": true,
+  "out": "tests_data/validation_music_idle.json"
+ },
+ "spent_usd": 0.232,
+ "runs": [
+  {
+   "task": "music_ducking",
+   "model": "claude-sonnet-5-5",
+   "rep": 0,
+   "toolset": "default",
+   "success": true,
+   "turns": 8,
+   "tool_calls": 7,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "list_assets": 1,
+    "import_clip": 1,
+    "add_clip": 1,
+    "add_audio": 1,
+    "export": 1,
+    "job_status": 1
+   },
+   "stills": 0,
+   "cost_usd": 0.157,
+   "seconds": 39.9,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "music_track_present",
+     "ok": true,
+     "detail": 1
+    },
+    {
+     "name": "music_ducks_under_voice",
+     "ok": true,
+     "detail": [
+      [
+       [
+        0.0,
+        30.0
+       ]
+      ]
+     ]
+    },
+    {
+     "name": "music_fades_out",
+     "ok": true,
+     "detail": [
+      3.0
+     ]
+    },
+    {
+     "name": "music_covers_video",
+     "ok": true,
+     "detail": [
+      [
+       0.0,
+       30.0
+      ]
+     ]
+    },
+    {
+     "name": "voice_still_audible_in_mix",
+     "ok": true,
+     "detail": -18.0
+    },
+    {
+     "name": "export_exists",
+     "ok": true,
+     "detail": "eval_out.mp4"
+    },
+    {
+     "name": "export_duration",
+     "ok": true,
+     "detail": "30.0 vs 30.0"
+    },
+    {
+     "name": "~export_qa_findings",
+     "ok": true,
+     "detail": []
+    },
+    {
+     "name": "export_size",
+     "ok": true,
+     "detail": [
+      1920,
+      1080
+     ]
+    },
+    {
+     "name": "export_fps",
+     "ok": true,
+     "detail": 25.0
+    }
+   ],
+   "answer": "I exported the draft to `/tmp/val_music_ducking_k4mh8tjy/eval_out.mp4`. It is 1920x1080 at 25 fps and 30 seconds long, cut from 30–60 s of the talk. I haven't watched or listened to the result. The automated check found no problems, and audio and video are in sync.\n\n- **Track:** \"Reminiscing\" by Kevin MacLeod, id `m-reminiscing`, a calming, relaxed piece from the built-in library.\n- **Music level:",
+   "export": {
+    "file": "eval_out.mp4",
+    "duration_s": 30.0,
+    "width": 1920,
+    "height": 1080,
+    "fps": 25.0,
+    "qa_findings": [],
+    "qa_notes": [
+     "11 cut(s) at 1.76, 4.2, 5.72, 8.44, 10, 12.36... s are already in the source footage (not an editing error)"
+    ],
+    "av_offset_ms": 0,
+    "lufs": -18.0
+   },
+   "home": "/tmp/val_music_ducking_k4mh8tjy"
+  },
+  {
+   "task": "music_ducking",
+   "model": "claude-sonnet-5-5",
+   "rep": 1,
+   "toolset": "default",
+   "success": true,
+   "turns": 8,
+   "tool_calls": 7,
+   "tool_errors": 0,
+   "error_kinds": {},
+   "tools": {
+    "new_project": 1,
+    "list_assets": 1,
+    "import_clip": 1,
+    "add_clip": 1,
+    "add_audio": 1,
+    "export": 1,
+    "job_status": 1
+   },
+   "stills": 0,
+   "cost_usd": 0.075,
+   "seconds": 39.0,
+   "stopped": "success",
+   "failed_checks": [],
+   "checks": [
+    {
+     "name": "music_track_present",
+     "ok": true,
+     "detail": 1
+    },
+    {
+     "name": "music_ducks_under_voice",
+     "ok": true,
+     "detail": [
+      [
+       [
+        0.0,
+        30.0
+       ]
+      ]
+     ]
+    },
+    {
+     "name": "music_fades_out",
+     "ok": true,
+     "detail": [
+      3.0
+     ]
+    },
+    {
+     "name": "music_covers_video",
+     "ok": true,
+     "detail": [
+      [
+       0.0,
+       30.0
+      ]
+     ]
+    },
+    {
+     "name": "voice_still_audible_in_mix",
+     "ok": true,
+     "detail": -18.0
+    },
+    {
+     "name": "export_exists",
+     "ok": true,
+     "detail": "eval_out.mp4"
+    },
+    {
+     "name": "export_duration",
+     "ok": true,
+     "detail": "30.0 vs 30.0"
+    },
+    {
+     "name": "~export_qa_findings",
+     "ok": true,
+     "detail": []
+    },
+    {
+     "name": "export_size",
+     "ok": true,
+     "detail": [
+      1920,
+      1080
+     ]
+    },
+    {
+     "name": "export_fps",
+     "ok": true,
+     "detail": 25.0
+    }
+   ],
+   "answer": "I exported the draft to `/tmp/val_music_ducking_kot29o0w/eval_out.mp4`. It is 1920x1080 at 25 fps, 30 seconds long, taken from seconds 30–60 of the talk.\n\n**Track used:** \"Reminiscing\" by Kevin MacLeod. It's tagged calming and relaxed in the library.\n\n- **Level:** the music sits at -20 dB under the whole video.\n- **Ducking:** it dips further automatically while the speaker talks, which keeps the v",
+   "export": {
+    "file": "eval_out.mp4",
+    "duration_s": 30.0,
+    "width": 1920,
+    "height": 1080,
+    "fps": 25.0,
+    "qa_findings": [],
+    "qa_notes": [
+     "11 cut(s) at 1.76, 4.2, 5.72, 8.44, 10, 12.36... s are already in the source footage (not an editing error)"
+    ],
+    "av_offset_ms": 0,
+    "lufs": -18.0
+   },
+   "home": "/tmp/val_music_ducking_kot29o0w"
+  }
+ ]
+}

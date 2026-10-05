@@ -93,7 +93,8 @@ def create_app(settings, model_factory=None):
             state["login_fail"][ip] = fails + [now]
             return err(401, "UNAUTHORIZED", "that is not the access token")
         r = JSONResponse({"ok": True})
-        r.set_cookie(COOKIE, settings.token, httponly=True, samesite="strict", path="/", max_age=30 * 86400)
+        secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto", "") == "https"      # behind a TLS-terminating proxy too
+        r.set_cookie(COOKIE, settings.token, httponly=True, secure=secure, samesite="strict", path="/", max_age=30 * 86400)
         return r
 
     @protected
@@ -109,6 +110,8 @@ def create_app(settings, model_factory=None):
             return err(400, "INVALID_ARGUMENT", "width, height and fps must be integers")
         if not (64 <= w <= 7680 and 64 <= h <= 7680 and 1 <= fps <= 120):
             return err(400, "INVALID_ARGUMENT", "width and height must be 64-7680 and fps 1-120")
+        if len(projects.list()) >= settings.max_projects:
+            return err(429, "TOO_MANY_PROJECTS", f"the limit is {settings.max_projects} projects; delete one first")
         meta = projects.create(b.get("name", ""), w, h, fps)
         res = await host.call(meta["id"], "new_project", {"width": w, "height": h, "fps": fps})
         if not res["ok"]:
@@ -156,6 +159,9 @@ def create_app(settings, model_factory=None):
             declared = 0
         if declared > cap:
             return err(413, "TOO_LARGE", f"the file is {declared / 1e6:.0f} MB; the limit is {settings.max_upload_mb} MB")
+        used = projects.disk_mb(pid)
+        if used + declared / 1e6 > settings.max_project_mb:
+            return err(413, "PROJECT_FULL", f"this project uses {used:.0f} MB of its {settings.max_project_mb} MB; delete exports or start another project")
         updir = os.path.join(projects.dir(pid), "uploads")
         stem, ext = os.path.splitext(name)
         final, n = name, 1
@@ -170,6 +176,8 @@ def create_app(settings, model_factory=None):
                     size += len(chunk)
                     if size > cap:
                         raise HTTPException(413, f"the file is over the {settings.max_upload_mb} MB limit")
+                    if used + size / 1e6 > settings.max_project_mb:                 # a client that sent no (or a false) Content-Length
+                        raise HTTPException(413, f"this project would go over its {settings.max_project_mb} MB")
                     f.write(chunk)
             if size == 0:
                 return err(400, "EMPTY", "the file is empty")

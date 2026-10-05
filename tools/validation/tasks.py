@@ -80,7 +80,7 @@ def t_interview_lt():
                  ("lower_third_at_2s_for_4s", len(lt) == 1 and near(lt[0]["start"], 2.0) and near(lt[0]["dur"], 4.0), [(x["start"], x["dur"]) for x in lt])]
                 + export_ok(s, 30.0, size=(1920, 1080), fps=25))
     ref = ("server.new_project(1920,1080,25);server.import_clip(P['C'],'C');server.add_clip('C',20,50);server.add_lower_third('María Pérez','Directora de producto',2,4)\n"
-           "server.export(OUT,'draft')")
+           "export_wait(OUT,'draft')")
     return T("interview_lt", prompt, check, ref, out=True)
 
 
@@ -114,7 +114,7 @@ def t_vertical_reel():
                  ("title_top_first_1_5s", len(t) == 1 and t[0]["start"] <= 0.3 and t[0].get("pos") == "top" and near(t[0]["dur"], 1.5, 0.3), [(x["start"], x["dur"], x.get("pos")) for x in t]),
                  ("fade_out_set", bool(s["layout"]["fade"]), s["layout"]["fade"])] + export_ok(s, 7.6, size=(1080, 1920), fps=30))
     ref = ("server.new_project(1080,1920,30);server.import_clip(P['R1'],'R1');server.import_clip(P['R3'],'R3');server.add_clip('R1',0,4);server.add_clip('R3',0,4);server.crossfade(0,0.4)\n"
-           "server.add_text('Día 1',0.1,1.5,position='top');server.set_fades(0.0,0.5);server.export(OUT,'draft')")
+           "server.add_text('Día 1',0.1,1.5,position='top');server.set_fades(0.0,0.5);export_wait(OUT,'draft')")
     return T("vertical_reel", prompt, check, ref, out=True)
 
 
@@ -149,7 +149,7 @@ def t_long_edit():
                  ("~title_text_unverifiable", True, "a card's text is not stored in the project, only rendered"),
                  ("fades", bool(s["layout"]["fade"]), s["layout"]["fade"])] + export_ok(s, 124.0, tol=0.5, size=(1920, 1080), fps=25))
     ref = ("server.new_project(1920,1080,25);server.import_clip(P['C'],'C');server.add_card('title',title='Charla completa',subtitle='Sesión de preguntas',dur_s=4.0)\n"
-           "server.add_clip('C',0,120);server.set_fades(0.5,1.0);server.export(OUT,'draft')")
+           "server.add_clip('C',0,120);server.set_fades(0.5,1.0);export_wait(OUT,'draft')")
     return T("long_edit", prompt, check, ref, out=True)
 
 
@@ -199,7 +199,7 @@ def t_music_ducking():
                  ("music_covers_video", bool(au) and au[0].get("start", 0) <= 0.5 and au[0].get("dur_eff", au[0].get("dur", 0)) >= 28.0, [(a.get("start"), a.get("dur")) for a in au]),
                  ("voice_still_audible_in_mix", ex.get("lufs") is not None and ex["lufs"] > -30, ex.get("lufs"))] + export_ok(s, 30.0, size=(1920, 1080), fps=25))
     ref = ("server.new_project(1920,1080,25);server.import_clip(P['C'],'C');server.add_clip('C',30,60);server.add_audio(0,30,asset='m-carefree',duck_auto=True,fade_out_s=2)\n"
-           "server.export(OUT,'draft')")
+           "export_wait(OUT,'draft')")
     return T("music_ducking", prompt, check, ref, out=True)
 
 
@@ -233,7 +233,7 @@ def t_mixed_formats():
         return ([("order_R2_R3_K", [e["src"] for e in order] == ["R2", "R3", "K"], [e["src"] for e in order]),
                  ("each_3s", all(near(e["dur"], 3.0) for e in order), [e["dur"] for e in order])] + export_ok(s, 8.0, size=(1920, 1080), fps=25))
     ref = ("server.new_project(1920,1080,25);[server.import_clip(P[k],k) for k in ('R2','R3','K')];[server.add_clip(k,0,3) for k in ('R2','R3','K')]\n"
-           "server.crossfade(0,0.5);server.crossfade(1,0.5);server.export(OUT,'draft')")
+           "server.crossfade(0,0.5);server.crossfade(1,0.5);export_wait(OUT,'draft')")
     return T("mixed_formats", prompt, check, ref, out=True)
 
 
@@ -248,7 +248,7 @@ def t_cards_theme():
                  ("title_first_closing_last", len(cards(s)) == 2 and cards(s)[0]["start"] <= 0.05 and cards(s)[1]["start"] >= 10.0, [e["start"] for e in cards(s)]),
                  ("K_8s", len(ent(s, "K")) == 1 and near(ent(s, "K")[0]["dur"], 8.0), [e["dur"] for e in ent(s, "K")])] + export_ok(s, 15.0, tol=0.5, size=(1920, 1080), fps=25))
     ref = ("server.new_project(1920,1080,25);server.set_template('corporate');server.import_clip(P['K'],'K');server.add_card('title',title='Resumen del trimestre',dur_s=3.0)\n"
-           "server.add_clip('K',0,8);server.add_card('outro',title='Gracias',dur_s=4.0);server.export(OUT,'draft')")
+           "server.add_clip('K',0,8);server.add_card('outro',title='Gracias',dur_s=4.0);export_wait(OUT,'draft')")
     return T("cards_theme", prompt, check, ref, out=True)
 
 

@@ -84,6 +84,16 @@ class Projects:
             raise NotFound(pid)
         shutil.rmtree(d)
 
+    def disk_mb(self, pid):
+        total = 0
+        for dp, _d, files in os.walk(self.dir(pid)):
+            for f in files:
+                try:
+                    total += os.path.getsize(os.path.join(dp, f))
+                except OSError:
+                    pass
+        return total / 1e6
+
     def uploads(self, pid):
         d = os.path.join(self.dir(pid), "uploads")
         return sorted(os.listdir(d)) if os.path.isdir(d) else []

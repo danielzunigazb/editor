@@ -124,6 +124,10 @@ try:
         page.click("#open-viewer"); page.wait_for_selector("#viewer:not([hidden])")
         until(page, "() => !!(document.querySelector('#viewer').contentDocument && document.querySelector('#viewer').contentDocument.querySelector('video'))", 30)
         check("the live preview frame loads the player through the proxy (it cannot play H.264 in this Chromium)", page.is_visible("#viewer-tab"))
+        frame = next(f for f in page.frames if f != page.main_frame)
+        until(page, "() => !!document.querySelector('#viewer').contentDocument.querySelector('#edits, .ops, svg, ol, ul, table')", 20)
+        check("the player page (same origin as the app) shows the hostile edit text as text: no script ran in it or in the app",
+              frame.evaluate("window.__pwned") is None and page.evaluate("window.__pwned") is None and frame.locator("img[src='x']").count() == 0, frame.content()[:200])
 
         # ---------------------------------------------------------------------------------------------------------------- export
         page.click("#t-export"); page.select_option("#quality", "draft"); page.click("#export")

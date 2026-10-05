@@ -130,3 +130,19 @@ No contienen lógica.
 
 `MLT_LOG=json` (por defecto) escribe una línea JSON por llamada a herramienta en stderr (herramienta, ms, ids, revisión, código de error); `MLT_LOG=off` la silencia. `./ci.sh` corre todo lo que debe estar en verde (pyflakes, snapshot, golden y todas las suites; `BENCH=1` añade el benchmark de preview). `pyproject.toml` empaqueta `mltedit` con el comando `mltedit-server`; instalado, `MLT_DATA_ROOT` debe apuntar a la carpeta con `fonts/` y `assets/`.
 
+
+
+## Aplicación web (`app/`)
+```
+navegador ──HTTP/SSE──▶ app/api.py (starlette+uvicorn) ── token (Bearer o cookie HttpOnly SameSite=Strict), límite de intentos de login
+                          ├─ app/projects.py   carpeta por proyecto: meta.json, chat.json, usage.json, uploads/, exports/ + los archivos del motor; ids `p_xxxxxxxx` validados en CADA uso
+                          ├─ app/host.py       UN proceso `server.py` por proyecto (MCP stdio), cada uno en su propia tarea asyncio (los contextos anyio no se pueden abrir y cerrar
+                          │                    desde tareas distintas); tope de procesos (se detiene el menos usado), apagado por inactividad, reinicio en la llamada siguiente
+                          ├─ app/chat.py       bucle de herramientas: mensaje → modelo → herramientas del motor → resultados → ... con topes de turnos y de USD (por mensaje y por proyecto)
+                          └─ app/model.py      `ModelClient`: AnthropicModel (SDK, streaming, caché de prompt) y ScriptedModel (pruebas)
+```
+- **Aislamiento:** el proceso del motor recibe `MLT_EDITOR_HOME` = `MLT_EDITOR_ROOTS` = la carpeta del proyecto y NO recibe `ANTHROPIC_*` ni `MLT_APP_*`; el fence de rutas del motor (activado por defecto) impide que un modelo lea otro proyecto o `/etc/passwd`.
+- **Subidas:** `PUT /api/projects/<id>/uploads/<nombre>` con el archivo como cuerpo (sin multipart): se escribe a un `.part`, se renombra al terminar, un video se importa con `import_clip` (que aplica los límites y valida con ffprobe) y si falla se borra.
+- **Visor en vivo:** el visor del motor sirve todo bajo `/<token>/…`; la aplicación lo reenvía en su raíz (proxy con la cookie de la app) y registra el token por proyecto.
+- **Docker:** `Dockerfile` (ubuntu 24.04, usuario no root, `HEALTHCHECK`), `docker-compose.yml` (límites de memoria/CPU/procesos, `cap_drop: ALL`, `no-new-privileges`, puerto solo en 127.0.0.1, volumen `/data`).
+- **Pruebas:** `test_app.py` (servidor real + motor real + modelo guionizado), `test_ui.py` (Chromium con Playwright), `tools/e2e_session.py` (sesión con metraje real, no entra en `ci.sh`).

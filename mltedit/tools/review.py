@@ -293,7 +293,7 @@ def export(output_path: str, quality: str = "high", overwrite: bool = False, mas
     master: '' (default) or 'loudnorm' = normalise the sound to -16 LUFS integrated / -1.5 dB true peak. The result reports the loudness measured on the
     exported file (loudness_lufs, true_peak_db), and `qa`: the exported file watched for unexpected hard cuts and one-frame flashes
     (qa.ok / qa.findings, qa.notes for still stretches; a cut where two clips meet without a crossfade is intended and not reported).
-    Blocking for short videos (up to about 40 s; about as long as the video itself at 1080p); longer ones, and background=true, run as a job (of the project
+    Blocking for short videos (up to about 20 s; an export takes about as long as the video itself at 1080p, longer on a busy machine); longer ones, and background=true, run as a job (of the project
     as it is at this moment) and the answer is a job_id: job_status(job_id, wait_s=30) waits and shows percent/eta_s, cancel_job stops it."""
     st, out = check_export(output_path, quality, overwrite, master)
     total_s = _total_s(st)

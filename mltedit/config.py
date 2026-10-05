@@ -42,7 +42,7 @@ SPEC = {
     "log":              (("MLT_LOG",), "json", "str"),                                           # "json" = one JSON line per tool call on stderr; "off" = silent
     "viewer_page":      (("MLT_VIEWER_PAGE",), os.path.join(PKG, "viewer", "page.html"), "path"),           # the live viewer's page
     "vendor_dir":       (("MLT_VENDOR_DIR",), "assets/vendor", "path"),                                    # third-party browser code served locally (hls.js, Apache-2.0)
-    "block_max_s":      (("MLT_BLOCK_MAX_S",), 40.0, "float"),                            # an export/preview of a video longer than this always runs as a job (a blocking call that long outlasts most MCP clients' tool timeout)
+    "block_max_s":      (("MLT_BLOCK_MAX_S",), 20.0, "float"),                            # an export/preview of a video longer than this always runs as a job (a blocking call that long outlasts most MCP clients' tool timeout)
     "job_wait_max_s":   (("MLT_JOB_WAIT_MAX_S",), 45.0, "float"),                       # the longest job_status(wait_s=...) holds the call
     "av_tolerance_ms":  (("MLT_AV_TOLERANCE_MS",), 60.0, "float"),                           # an export whose sound is further than this from the source's against the picture gets a QA finding
     "viewer_segment_s": (("MLT_VIEWER_SEGMENT_S",), 2.0, "float"),                       # length of a live-viewer segment (the unit that is re-rendered when an edit touches it)

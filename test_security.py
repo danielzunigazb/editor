@@ -155,7 +155,7 @@ lim = run(f"""
 import time
 server.new_project(640, 360, 25)
 server.import_clip({A!r}, "A")
-for _ in range(13): server.add_clip("A", 0, 4)            # 52 s: over the 40 s that block
+for _ in range(13): server.add_clip("A", 0, 4)            # 52 s: well over the limit that blocks
 j = server.export(os.path.join(H, "slow.mp4"), "draft")
 s = server.job_status(j["job_id"], wait_s=40)
 for _ in range(20):

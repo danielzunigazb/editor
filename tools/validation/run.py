@@ -31,7 +31,9 @@ def with_display(cmd):
 
 def server_snippet(c, code_root, body, out=""):
     paths = {k: v["abs"] for k, v in c["clips"].items()}
-    return (f"import os, sys\nsys.path.insert(0, {code_root!r})\nimport server\nP = {paths!r}\nSRT = {c['srt_abs']!r}\nOUT = {out!r}\n{body}\n")
+    wait = ("def export_wait(path, quality):\n    r = server.export(path, quality)       # a long video comes back as a job: wait for it like a user (or a model) would\n"
+            "    while 'job_id' in r:\n        s = server.job_status(r['job_id'], wait_s=30)\n        if s['state'] != 'running':\n            assert s['state'] == 'done', s\n            break\n    return r\n")
+    return (f"import os, sys\nsys.path.insert(0, {code_root!r})\nimport server\nP = {paths!r}\nSRT = {c['srt_abs']!r}\nOUT = {out!r}\n{wait}{body}\n")
 
 
 def read_state(home, code_root):

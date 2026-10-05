@@ -39,6 +39,8 @@ class AppSettings:
     max_usd_message: float = 1.0       # spending cap for one user message
     max_usd_project: float = 10.0      # spending cap for all the messages of one project
     max_upload_mb: int = 2048
+    max_project_mb: int = 20000        # disk one project folder may use: an upload that would go over it is refused
+    max_projects: int = 50
     tool_timeout_s: float = 600.0
     cache: bool = True                 # top-level prompt caching of the conversation (cuts the cost of the long tool list + history on every turn)
     code_root: str = HERE
@@ -59,7 +61,7 @@ class AppSettings:
                    host=os.environ.get("MLT_APP_HOST", "127.0.0.1"), port=_num("MLT_APP_PORT", 8080, int), model=os.environ.get("MLT_APP_MODEL", "claude-sonnet-5-5"),
                    max_procs=_num("MLT_APP_MAX_PROCS", 4, int), idle_s=_num("MLT_APP_IDLE_S", 600.0), max_turns=_num("MLT_APP_MAX_TURNS", 30, int),
                    max_usd_message=_num("MLT_APP_MAX_USD_MESSAGE", 1.0), max_usd_project=_num("MLT_APP_MAX_USD_PROJECT", 10.0),
-                   max_upload_mb=_num("MLT_APP_MAX_UPLOAD_MB", 2048, int), tool_timeout_s=_num("MLT_APP_TOOL_TIMEOUT_S", 600.0),
+                   max_upload_mb=_num("MLT_APP_MAX_UPLOAD_MB", 2048, int), max_project_mb=_num("MLT_APP_MAX_PROJECT_MB", 20000, int), max_projects=_num("MLT_APP_MAX_PROJECTS", 50, int), tool_timeout_s=_num("MLT_APP_TOOL_TIMEOUT_S", 600.0),
                    cache=os.environ.get("MLT_APP_CACHE", "1") not in ("0", "false", "no"), prices=prices)
 
     def engine_env(self, project_dir):
